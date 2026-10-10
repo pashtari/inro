@@ -15,6 +15,7 @@ from .futon import (
     LegendreBasis,
     SincBasis,
     TRCombiner,
+    TuckerCombiner,
     TriangleBasis,
 )
 from .futon_solvers import BCD, LeastSquares, MultiplicativeUpdate
@@ -64,6 +65,7 @@ __all__ = [
     "HadamardCombiner",
     "CPCombiner",
     "TRCombiner",
+    "TuckerCombiner",
     "FUTON",
     "BCD",
     "LeastSquares",
