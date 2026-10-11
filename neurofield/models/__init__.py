@@ -18,6 +18,7 @@ from .futon import (
     TuckerCombiner,
     TriangleBasis,
 )
+from .futon_bounds import FUTONBound, futon_bound
 from .futon_solvers import BCD, LeastSquares, MultiplicativeUpdate
 from .gaplanes import GAPlanes
 from .gauss import Gauss, GaussLayer
@@ -70,6 +71,8 @@ __all__ = [
     "BCD",
     "LeastSquares",
     "MultiplicativeUpdate",
+    "FUTONBound",
+    "futon_bound",
     "GAPlanes",
     "TensoRF",
     "HashEncoding",

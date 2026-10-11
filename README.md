@@ -32,7 +32,7 @@ Most implicit neural representations hide their prior in the nonlinearity: sines
 
 ## Results
 
-Every model of a task has the same parameter budget, the hyperparameters of its authors' code, and a learning rate chosen on the task. Times are mean training times per signal on an A100: every model was retrained alone on an exclusive node, on two scenes for radiance fields and two images for super-resolution. The [benchmarks page](https://pashtari.github.io/neurofield/experiments/benchmarks/) has every model, metric and error bar.
+Every model of a task has the same parameter budget, the hyperparameters of its authors' code, and a learning rate chosen on the task. Times are mean training times per signal on an A100, every model retrained alone on the GPU, on two scenes for radiance fields and two images for super-resolution. The [benchmarks page](https://pashtari.github.io/neurofield/experiments/benchmarks/) has every model, metric and error bar.
 
 | Task | Signals | #Params | FUTON-sinc | FUTON-lanczos | Strongest baseline |
 | --- | --- | --- | --- | --- | --- |
@@ -122,6 +122,8 @@ Coordinates live in [-1, 1] on every axis, targets in the model's output range, 
 
 **Solvers**: `nf.LeastSquares` and `nf.MultiplicativeUpdate` fit a FUTON with a linear decoder by block coordinate descent, through the same `nf.train` call, in place of Adam.
 
+**Error bounds**: `nf.futon_bound` brackets the best error a FUTON with a linear decoder can reach on a sampled signal at a given spectral resolution and rank, and builds a FUTON that attains the upper bound; the [theorem and its proof](https://pashtari.github.io/neurofield/concepts/error-bound/) are in the docs.
+
 **Image compression** (`nf.compression`): a FUTON codec, PIL codecs as baselines, and one function that measures any codec.
 
 ```python
@@ -174,7 +176,7 @@ python scripts/train_super_resolution.py # 100 images x 16 models -> logs/super_
 python scripts/report_paper.py           # tables and figures    -> results/
 ```
 
-`configs/<task>.yaml` holds every model's class, constructor arguments and learning rate, with a comment wherever a setting departs from the authors' code. `--data`, `--models`, `--config`, `--set KEY=VALUE`, `--log-dir` and `--overwrite` select signals, models and settings; finished runs are skipped, so an interrupted sweep resumes. `configs/ablation-futon/` holds the ablations, and `scripts/hpc/` the Slurm scripts the sweeps ran with. See [Reproducing the paper](https://pashtari.github.io/neurofield/experiments/reproduce/).
+`configs/<task>.yaml` holds every model's class, constructor arguments and learning rate, with a comment wherever a setting departs from the authors' code. `--data`, `--models`, `--config`, `--set KEY=VALUE`, `--log-dir` and `--overwrite` select signals, models and settings; finished runs are skipped, so an interrupted sweep resumes. `configs/ablation-futon/` holds the ablations. See [Reproducing the paper](https://pashtari.github.io/neurofield/experiments/reproduce/).
 
 ## Documentation
 
