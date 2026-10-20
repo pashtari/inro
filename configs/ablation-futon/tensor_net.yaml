@@ -22,7 +22,7 @@ models:
   FUTON-lanczos:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: 224}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -40,7 +40,7 @@ models:
   FUTON-lanczos-TR:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [tr, {rank: 15}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -58,7 +58,7 @@ models:
   FUTON-lanczos-Tucker:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [tucker, {rank: ["H // 2 * 162 // 1000", "W // 2 * 162 // 1000"]}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh

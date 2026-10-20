@@ -55,12 +55,12 @@ def build(model: dict[str, Any]) -> tuple[type[torch.nn.Module], dict[str, Any]]
 
 
 def resolve(value: Any, **sizes: int) -> Any:
-    """Evaluate size expressions such as ``"max(H, W) // 2"`` or ``"min(H, W)"``, recursively."""
+    """Evaluate size expressions such as ``"max(H, W) // 2"`` or ``"D"``, recursively."""
     if isinstance(value, dict):
         return {key: resolve(item, **sizes) for key, item in value.items()}
     if isinstance(value, list):
         return [resolve(item, **sizes) for item in value]
-    if isinstance(value, str) and re.fullmatch(r"[HW\d\s()+\-*/,maxin]+", value):
+    if isinstance(value, str) and re.fullmatch(r"[DHW\d\s()+\-*/,maxin]+", value):
         return eval(value, {"__builtins__": {}, "max": max, "min": min}, sizes)
     return value
 
@@ -206,10 +206,9 @@ def warm_up(
 ) -> None:
     """One forward and backward pass before training is timed.
 
-    The first pass through a model compiles and autotunes its kernels, which
-    takes the Triton products of FUTON's local bases about three seconds and
-    would otherwise land in the training time of a run that trains alone in
-    its process. With ``compile``, the model is first compiled in place (see
+    The first pass through a model sets up its kernels, which would otherwise
+    land in the training time of a run that trains alone in its process.
+    With ``compile``, the model is first compiled in place (see
     :func:`compile_model`), and this pass compiles it; the batch has the
     leading dimension that ``nf.train``'s loader adds, so that training
     reuses the graph. The pass steps no optimizer and leaves the parameters

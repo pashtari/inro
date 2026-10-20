@@ -10,9 +10,6 @@ Coordinates must lie in $[-1, 1]$ on every axis. The coordinate datasets generat
 **`ValueError: num_components must be >= ...`**
 `SincBasis` needs at least two centres per axis, and a local basis needs at least `2 * radius`. With `num_components=[H // 2, W // 2]` this is never an issue for real images; it is for tiny test inputs.
 
-**Gradients with respect to the coordinates are zero.**
-A basis built with `grid_size` reads on-grid coordinates from a table, which carries no coordinate gradient. Leave `grid_size=None` when the loss differentiates through the input, for example an eikonal term.
-
 **`grid_size` on a dataset and `subsample` together.**
 `ImageCoordinateDataset(image, grid_size=...)` evaluates a model on another grid than the image's (for example a finer one) and cannot subsample; it is for evaluation.
 
@@ -29,19 +26,13 @@ Lower `subsample` (the fraction of coordinates per step); the benchmarks use 0.1
 **`NerfAcc: No CUDA toolkit found. NerfAcc will be disabled.`**
 nerfacc builds its CUDA extension on first use and needs `nvcc` for that. Without it, `nf.nerf.create_renderer()` selects the PyTorch renderer, which produces the same renders more slowly; training still works. Install a CUDA toolkit matching your PyTorch build to use nerfacc.
 
-**`UserWarning: Sparse CSR tensor support is in beta state`.**
-Raised by PyTorch when a local basis runs on the CPU or in inference mode, where sparse products use CSR. It is harmless.
-
-**No Triton.**
-The fused kernels for local bases need Triton, which ships with PyTorch's Linux CUDA wheels. Elsewhere the same products are computed with gathers and contractions, with identical results.
-
 ## Data and extras
 
 **`ModuleNotFoundError: trimesh` (or `mcubes`, `open3d`).**
 Meshes as occupancy volumes, mesh export and offscreen rendering need the `3d` extra: `pip install -e ".[3d]"`. Point clouds in `.xyz` format load without it.
 
-**Rendering a mesh hangs or fails on a machine without a display.**
-`OccupancyCoordinateDataset.save` renders through a hidden Open3D window, which needs a display. Train with `save_reconstruction=False` (as `scripts/train_occupancy.py` does) and rebuild the mesh from `checkpoint.pt` on a machine with a display.
+**No `.png` from `OccupancyCoordinateDataset.save`.**
+It renders offscreen with Open3D, which needs EGL and a GPU driver but no display. Where the renderer cannot start, `save` warns and writes the mesh alone.
 
 **LPIPS downloads weights on first use.**
 `nf.lpips` loads the VGG (or AlexNet) backbone through torchmetrics, which fetches the weights once. On a machine without internet access, run one evaluation on a connected one first, with the same cache directory.

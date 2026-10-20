@@ -1,10 +1,10 @@
-"""Tests for the FUTON compactly supported bases and their RCS fast path."""
+"""Tests for the FUTON bases, their sparse taps, and their shared rows on grids."""
 
 import pytest
 import torch
 from torch import nn
 
-from neurofield.models import RCSMatrix
+from neurofield.models import SharedRows, Taps
 from neurofield.models.futon import (
     FUTON,
     ChebyshevBasis,
@@ -51,7 +51,7 @@ class TestKernel:
         ],
     )
     def test_stores_two_taps_per_radius(self, basis, taps):
-        """The RCS segment length is 2 * radius."""
+        """Each point has 2 * radius taps."""
         assert basis.radius * 2 == taps
         feats = basis((torch.rand(16) * 2 - 1).unsqueeze(-1))[0]
         assert feats.values.shape[1] == taps
@@ -182,15 +182,15 @@ class TestTriangle:
         dense = TriangleBasis(2, K, normalize=normalize, sparse=False).to(device)(x)
         sparse = TriangleBasis(2, K, normalize=normalize, sparse=True).to(device)(x)
         for d, s in zip(dense, sparse):
-            assert isinstance(s, RCSMatrix)
-            assert torch.allclose(s.to_dense(), d, atol=1e-5)
+            assert isinstance(s, Taps)
+            assert torch.allclose(s.dense(), d, atol=1e-5)
 
     def test_two_taps_only(self):
         feats = TriangleBasis(1, 32, normalize=False)(
             (torch.rand(500) * 2 - 1).unsqueeze(-1)
         )[0]
         assert feats.values.shape[1] == 2
-        assert int((feats.to_dense() != 0).sum(-1).max()) <= 2
+        assert int((feats.dense() != 0).sum(-1).max()) <= 2
 
     def test_partition_of_unity(self):
         basis = TriangleBasis(1, 32, normalize=False, sparse=False)
@@ -245,9 +245,8 @@ class TestSparseEqualsDense:
         dense = LanczosBasis(2, K, sparse=False, **common).to(device)(x)
         sparse = LanczosBasis(2, K, sparse=True, **common).to(device)(x)
         for d, s in zip(dense, sparse):
-            assert isinstance(s, RCSMatrix)
-            assert s.shape == d.shape
-            assert torch.allclose(s.to_dense(), d, atol=1e-5)
+            assert isinstance(s, Taps)
+            assert torch.allclose(s.dense(), d, atol=1e-5)
 
     @pytest.mark.parametrize("device", DEVICES)
     def test_boundaries_and_grid_points(self, device):
@@ -263,7 +262,7 @@ class TestSparseEqualsDense:
         common = dict(radius=3, normalize=False)
         dense = LanczosBasis(1, K, sparse=False, **common).to(device)(x)[0]
         sparse = LanczosBasis(1, K, sparse=True, **common).to(device)(x)[0]
-        assert torch.allclose(sparse.to_dense(), dense, atol=1e-5)
+        assert torch.allclose(sparse.dense(), dense, atol=1e-5)
 
     @pytest.mark.parametrize("device", DEVICES)
     def test_per_axis_num_components(self, device):
@@ -272,15 +271,7 @@ class TestSparseEqualsDense:
         dense = LanczosBasis(3, sparse=False, **common).to(device)(x)
         sparse = LanczosBasis(3, sparse=True, **common).to(device)(x)
         for d, s in zip(dense, sparse):
-            assert torch.allclose(s.to_dense(), d, atol=1e-5)
-
-    def test_grid_cache_matches(self):
-        """Dense mode's on-grid lookup table stays exact."""
-        K = 32
-        basis = LanczosBasis(1, K, radius=2, sparse=False, grid_size=K)
-        plain = LanczosBasis(1, K, radius=2, sparse=False)
-        x = torch.cat([torch.linspace(-1, 1, K), torch.rand(50) * 2 - 1]).unsqueeze(-1)
-        assert torch.allclose(basis(x)[0], plain(x)[0], atol=1e-6)
+            assert torch.allclose(s.dense(), d, atol=1e-5)
 
 
 class TestCombiners:
@@ -306,7 +297,7 @@ class TestCombiners:
         combiner = TuckerCombiner([7, 6, 5], rank=[3, 4, 2])
         assert combiner.core.shape == (3, 4, 2, 4)  # out_features: the largest rank
         features = [torch.randn(10, width) for width in (7, 6, 5)]
-        a, b, c = (linear(f) for linear, f in zip(combiner.linears, features))
+        a, b, c = (f @ factor for factor, f in zip(combiner.factors, features))
         expected = torch.einsum("na,nb,nc,abco->no", a, b, c, combiner.core)
         assert torch.allclose(combiner(features), expected, atol=1e-5)
 
@@ -318,18 +309,6 @@ class TestCombiners:
         dense = LanczosBasis(C, K, radius=2, sparse=False).to(device)(x)
         sparse = LanczosBasis(C, K, radius=2, sparse=True).to(device)(x)
         assert torch.allclose(combiner(sparse), combiner(dense), atol=1e-6)
-
-    @pytest.mark.parametrize("device", DEVICES)
-    def test_cp_with_bias(self, device):
-        torch.manual_seed(0)
-        K, C = 24, 2
-        x = torch.rand(64, C, device=device) * 2 - 1
-        combiner = CPCombiner([K] * C, rank=6, bias=True).to(device)
-        for linear in combiner.linears:
-            nn.init.normal_(linear.bias)
-        dense = LanczosBasis(C, K, radius=2, sparse=False).to(device)(x)
-        sparse = LanczosBasis(C, K, radius=2, sparse=True).to(device)(x)
-        assert torch.allclose(combiner(sparse), combiner(dense), atol=1e-5)
 
     @pytest.mark.parametrize("device", DEVICES)
     def test_gradients_match(self, device):
@@ -406,6 +385,161 @@ class TestFuton:
         assert losses[-1] < 0.6 * losses[0]
 
 
+def grid_points(sizes, count=None, dtype=torch.float64):
+    """The points of ``linspace(-1, 1, size)`` per axis, as a coordinate dataset
+    has them, or ``count`` of them at random, as a training batch draws them."""
+    axes = [torch.linspace(-1.0, 1.0, size, dtype=dtype) for size in sizes]
+    points = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=-1)
+    if count is None:
+        return points
+    points = points.reshape(-1, len(sizes))
+    return points[torch.randperm(len(points))[:count]]
+
+
+def per_point(model, x):
+    """FUTON with each point's dense features of its own, shared with no other."""
+    points = x.reshape(-1, model.in_features)
+    basis, combiner = model.encoding.basis, model.encoding.combiner
+    features = [basis.axis_features(xc, c) for c, xc in enumerate(points.unbind(-1))]
+    out = model.output_activation(model.decoder(combiner(features)))
+    return out.reshape(*x.shape[:-1], model.out_features)
+
+
+def shares_rows(model, x):
+    """Whether the basis gives the points of ``x`` shared rows of a table."""
+    features = model.encoding.basis(x.reshape(-1, model.in_features))
+    return all(isinstance(f, SharedRows) for f in features)
+
+
+class TestGridEvaluation:
+    """On a grid, a basis evaluates each distinct coordinate once, or each
+    coordinate of the grid that ``grid_size`` declares."""
+
+    @staticmethod
+    def model(sizes, basis, combiner, device, declared=False, **basis_kwargs):
+        torch.manual_seed(0)
+        if declared:
+            basis_kwargs["grid_size"] = sizes
+        model = FUTON(
+            len(sizes),
+            3,
+            (basis, {"num_components": 8, **basis_kwargs}),
+            combiner,
+            ("mlp", {"hidden_layers": 1}),
+            torch.tanh,
+        )
+        for parameter in model.parameters():  # the biases too, which start at zero
+            nn.init.normal_(parameter, std=0.3)
+        return model.double().to(device)
+
+    @pytest.mark.parametrize("device", DEVICES)
+    @pytest.mark.parametrize("sizes", [(9, 12), (5, 6, 7)])
+    @pytest.mark.parametrize(
+        "combiner",
+        [
+            ("cp", {"rank": 6}),
+            ("tr", {"rank": 3}),
+            ("tucker", {"rank": 4}),
+            "hadamard",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "basis", ["cosine", "sinc", "chebyshev", "legendre", "triangle", "lanczos"]
+    )
+    @pytest.mark.parametrize("declared", [False, True], ids=["found", "declared"])
+    def test_matches_per_point(self, device, basis, combiner, sizes, declared):
+        model = self.model(sizes, basis, combiner, device, declared)
+        x = grid_points(sizes, count=60).to(device)
+        assert shares_rows(model, x)
+        out, ref = model(x), per_point(model, x)
+        torch.testing.assert_close(out, ref, rtol=1e-12, atol=1e-12)
+        params = list(model.parameters())
+        grads = torch.autograd.grad(out.square().sum(), params)
+        expected = torch.autograd.grad(ref.square().sum(), params)
+        for got, want in zip(grads, expected):
+            torch.testing.assert_close(got, want, rtol=1e-10, atol=1e-12)
+
+    @pytest.mark.parametrize("device", DEVICES)
+    @pytest.mark.parametrize(
+        "basis, basis_kwargs",
+        [("sinc", {}), ("lanczos", {"radius": 2, "sparse": False})],
+        ids=["sinc", "dense-lanczos"],
+    )
+    @pytest.mark.parametrize("declared", [False, True], ids=["found", "declared"])
+    def test_whole_grid(self, device, basis, basis_kwargs, declared):
+        cp = ("cp", {"rank": 6})
+        model = self.model((9, 12), basis, cp, device, declared, **basis_kwargs)
+        x = grid_points((9, 12)).to(device)
+        out = model(x)
+        assert shares_rows(model, x) and out.shape == (9, 12, 3)
+        torch.testing.assert_close(out, per_point(model, x), rtol=1e-12, atol=1e-12)
+
+    @pytest.mark.parametrize("device", DEVICES)
+    def test_scattered_points_are_evaluated_one_by_one(self, device):
+        model = self.model((9, 12), "sinc", ("cp", {"rank": 6}), device)
+        x = (torch.rand(60, 2, dtype=torch.float64) * 2 - 1).to(device)
+        assert not any(isinstance(f, SharedRows) for f in model.encoding.basis(x))
+        out, ref = model(x), per_point(model, x)
+        torch.testing.assert_close(out, ref, rtol=1e-12, atol=1e-12)
+
+    @pytest.mark.parametrize("device", DEVICES)
+    @pytest.mark.parametrize("basis", ["triangle", "lanczos"])
+    def test_scattered_points_take_their_taps(self, device, basis):
+        model = self.model((9, 12), basis, ("cp", {"rank": 6}), device)
+        x = (torch.rand(60, 2, dtype=torch.float64) * 2 - 1).to(device)
+        assert all(isinstance(f, Taps) for f in model.encoding.basis(x))
+        out, ref = model(x), per_point(model, x)
+        torch.testing.assert_close(out, ref, rtol=1e-10, atol=1e-12)
+        params = list(model.parameters())
+        grads = torch.autograd.grad(out.square().sum(), params)
+        expected = torch.autograd.grad(ref.square().sum(), params)
+        for got, want in zip(grads, expected):
+            torch.testing.assert_close(got, want, rtol=1e-10, atol=1e-12)
+
+    def test_declared_grid_evaluates_the_basis_once(self, monkeypatch):
+        basis = SincBasis(2, 8, grid_size=(9, 12))  # its tables, evaluated here
+        monkeypatch.setattr(SincBasis, "axis_features", lambda *_: pytest.fail())
+        features = basis(grid_points((9, 12), count=60, dtype=torch.float32))
+        assert all(isinstance(f, SharedRows) for f in features)
+
+    def test_tables_follow_the_model_outside_its_state(self):
+        basis = ("legendre", {"num_components": 8, "grid_size": (9, 12)})
+        model = FUTON(2, 3, basis, ("cp", {"rank": 4}), "linear")
+        assert not any("_table" in key for key in model.state_dict())
+        basis = model.double().encoding.basis  # evaluated again, not cast
+        grid = torch.linspace(-1, 1, 12, dtype=torch.float64)
+        assert torch.equal(basis.get_buffer("_table1"), basis.axis_features(grid, 1))
+
+    def test_batches_with_a_shape_are_evaluated_one_by_one(self):
+        basis = SincBasis(2, 8)
+        x = grid_points((9, 12))  # (9, 12, 2)
+        assert not any(isinstance(f, SharedRows) for f in basis(x))
+        assert all(isinstance(f, SharedRows) for f in basis(x.reshape(-1, 2)))
+
+    @pytest.mark.parametrize("device", DEVICES)
+    @pytest.mark.parametrize("declared", [False, True], ids=["found", "declared"])
+    def test_coordinate_gradients(self, device, declared):
+        model = self.model((9, 12), "sinc", ("cp", {"rank": 6}), device, declared)
+        x = grid_points((9, 12), count=60).to(device).requires_grad_()
+        assert not shares_rows(model, x)
+        (grad,) = torch.autograd.grad(model(x).sum(), x)
+        (expected,) = torch.autograd.grad(per_point(model, x).sum(), x)
+        torch.testing.assert_close(grad, expected)
+
+    @CUDA
+    def test_gradients_reproduce_bitwise(self):
+        torch.manual_seed(0)
+        basis = SincBasis(2, [16, 24]).cuda()
+        combiner = CPCombiner([16, 24], rank=32).cuda()
+        features = basis(grid_points((40, 50), count=4096, dtype=torch.float32).cuda())
+        grads = []
+        for _ in range(2):
+            combiner.zero_grad()
+            combiner(features).square().sum().backward()
+            grads.append([p.grad.clone() for p in combiner.parameters()])
+        assert all(map(torch.equal, *grads))
+
+
 @pytest.mark.parametrize(
     "name", ["cosine", "sinc", "legendre", "chebyshev", "triangle", "lanczos"]
 )
@@ -414,7 +548,7 @@ class TestNumComponents:
         from neurofield.models.futon import BASES
 
         def dense(feature):
-            return feature.to_dense() if isinstance(feature, RCSMatrix) else feature
+            return feature if isinstance(feature, torch.Tensor) else feature.dense()
 
         x = torch.rand(20, 3) * 2 - 1
         shared = BASES[name](3, 8, normalize=False)
@@ -432,6 +566,15 @@ class TestNumComponents:
 
         with pytest.raises(ValueError):
             BASES[name](3, [8, 8])
+
+    def test_grid_size(self, name):
+        from neurofield.models.futon import BASES
+
+        assert BASES[name](3, 8).grid_size is None
+        assert BASES[name](3, 8, grid_size=16).grid_size == [16] * 3
+        assert BASES[name](2, 8, grid_size=(16, 12)).grid_size == [16, 12]
+        with pytest.raises(ValueError):
+            BASES[name](2, 8, grid_size=[16, 16, 16])
 
 
 class TestValidation:
@@ -486,3 +629,82 @@ class TestSparseIsFaster:
                 torch.cuda.synchronize()
                 times[sparse] = time.perf_counter() - t0
         assert times[True] < times[False], times
+
+
+@CUDA
+def test_compiled_taps_match_eager():
+    """Compiled, local taps gather windows of the factor; eager, embedding_bag."""
+    torch.manual_seed(0)
+    model = FUTON(
+        3, 2, ("lanczos", {"num_components": 16}), ("cp", {"rank": 8}), "linear"
+    )
+    model = model.double().cuda()
+    x = torch.rand(500, 3, dtype=torch.float64, device="cuda") * 2 - 1
+    assert all(isinstance(f, Taps) for f in model.encoding.basis(x))
+    compiled = torch.compile(model)
+    out, ref = compiled(x), model(x)
+    torch.testing.assert_close(out, ref, rtol=1e-10, atol=1e-12)
+    params = list(model.parameters())
+    grads = torch.autograd.grad(out.square().sum(), params)
+    expected = torch.autograd.grad(ref.square().sum(), params)
+    for got, want in zip(grads, expected):
+        torch.testing.assert_close(got, want, rtol=1e-10, atol=1e-12)
+
+
+@CUDA
+def test_declared_grid_compiles_to_one_graph():
+    """On a declared grid, rows are rounded rather than searched for, so the
+    whole forward pass is one graph, which matches eager evaluation."""
+    sizes = (40, 50)
+    model = FUTON(
+        2,
+        3,
+        ("sinc", {"num_components": 16, "grid_size": sizes}),
+        ("cp", {"rank": 8}),
+        ("mlp", {"hidden_layers": 1}),
+        torch.tanh,
+    )
+    model = model.double().cuda()
+    x = grid_points(sizes, count=500).cuda()
+    compiled = torch.compile(model, fullgraph=True)
+    out, ref = compiled(x), model(x)
+    torch.testing.assert_close(out, ref, rtol=1e-10, atol=1e-12)
+    params = list(model.parameters())
+    grads = torch.autograd.grad(out.square().sum(), params)
+    expected = torch.autograd.grad(ref.square().sum(), params)
+    for got, want in zip(grads, expected):
+        torch.testing.assert_close(got, want, rtol=1e-10, atol=1e-12)
+
+
+@CUDA
+def test_declared_grid_keeps_the_memory_of_a_step():
+    """Compiled, a declared grid saves no more for the backward pass than the
+    search does: Lanczos in 3D, whose long kernel, when its tables were
+    computed in the graph after the rows, made the compiler save two gathered
+    projections instead of recomputing them."""
+    sizes = (40, 50, 30)
+    x = grid_points(sizes, count=20000, dtype=torch.float32).cuda()
+    peaks = {}
+    for declared in (False, True):
+        torch.manual_seed(0)
+        model = FUTON(
+            3,
+            1,
+            (
+                "lanczos",
+                {"num_components": 16, "grid_size": sizes if declared else None},
+            ),
+            ("cp", {"rank": 64}),
+            ("mlp", {"hidden_layers": 1}),
+            torch.tanh,
+        ).cuda()
+        compiled = torch.compile(model)
+        for _ in range(2):
+            compiled(x).square().sum().backward()
+        torch.cuda.synchronize()
+        base = torch.cuda.memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
+        compiled(x).square().sum().backward()
+        peaks[declared] = torch.cuda.max_memory_allocated() - base
+        torch.compiler.reset()
+    assert peaks[True] <= 1.05 * peaks[False], peaks

@@ -26,7 +26,7 @@ models:
   FUTON-lanczos:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: 224}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -44,7 +44,7 @@ models:
   FUTON-triangle:
     class: FUTON
     kwargs:
-      basis: [triangle, {num_components: [H // 2, W // 2]}]
+      basis: [triangle, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 224}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -53,7 +53,7 @@ models:
   FUTON-chebyshev:
     class: FUTON
     kwargs:
-      basis: [chebyshev, {num_components: [H // 2, W // 2]}]
+      basis: [chebyshev, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 224}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -62,7 +62,7 @@ models:
   FUTON-legendre:
     class: FUTON
     kwargs:
-      basis: [legendre, {num_components: [H // 2, W // 2]}]
+      basis: [legendre, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 224}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh

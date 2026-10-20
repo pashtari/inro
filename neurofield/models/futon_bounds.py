@@ -64,18 +64,17 @@ class FUTONBound:
         its error on that grid is then the bound, up to its own precision.
         """
         if not (
-            isinstance(model.combiner, CPCombiner)
+            isinstance(model.encoding.combiner, CPCombiner)
             and isinstance(model.decoder, nn.Linear)
-            and model.combiner.linears[0].bias is None
             and model.decoder.bias is None
         ):
             raise ValueError(
-                "the bound is for a FUTON with a CP combiner and a linear decoder,"
-                " both without bias"
+                "the bound is for a FUTON with a CP combiner and a linear decoder"
+                " without bias"
             )
-        factors, decoder = self.factors[self.ranks.index(model.combiner.rank)]
-        for linear, factor in zip(model.combiner.linears, factors):
-            linear.weight.copy_(factor.T)
+        factors, decoder = self.factors[self.ranks.index(model.encoding.combiner.rank)]
+        for parameter, factor in zip(model.encoding.combiner.factors, factors):
+            parameter.copy_(factor)
         model.decoder.weight.copy_(decoder)
 
 

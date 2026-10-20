@@ -198,7 +198,7 @@ models:
     class: FUTON
     budget: 500000
     kwargs:
-      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3}]
+      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: budget}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh

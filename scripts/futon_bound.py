@@ -91,7 +91,7 @@ def futon(sizes: list[int], channels: int, alpha: float, rank: int) -> nf.FUTON:
 def features_of(model: nf.FUTON, sizes: list[int], device) -> list[torch.Tensor]:
     """The model's basis on each axis's grid, as ``nf.futon_bound`` takes it."""
     return [
-        model.basis.axis_features(torch.linspace(-1, 1, n), c).to(device)
+        model.encoding.basis.axis_features(torch.linspace(-1, 1, n), c).to(device)
         for c, n in enumerate(sizes)
     ]
 
@@ -111,7 +111,7 @@ def train(model: nf.FUTON, data, device, lr: float = LR, epochs: int = EPOCHS,
           seed: int = 0) -> float:  # fmt: skip
     """Train in place with Adam as the benchmark does; returns the seconds taken."""
     torch.manual_seed(seed)
-    model.combiner.reset_parameters()
+    model.encoding.combiner.reset_parameters()
     model.decoder.reset_parameters()
     start = time.perf_counter()
     nf.train(model, data, num_epochs=epochs, lr=lr, log_interval=0,

@@ -20,7 +20,7 @@ models:
   FUTON-lanczos-a0.125-b0.125:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3}]
+      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 64"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -29,7 +29,7 @@ models:
   FUTON-lanczos-a0.125-b0.25:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3}]
+      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 32"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -38,7 +38,7 @@ models:
   FUTON-lanczos-a0.125-b0.5:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3}]
+      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 16"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -47,7 +47,7 @@ models:
   FUTON-lanczos-a0.125-b1:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3}]
+      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 8"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -56,7 +56,7 @@ models:
   FUTON-lanczos-a0.125-b2:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3}]
+      basis: [lanczos, {num_components: [H // 8, W // 8], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 4"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -65,7 +65,7 @@ models:
   FUTON-lanczos-a0.25-b0.125:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3}]
+      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 32"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -74,7 +74,7 @@ models:
   FUTON-lanczos-a0.25-b0.25:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3}]
+      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 16"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -83,7 +83,7 @@ models:
   FUTON-lanczos-a0.25-b0.5:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3}]
+      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 8"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -92,7 +92,7 @@ models:
   FUTON-lanczos-a0.25-b1:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3}]
+      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 4"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -101,7 +101,7 @@ models:
   FUTON-lanczos-a0.25-b2:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3}]
+      basis: [lanczos, {num_components: [H // 4, W // 4], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 2"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -110,7 +110,7 @@ models:
   FUTON-lanczos-a0.5-b0.125:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 16"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -119,7 +119,7 @@ models:
   FUTON-lanczos-a0.5-b0.25:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 8"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -128,7 +128,7 @@ models:
   FUTON-lanczos-a0.5-b0.5:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 4"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -137,7 +137,7 @@ models:
   FUTON-lanczos-a0.5-b1:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 2"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -146,7 +146,7 @@ models:
   FUTON-lanczos-a0.5-b2:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3}]
+      basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W)"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -155,7 +155,7 @@ models:
   FUTON-lanczos-a1-b0.125:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H, W], radius: 3}]
+      basis: [lanczos, {num_components: [H, W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 8"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -164,7 +164,7 @@ models:
   FUTON-lanczos-a1-b0.25:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H, W], radius: 3}]
+      basis: [lanczos, {num_components: [H, W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 4"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -173,7 +173,7 @@ models:
   FUTON-lanczos-a1-b0.5:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H, W], radius: 3}]
+      basis: [lanczos, {num_components: [H, W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 2"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -182,7 +182,7 @@ models:
   FUTON-lanczos-a1-b1:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H, W], radius: 3}]
+      basis: [lanczos, {num_components: [H, W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W)"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -191,7 +191,7 @@ models:
   FUTON-lanczos-a1-b2:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [H, W], radius: 3}]
+      basis: [lanczos, {num_components: [H, W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "2 * min(H, W)"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -200,7 +200,7 @@ models:
   FUTON-lanczos-a2-b0.125:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3}]
+      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 4"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -209,7 +209,7 @@ models:
   FUTON-lanczos-a2-b0.25:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3}]
+      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W) // 2"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -218,7 +218,7 @@ models:
   FUTON-lanczos-a2-b0.5:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3}]
+      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "min(H, W)"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -227,7 +227,7 @@ models:
   FUTON-lanczos-a2-b1:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3}]
+      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "2 * min(H, W)"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh
@@ -236,7 +236,7 @@ models:
   FUTON-lanczos-a2-b2:
     class: FUTON
     kwargs:
-      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3}]
+      basis: [lanczos, {num_components: [2 * H, 2 * W], radius: 3, grid_size: [H, W]}]
       combiner: [cp, {rank: "4 * min(H, W)"}]
       decoder: [mlp, {hidden_layers: 1}]
       output_activation: tanh

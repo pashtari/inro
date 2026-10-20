@@ -12,10 +12,13 @@ from .futon import (
     ChebyshevBasis,
     CosineBasis,
     CPCombiner,
+    FUTONEncoding,
     HadamardCombiner,
     LanczosBasis,
     LegendreBasis,
+    SharedRows,
     SincBasis,
+    Taps,
     TRCombiner,
     TuckerCombiner,
     TriangleBasis,
@@ -30,7 +33,6 @@ from .mfn import MFN, GaborFilter
 from .mlp import MLP, ReLULayer
 from .multivector import FeatureGrid, MultiVector
 from .pemlp import PEMLP, PositionalEncoding
-from .rcs_matrix import RCSMatrix, rcs_product
 from .rff import RFF, RFFEncoding
 from .siren import SIREN, SineLayer
 from .tensorf import TensoRF
@@ -61,8 +63,8 @@ __all__ = [
     "MFN",
     "FeatureGrid",
     "MultiVector",
-    "RCSMatrix",
-    "rcs_product",
+    "SharedRows",
+    "Taps",
     "CosineBasis",
     "SincBasis",
     "LegendreBasis",
@@ -73,6 +75,7 @@ __all__ = [
     "CPCombiner",
     "TRCombiner",
     "TuckerCombiner",
+    "FUTONEncoding",
     "FUTON",
     "BCD",
     "LeastSquares",
