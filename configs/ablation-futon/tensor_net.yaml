@@ -1,21 +1,20 @@
-# FUTON ablation on the image task: a tensor-ring combiner (-TR) and a Tucker
-# combiner (-Tucker) against the default CP one, for the lanczos and sinc bases
-# at K = (H / 2, W / 2). Tensor-ring rank 15 comes closest in size: its
-# 15^2 = 225 features cost what CP rank 224 does. Tucker takes a rank per
-# axis in proportion to its components, R_c = gamma K_c with gamma = 0.162, the
-# ratio that comes closest in size: (41, 62) on a 512 x 768 image, a
-# 41 x 62 x 62 core fed to a 62-wide decoder, 196,003 parameters against the
-# CP model's 194,435.
+# FUTON ablation on the image task: a tensor-ring (-TR) and a Tucker (-Tucker)
+# combiner against the default CP one, for the sinc and the Lanczos basis at
+# K = (H / 2, W / 2), each feeding the benchmark's one-layer MLP decoder 64
+# wide: the benchmark's CP rank 280 (197,379 parameters), and the largest
+# ranks within the image budget of 197,123 for the others, tensor-ring rank
+# 16, whose 16^2 = 256 features hold 180,483, and Tucker ranks R_c = 0.163 K_c,
+# (41, 62) with a 41 x 62 x 62 core whose 62 features feed the decoder, 196,135.
 #     python scripts/train_image.py --config configs/ablation-futon/tensor_net.yaml
 # The data and training settings repeat configs/image.yaml.
 
 data:
-  subsample: 0.1
+  subsample: 1.0
 
 train:
-  num_epochs: 2000
-  log_interval: 100
-  eval_interval: 100
+  num_steps: 1000
+  log_interval: 50
+  eval_interval: 50
   seed: 0
 
 models:
@@ -23,8 +22,8 @@ models:
     class: FUTON
     kwargs:
       basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
-      combiner: [cp, {rank: 224}]
-      decoder: [mlp, {hidden_layers: 1}]
+      combiner: [cp, {rank: 280}]
+      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}
 
@@ -32,8 +31,8 @@ models:
     class: FUTON
     kwargs:
       basis: [sinc, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
-      combiner: [cp, {rank: 224}]
-      decoder: [mlp, {hidden_layers: 1}]
+      combiner: [cp, {rank: 280}]
+      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}
 
@@ -41,8 +40,8 @@ models:
     class: FUTON
     kwargs:
       basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
-      combiner: [tr, {rank: 15}]
-      decoder: [mlp, {hidden_layers: 1}]
+      combiner: [tr, {rank: 16}]
+      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}
 
@@ -50,8 +49,8 @@ models:
     class: FUTON
     kwargs:
       basis: [sinc, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
-      combiner: [tr, {rank: 15}]
-      decoder: [mlp, {hidden_layers: 1}]
+      combiner: [tr, {rank: 16}]
+      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}
 
@@ -59,8 +58,8 @@ models:
     class: FUTON
     kwargs:
       basis: [lanczos, {num_components: [H // 2, W // 2], radius: 3, grid_size: [H, W]}]
-      combiner: [tucker, {rank: ["H // 2 * 162 // 1000", "W // 2 * 162 // 1000"]}]
-      decoder: [mlp, {hidden_layers: 1}]
+      combiner: [tucker, {rank: ["H // 2 * 163 // 1000", "W // 2 * 163 // 1000"]}]
+      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}
 
@@ -68,7 +67,7 @@ models:
     class: FUTON
     kwargs:
       basis: [sinc, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
-      combiner: [tucker, {rank: ["H // 2 * 162 // 1000", "W // 2 * 162 // 1000"]}]
-      decoder: [mlp, {hidden_layers: 1}]
+      combiner: [tucker, {rank: ["H // 2 * 163 // 1000", "W // 2 * 163 // 1000"]}]
+      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}

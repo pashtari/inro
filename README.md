@@ -86,18 +86,18 @@ model = nf.FUTON(
     in_features=2,
     out_features=3,
     basis=("sinc", {"num_components": 256}),
-    combiner=("cp", {"rank": 224}),
-    decoder=("mlp", {"hidden_layers": 1}),
+    combiner=("cp", {"rank": 256}),
+    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 128}),
     output_activation=torch.tanh,
 )
 
 result = nf.train(
     model, train_set, dataset,
-    num_epochs=2000, lr=3e-2,
+    num_steps=2000, lr=3e-2,
     metrics={"psnr": nf.psnr, "ssim": nf.ssim},
     eval_interval=500,
 )
-print(result["history"][-1]["eval"])                         # {"psnr": 37.2, "ssim": 0.946, ...}
+print(result["history"][-1]["eval"])                         # {"psnr": 37.0, "ssim": 0.944, ...}
 
 output = nf.chunked_inference(model, dataset.input, chunk_size=65536)  # (H, W, 3) in [-1, 1]
 dataset.save(dataset.postprocess(output.cpu()), "kodim19_futon.png")
@@ -148,13 +148,13 @@ train_set = nf.nerf.BlenderDataset(root, split="train", downsample=4, skip=4)
 test_set = nf.nerf.BlenderDataset(root, split="test", downsample=4)
 
 field = nf.nerf.RadianceField(
-    (nf.FUTON, {"basis": ("lanczos", {"num_components": 128, "radius": 3}),
-                "combiner": ("cp", {"rank": 128}), "decoder": ("mlp", {"hidden_layers": 1})}),
+    (nf.FUTON, {"basis": ("sinc", {"num_components": 100}), "combiner": ("cp", {"rank": 180}),
+                "decoder": ("mlp", {"hidden_layers": 1, "hidden_features": 64})}),
     ("mlp", {"hidden_features": 64, "hidden_layers": 2}),
     aabb=train_set.aabb,
 )
 renderer = nf.nerf.create_renderer(aabb=train_set.aabb, near=train_set.near, far=train_set.far)
-nf.nerf.train(field, renderer, train_set, num_steps=37500, lr=3e-2)
+nf.nerf.train(field, renderer, train_set, num_steps=25000, lr=1e-2)
 print(nf.nerf.evaluate(field, renderer, test_set)["mean"])
 ```
 
@@ -168,10 +168,10 @@ python scripts/download_meshes.py        # 5 Stanford meshes, about 3 GB
 python scripts/download_blender.py       # 8 Blender scenes, about 2.4 GB
 python scripts/download_div2k.py         # 100 DIV2K images and their 4x downsamplings, about 450 MB
 
-python scripts/train_image.py            # 24 images x 12 models -> logs/image/<image>/<model>/
-python scripts/train_occupancy.py        # 5 shapes x 13 models  -> logs/occupancy/<shape>/<model>/
-python scripts/train_nerf.py             # 8 scenes x 13 models  -> logs/nerf/<scene>/<model>/
-python scripts/train_super_resolution.py # 100 images x 16 models -> logs/super_resolution/<image>/<model>/
+python scripts/train_image.py            # 24 images x 14 models -> logs/image/<image>/<model>/
+python scripts/train_occupancy.py        # 5 shapes x 15 models  -> logs/occupancy/<shape>/<model>/
+python scripts/train_nerf.py             # 8 scenes x 15 models  -> logs/nerf/<scene>/<model>/
+python scripts/train_super_resolution.py # 100 images x 18 models -> logs/super_resolution/<image>/<model>/
 
 python scripts/report_paper.py           # tables and figures    -> results/
 ```

@@ -65,6 +65,37 @@ def resolve(value: Any, **sizes: int) -> Any:
     return value
 
 
+def futon_rank(
+    components: Sequence[int], budget: int, hidden: int, outputs: int
+) -> int:
+    """The largest CP rank, a multiple of 5, at which FUTON has at most ``budget``
+    parameters.
+
+    Rank ``R`` costs ``R * sum(components)`` factor entries and ``R * hidden`` in
+    a decoder of one hidden layer of width ``hidden``, whose bias and output
+    layer add ``hidden + hidden * outputs + outputs``.
+    """
+    rank = (budget - hidden - hidden * outputs - outputs) // (sum(components) + hidden)
+    return rank // 5 * 5
+
+
+def fill_rank(model: dict[str, Any], outputs: int) -> dict[str, Any]:
+    """A resolved FUTON entry whose ``rank: budget`` takes the rank of its
+    ``budget``; any other entry as it is."""
+    if "budget" not in model:
+        return model
+    combiner, settings = model["kwargs"]["combiner"]
+    if settings.get("rank") != "budget":
+        return model
+    _, basis = model["kwargs"]["basis"]
+    _, decoder = model["kwargs"]["decoder"]
+    rank = futon_rank(
+        basis["num_components"], model["budget"], decoder["hidden_features"], outputs
+    )
+    kwargs = {**model["kwargs"], "combiner": [combiner, {**settings, "rank": rank}]}
+    return {**model, "kwargs": kwargs}
+
+
 def default_log_dir(config: Path) -> Path:
     """``logs/<name>`` for ``configs/<name>.yaml``, so each config's runs stay apart."""
     config, configs = config.resolve(), ROOT / "configs"
@@ -103,7 +134,11 @@ def assign(config: dict[str, Any], setting: str) -> None:
         node = node[name]
     if key not in node:
         raise KeyError(f"{path!r} is not in the config")
-    node[key] = yaml.safe_load(value)
+    value = yaml.safe_load(value)
+    # YAML 1.1 reads exponent notation without a dot, such as 3e-4, as a string.
+    if isinstance(value, str) and re.fullmatch(r"[-+]?\d+(\.\d*)?[eE][-+]?\d+", value):
+        value = float(value)
+    node[key] = value
 
 
 def record(
@@ -271,7 +306,7 @@ def run(
         nargs="+",
         default=[],
         metavar="KEY.PATH=VALUE",
-        help="config overrides, e.g. train.num_epochs=500",
+        help="config overrides, e.g. train.num_steps=500",
     )
     parser.add_argument(
         "--log-dir", type=Path, help="default: logs/<name> for configs/<name>.yaml"
