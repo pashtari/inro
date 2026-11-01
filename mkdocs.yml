@@ -9,7 +9,7 @@ copyright: Copyright &copy; 2026 Pooya Ashtari. MIT License.
 theme:
   name: material
   language: en
-  logo: assets/logo.svg
+  logo: assets/logo-dark.svg
   favicon: assets/favicon.svg
   icon:
     repo: fontawesome/brands/github
