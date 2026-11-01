@@ -88,8 +88,9 @@ def train(
     """Fit an INR, by default with Adam and a cosine-annealed learning rate.
 
     Each step draws one batch and takes one optimizer step. The learning rate anneals
-    over ``num_steps`` to a hundredth of its initial value. The model and the datasets
-    with a ``to`` method move to ``device`` in place.
+    over ``num_steps`` to a hundredth of its initial value, except for a
+    :class:`~inro.models.futon_solvers.BCD` solver without momentum, whose weight stays
+    one. The model and the datasets with a ``to`` method move to ``device`` in place.
 
     Args:
         model: INR to train in place.
@@ -182,8 +183,10 @@ def train(
             weight_decay=weight_decay,
         )
     lr = optimizer.defaults["lr"]
+    # A solver without momentum takes each batch on its own, so its weight stays one.
+    eta_min = lr if isinstance(optimizer, BCD) and lr == 1 else lr / 100
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=num_steps, eta_min=lr / 100
+        optimizer, T_max=num_steps, eta_min=eta_min
     )
     if isinstance(optimizer, BCD):
         settings = {

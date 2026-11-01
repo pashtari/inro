@@ -191,6 +191,26 @@ class TestSolver:
         assert not torch.allclose(model(x), before)
 
 
+class TestSchedule:
+    """The training loop's schedule, for a solver with and without momentum."""
+
+    @pytest.mark.parametrize("momentum, final", [(0.0, 1.0), (0.5, 0.005)])
+    def test_only_momentum_anneals_the_weight(self, momentum, final):
+        torch.manual_seed(0)
+        image = torch.randint(0, 255, (3, 8, 8), dtype=torch.uint8)
+        model = futon(2, 3, 4, 2).float()  # as the dataset
+        solver = LeastSquares(model, momentum=momentum)
+        inro.train(
+            model,
+            inro.ImageCoordinateDataset(image),
+            optimizer=solver,
+            num_steps=4,
+            eval_interval=0,
+            device="cpu",
+        )
+        assert solver.param_groups[0]["lr"] == pytest.approx(final)
+
+
 class TestLeastSquares:
     """Alternating least squares, on whole grids and minibatches."""
 

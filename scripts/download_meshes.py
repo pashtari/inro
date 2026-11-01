@@ -46,7 +46,6 @@ MESHES = {
     "lucy": {
         "url": f"{STANFORD}/data/3Dscanrep/lucy.tar.gz",
         "member": "lucy.ply",
-        "rotation": [[1, 0, 0], [0, 0, 1], [0, 1, 0]],
     },
     "thai_statue": {
         "url": f"{STANFORD}/data/3Dscanrep/xyzrgb/xyzrgb_statuette.ply.gz",

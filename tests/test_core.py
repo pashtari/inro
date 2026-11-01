@@ -1,6 +1,7 @@
 """Regression coverage for inference, quantization, training, and compression."""
 
 import copy
+import warnings
 
 import numpy as np
 import pytest
@@ -244,3 +245,61 @@ def test_lossless_image_compression_round_trip():
     )
     assert torch.equal(results["reconstructed"], image)
     assert results["bit rate (bpp)"] > 0
+
+
+def test_evaluate_needs_a_reference_only_for_metrics():
+    kspace = torch.randn(2, 8, 8, dtype=torch.complex64)
+    dataset = inro.MRICoordinateDataset(kspace, crop_size=(4, 4))
+    assert "_original" not in dataset[0]
+    model = torch.nn.Linear(2, 4)
+    assert len(inro.evaluate(model, dataset, save_reconstruction=False)["history"]) == 1
+    with pytest.raises(ValueError, match="reference"):
+        inro.evaluate(model, dataset, metrics={"psnr": inro.psnr})
+
+
+def test_train_runs_on_a_dataset_without_a_reference():
+    kspace = torch.randn(2, 8, 8, dtype=torch.complex64)
+    dataset = inro.MRICoordinateDataset(kspace, crop_size=(4, 4))
+    model = torch.nn.Linear(2, 4)
+
+    def loss_fn(batch, model):
+        return model(batch["input"]).square().mean(), {}
+
+    result = inro.train(model, dataset, loss_fn=loss_fn, num_steps=2, device="cpu")
+    assert result["history"][-1]["step"] == 2
+
+
+def test_uniform_quantize_keeps_an_all_zero_parameter():
+    model = torch.nn.Linear(2, 3)
+    torch.nn.init.zeros_(model.bias)
+    model, codes = inro.uniform_quantize(model, quant_max=127)
+    assert model.bias.eq(0).all() and codes["bias"]["quant"].eq(0).all()
+    restored = inro.uniform_dequantize(torch.nn.Linear(2, 3), codes)
+    assert restored.bias.eq(0).all() and restored.weight.equal(model.weight)
+
+
+def test_soft_entropy_of_degenerate_inputs():
+    constant = torch.ones(16, requires_grad=True)
+    entropy = inro.soft_entropy(constant, num_bins=4)
+    entropy.backward()  # the graph survives
+    assert entropy.item() == 0.0
+    assert inro.soft_entropy(constant).item() == 0.0
+    # Most values equal, so the IQR vanishes and Freedman-Diaconis has no width.
+    outlier = torch.cat([torch.zeros(99), torch.ones(1)])
+    assert torch.isfinite(inro.soft_entropy(outlier))
+
+
+def test_line_plot_keeps_the_selected_labels_without_warnings():
+    pytest.importorskip("seaborn")
+    records = [
+        {"x": x, "y": x * k, "method": name}
+        for x in (0.0, 1.0)
+        for k, name in ((1.0, "a"), (2.0, "b"))
+    ]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _, ax = inro.LinePlot(records).plot(
+            x="x", y="y", hue="method", legend_labels=["b"]
+        )
+    assert [text.get_text() for text in ax.get_legend().get_texts()] == ["b"]
+    assert ax.get_legend().get_title().get_text() == ""

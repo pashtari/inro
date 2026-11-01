@@ -77,9 +77,9 @@ class BCD(Optimizer):
             built-in ones do. Updated in place.
         momentum: Weight of the past batches in a block's statistics, in ``[0, 1)``, as
             in online matrix factorization; ``0`` takes each batch on its own. The
-            solver's ``lr``, the newest batch's weight, starts at ``1 - momentum``, and
-            a scheduler anneals it as it would a gradient step's: :func:`inro.train`
-            takes it down to a hundredth.
+            solver's ``lr``, the newest batch's weight, starts at ``1 - momentum``.
+            Above ``0``, :func:`inro.train` anneals it to a hundredth, as it would a
+            gradient step's; at ``0`` it stays one.
         initialize: Whether to draw the parameters anew with :meth:`reset_parameters`;
             ``False`` keeps the model's.
         **defaults: A subclass's settings, kept in ``self.defaults``.

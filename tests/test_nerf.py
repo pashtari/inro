@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import torch
+import yaml
 
 import inro
 
@@ -17,87 +18,25 @@ DATA_ROOT = Path(__file__).resolve().parents[1] / "data/nerf/blender/lego"
 GEOMETRY_FEATURES = 15
 COLOR_NET = ("mlp", {"hidden_features": 64, "hidden_layers": 2})
 MLP_CONFIG = {"hidden_features": 182, "hidden_layers": 3}
+CONFIG = Path(__file__).resolve().parents[1] / "configs/nerf.yaml"
 
-# Density networks at about the benchmark's parameter budget.
+# The density networks the benchmark runs, as its config gives them.
 DENSITY_NETS = {
-    # Narrower: the 63-dim positional encoding widens layer 1.
-    "PE-MLP": (
-        inro.PEMLP,
-        {**MLP_CONFIG, "hidden_features": 168, "num_frequencies": 10},
-    ),
-    "SIREN": (inro.SIREN, {**MLP_CONFIG, "omega": 30.0}),
-    "WIRE": (inro.WIRE, {**MLP_CONFIG, "omega": 20.0, "scale": 10.0}),
-    "Gauss": (inro.Gauss, {**MLP_CONFIG, "scale": 30.0}),
-    "FINER": (inro.FINER, {**MLP_CONFIG, "omega": 30.0}),
-    "Instant-NGP": (
-        inro.InstantNGP,
-        {
-            "num_levels": 16,
-            "log2_hashmap_size": 11,
-            "max_resolution": 2048,
-            "hidden_features": 64,
-            "hidden_layers": 1,
-        },
-    ),
-    "TensoRF-CP": (
-        inro.TensoRF,
-        {
-            "resolution": 400,
-            "rank": 52,
-            "mode": "cp",
-            "hidden_features": 64,
-            "hidden_layers": 2,
-        },
-    ),
-    "TensoRF-VM": (
-        inro.TensoRF,
-        {
-            "resolution": 38,
-            "rank": 14,
-            "mode": "vm",
-            "hidden_features": 64,
-            "hidden_layers": 2,
-        },
-    ),
-    "GA-Planes": (
-        inro.GAPlanes,
-        {
-            "features": 12,
-            "resolution": (64, 16),
-            "hidden_features": 64,
-            "hidden_layers": 2,
-        },
-    ),
-    "FUTON-cosine": (
-        inro.FUTON,
-        {
-            "basis": ("cosine", {"num_components": 130}),
-            "combiner": ("cp", {"rank": 130}),
-            "decoder": ("mlp", {"hidden_layers": 1}),
-        },
-    ),
-    "FUTON-sinc": (
-        inro.FUTON,
-        {
-            "basis": ("sinc", {"num_components": 130}),
-            "combiner": ("cp", {"rank": 130}),
-            "decoder": ("mlp", {"hidden_layers": 1}),
-        },
-    ),
+    name: (getattr(inro, model["class"]), model["kwargs"])
+    for name, model in yaml.safe_load(CONFIG.read_text())["models"].items()
+}
+# Other bases at FUTON's size, which take the sparse path along the rays.
+FUTON_CLASS, FUTON_KWARGS = DENSITY_NETS["FUTON-sinc"]
+DENSITY_NETS |= {
     "FUTON-lanczos": (
-        inro.FUTON,
-        {
-            "basis": ("lanczos", {"num_components": 130, "radius": 3}),
-            "combiner": ("cp", {"rank": 130}),
-            "decoder": ("mlp", {"hidden_layers": 1}),
-        },
+        FUTON_CLASS,
+        {**FUTON_KWARGS, "basis": ("lanczos", {"num_components": 100, "radius": 3})},
     ),
-    "CP-tent": (  # same budget, tent pulses
-        inro.FUTON,
+    "FUTON-triangle": (
+        FUTON_CLASS,
         {
-            "basis": ("triangle", {"num_components": 130, "normalize": False}),
-            "combiner": ("cp", {"rank": 130}),
-            "decoder": ("mlp", {"hidden_layers": 1}),
+            **FUTON_KWARGS,
+            "basis": ("triangle", {"num_components": 100, "normalize": False}),
         },
     ),
 }
@@ -132,7 +71,7 @@ def test_backbone_parameter_matched(name):
     """Keep the rows parameter-matched, as a fair comparison needs."""
     torch.manual_seed(0)
     num_params = inro.count_parameters(_field(DENSITY_NETS[name]))
-    assert 74_000 <= num_params <= 79_000, f"{name}: {num_params:,} params"
+    assert 73_000 <= num_params <= 76_000, f"{name}: {num_params:,} params"
 
 
 def test_finer_reproduction_parameter_count():

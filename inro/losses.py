@@ -45,12 +45,13 @@ def soft_entropy(
     Args:
         x: Input tensor; all elements are pooled.
         num_bins: Number of bins; ``None`` uses the Freedman–Diaconis width
-            ``2 * IQR(x) / N**(1/3)``, rounding the count up.
+            ``2 * IQR(x) / N**(1/3)``, rounding the count up, or Sturges' rule when the
+            IQR vanishes.
         temperature: Assignment kernel width relative to bin width; larger is softer.
         eps: Constant added inside the logarithm.
 
     Returns:
-        Scalar entropy.
+        Scalar entropy, zero for a constant input.
 
     Examples:
         >>> x = torch.tensor([-1.0, 1.0])
@@ -62,11 +63,18 @@ def soft_entropy(
     x_min = x_flat.detach().min()
     x_max = x_flat.detach().max()
 
+    if x_max == x_min:  # a constant has no entropy
+        return (x_flat * 0).sum()
+
     if num_bins is None:
         iqr_value = _iqr(x_flat.detach())
         num_elements = x_flat.numel()
         bin_width = 2 * iqr_value / (num_elements ** (1 / 3))
-        num_bins = int(torch.ceil((x_max - x_min) / bin_width).item())
+        if bin_width > 0:
+            num_bins = int(torch.ceil((x_max - x_min) / bin_width).item())
+        else:  # no Freedman-Diaconis width: Sturges' rule
+            num_bins = math.ceil(math.log2(num_elements)) + 1
+            bin_width = (x_max - x_min) / num_bins
     else:
         bin_width = (x_max - x_min) / num_bins
 

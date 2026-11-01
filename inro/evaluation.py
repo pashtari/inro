@@ -81,9 +81,9 @@ def evaluate(
 ) -> dict[str, Any]:
     """Reconstruct each dataset item, compute metrics and optionally save the result.
 
-    Items must hold ``id``, ``input`` and ``_original``. The output passes through
-    ``dataset.postprocess``, when it exists, and moves to the CPU for metrics. The model
-    moves to ``device`` and stays in evaluation mode.
+    Items must hold ``id`` and ``input``, and ``_original`` for metrics. The output
+    passes through ``dataset.postprocess``, when it exists, and moves to the CPU for
+    metrics. The model moves to ``device`` and stays in evaluation mode.
 
     Args:
         model: INR to evaluate.
@@ -109,6 +109,9 @@ def evaluate(
           the evaluation started), ``duration`` (seconds of its reconstruction,
           metrics left out), ``peak_memory`` (the most bytes it allocated beyond
           what the device already held, zero off CUDA) and the metric values.
+
+    Raises:
+        ValueError: If metrics are given for an item without ``_original``.
 
     Examples:
         >>> from inro import ImageCoordinateDataset, psnr
@@ -151,7 +154,9 @@ def evaluate(
     for i, batch in enumerate(dataloader):
         item_id = batch["id"][0]
         x = batch["input"].to(device)
-        original = batch["_original"][0]
+        original = batch["_original"][0] if "_original" in batch else None
+        if original is None and (metrics or rate_metrics):
+            raise ValueError(f"Metrics need a reference, and {item_id!r} has none")
 
         if cuda:  # the sample's own time and peak, after any work queued before
             torch.cuda.synchronize(device)

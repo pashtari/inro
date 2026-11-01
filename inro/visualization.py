@@ -69,7 +69,7 @@ class LinePlot:
             legend_labels: Existing labels to keep in the legend, in order, matching
                 exactly; ``None`` uses the ``hue`` values in order of appearance, which
                 must be strings.
-            legend_loc: Legend location accepted by ``seaborn.move_legend``.
+            legend_loc: Legend location accepted by ``matplotlib.axes.Axes.legend``.
             **kwargs: Passed to ``seaborn.lineplot``, such as aggregation options.
 
         Returns:
@@ -89,14 +89,13 @@ class LinePlot:
             legend="brief",
             **kwargs,
         )
-        ax.legend(title="")
         ax.grid()
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
 
         handles, labels = ax.get_legend_handles_labels()
         selected_handles = [handles[labels.index(label)] for label in legend_labels]
-        sns.move_legend(ax, legend_loc, handles=selected_handles, labels=legend_labels)
+        ax.legend(selected_handles, list(legend_labels), loc=legend_loc, title="")
 
         self.fig, self.ax = fig, ax
         return fig, ax

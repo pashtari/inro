@@ -13,7 +13,7 @@ def uniform_quantize(
     """Fake-quantize model parameters in place and return their integer codes.
 
     Each parameter ``w`` becomes ``clamp(round(s * w), -quant_max, quant_max) / s``,
-    with ``s = quant_max / max(abs(w))``. All-zero tensors become NaN; complex
+    with ``s = quant_max / max(abs(w))``, or ``s = 1`` for an all-zero tensor. Complex
     parameters are unsupported.
 
     Args:
@@ -41,7 +41,8 @@ def uniform_quantize(
 
     model_dict: dict[str, dict[str, Tensor]] = {}
     for name, param in model.named_parameters():
-        scale = quant_max / param.abs().max()
+        peak = param.abs().max()
+        scale = quant_max / peak if peak > 0 else peak.new_ones(())
         codes = torch.clamp(torch.round(scale * param), -quant_max, quant_max)
         param.copy_(codes / scale)
 
