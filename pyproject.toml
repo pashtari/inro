@@ -1,23 +1,23 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "inro"
-version = "0.1.0"
-description = "Inro: neural fields in PyTorch, with FUTON, a Fourier tensor network, and the models, data and training loops to compare it against"
+dynamic = ["version"]
+description = "A unified PyTorch framework for implicit neural representations, with FUTON, the Fourier Tensor Network"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
     {name = "Pooya Ashtari", email = "pooya.ash@gmail.com"},
 ]
-keywords = ["neural fields", "implicit neural representations", "INR", "pytorch", "deep learning"]
+keywords = ["implicit neural representations", "INR", "tensor networks", "pytorch", "deep learning"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -58,6 +58,7 @@ dev = [
 ]
 docs = [
     "mkdocs-material>=9.5",
+    "mkdocs-glightbox>=0.4",
     "mkdocstrings[python]>=0.24",
 ]
 
@@ -67,6 +68,9 @@ Documentation = "https://pashtari.github.io/inro/"
 Repository = "https://github.com/pashtari/inro"
 Paper = "https://arxiv.org/abs/2602.13414"
 Issues = "https://github.com/pashtari/inro/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "inro.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["inro*"]
