@@ -1,76 +1,93 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" width="84" alt="">
-</p>
-
-<h1 align="center">Inro</h1>
-
-<p align="center">
-  <b>Neural fields in PyTorch</b>, with FUTON, a Fourier Tensor Network for implicit neural representations.
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/wordmark-dark.svg">
+    <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/wordmark.svg" height="128" alt="Inro">
+  </picture>
 </p>
 
 <p align="center">
+  <b>Implicit neural representations in PyTorch</b>, with FUTON, the Fourier Tensor Network.
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/inro/"><img alt="PyPI" src="https://img.shields.io/pypi/v/inro.svg"></a>
   <a href="https://arxiv.org/abs/2602.13414"><img alt="arXiv" src="https://img.shields.io/badge/arXiv-2602.13414-b31b1b.svg"></a>
-  <a href="https://pashtari.github.io/inro/"><img alt="Documentation" src="https://img.shields.io/badge/docs-pashtari.github.io%2Finro-2a78d6.svg"></a>
+  <a href="https://pashtari.github.io/inro/"><img alt="Documentation" src="https://img.shields.io/badge/docs-pashtari.github.io%2Finro-2438a8.svg"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776ab.svg">
   <img alt="PyTorch 2.10+" src="https://img.shields.io/badge/PyTorch-2.10%2B-ee4c2c.svg">
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2ea44f.svg"></a>
+  <a href="https://github.com/pashtari/inro/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2ea44f.svg"></a>
 </p>
 
-Inro fits a signal as a function of its coordinates. It provides **FUTON**, the model of the paper; **thirteen baselines** (SIREN, FreSh, FINER, WIRE, Gauss, MFN, RFF, PE-MLP, Instant-NGP, TensoRF, GA-Planes, F-INR, Deep Image Prior) behind the same interface; **coordinate datasets** for images, occupancy volumes, MRI k-space, posed views and super-resolution; **one training loop** with evaluation, quantization and logging; and two applications, **image compression** and **novel view synthesis**. The experiments of the paper are its configs and scripts, run as they are. The name comes from the *inrō*, a Japanese case of stacked compartments.
+<p align="center">
+  <a href="https://pashtari.github.io/inro/">Documentation</a> ·
+  <a href="#results">Results</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#whats-inside">What's inside</a> ·
+  <a href="#citation">Citation</a>
+</p>
+
+**Inro** is a PyTorch package for implicit neural representations (INRs), providing a unified framework for implementing, training, and evaluating INR models. It features the official implementation of **FUTON**, introduced in our [paper](https://arxiv.org/abs/2602.13414).
+
+It also includes major INR architectures and baselines, such as SIREN, FINER, RFF, Instant-NGP, and TensoRF, all accessible through a consistent interface. Beyond the models, Inro provides reusable components and unified pipelines for training and evaluating INRs on image and volume representation and compression, and for INR-based inverse problems, including image super-resolution and novel view synthesis.
 
 <p align="center">
-  <img src="docs/assets/futon_illustration.svg" width="920" alt="FUTON's forward pass for one pixel: a fixed basis expands each coordinate, a tensor network combines the axes, and an MLP decodes the pixel's colour">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/futon_illustration.svg" width="920" alt="FUTON's forward pass for one pixel: a fixed basis expands each coordinate, a tensor network combines the axes, and an MLP decodes the pixel's color">
 </p>
 
 ## Why FUTON
 
-Most implicit neural representations hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians, or a hash-grid lookup in front of a ReLU network. FUTON puts the prior in the parameterization. The signal is expanded in a fixed, analytic basis along each coordinate axis, and the coefficient tensor of that expansion is stored in low-rank canonical polyadic (CP) form. The model is a shallow, parallel tensor contraction rather than a deep network:
+Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians, or a hash-grid lookup in front of a ReLU network. FUTON puts the prior in the parameterization. The signal is expanded in a fixed, analytic basis along each coordinate axis, and the coefficient tensor of that expansion is stored in low-rank canonical polyadic (CP) form. The model is a shallow, parallel tensor contraction rather than a deep network:
 
-- **Fast.** A point costs O(CKR) for C axes, K basis functions per axis and rank R. With a compactly supported basis (Lanczos) only 2a taps per axis are touched. On a grid, such as an image's pixels, each axis is evaluated once per distinct coordinate and shared by every point on it. It is all plain PyTorch, and `torch.compile` fuses the gathers with the products.
-- **Accurate at equal size.** At matched parameter counts FUTON leads every baseline on the average of each benchmark: Kodak images, Stanford occupancy volumes, Blender radiance fields and DIV2K super-resolution.
+- **Fast.** A point costs O(CKR) for C axes, K basis functions per axis and rank R. On a grid, such as an image's pixels, each axis is evaluated once per distinct coordinate and shared by every point on it.
+- **Accurate at equal size.** At matched parameter counts FUTON leads every baseline on the average of each benchmark: Kodak images, Stanford occupancy volumes and Blender radiance fields.
 - **Transparent.** With a linear decoder FUTON *is* a rank-R CP model of the signal in the chosen basis, so bandwidth (K) and capacity (R) are explicit knobs.
 
 ## Results
 
-Every model of a task has the same parameter budget, the hyperparameters of its authors' code, and a learning rate chosen on the task. Times are median training times per signal on an A100, from the same runs as the scores, every model compiled with `torch.compile`; Instant-NGP is the fastest to train on every task. The [benchmarks page](https://pashtari.github.io/inro/experiments/benchmarks/) has every model, metric and error bar.
+Every model of a task has the same parameter budget. Times are median training times per signal on an A100, from the same runs as the scores. FUTON makes the best trade-off of speed and reconstruction quality on every task. The [benchmarks page](https://pashtari.github.io/inro/experiments/benchmarks/) has every model, metric and error bar.
 
-| Task | Signals | #Params | FUTON (sinc) | FUTON (cosine) | Strongest baseline |
+| Task | #Params | FUTON (cosine) | FUTON (sinc) | Strongest baseline | FUTON's lead |
 | --- | --- | --- | --- | --- | --- |
-| Images (Kodak) | 24 | 197k | 37.44 dB in 5.4 s | **38.14 dB** in 5.4 s | MFN, 36.72 dB in 57.3 s |
-| Occupancy (Stanford) | 5 | 131k | **99.95 % IoU** in 7.8 s | **99.95 % IoU** in 7.6 s | RFF, 99.91 % in 11.7 s |
-| Radiance fields (Blender) | 8 | 74k | 29.19 dB in 154 s | **29.22 dB** in 152 s | FINER, 28.62 dB in 219 s |
-| Super-resolution (DIV2K, 4×) | 100 | 500k | **28.59 dB** in 9.3 s | 28.21 dB in 9.2 s | Instant-NGP, 28.22 dB in 2.9 s |
+| Images (24 Kodak) | 197k | **38.14 dB** in 5.4 s | 37.44 dB in 5.4 s | MFN, 36.72 dB in 57.3 s | **+1.42 dB, 10.6× faster** |
+| Occupancy (5 Stanford shapes) | 131k | **99.95 % IoU** in 7.6 s | **99.95 % IoU** in 7.8 s | RFF, 99.91 % in 11.7 s | **+0.04 %, 1.5× faster** |
+| Radiance fields (8 Blender scenes) | 74k | **29.22 dB** in 152 s | 29.19 dB in 154 s | FINER, 28.62 dB in 219 s | **+0.60 dB, 1.4× faster** |
+
+### Images
 
 <p align="center">
-  <img src="docs/assets/results_image.svg" width="920" alt="Kodak: PSNR against training time for FUTON and the strongest model of each family; every model's final PSNR against its training time; and against its inference throughput">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/results_image.svg" width="920" alt="Kodak: PSNR against training time for FUTON and the strongest model of each family; every model's final PSNR against its training time; and against its inference throughput">
 </p>
 <p align="center">
-  <sub>Kodak: PSNR against training time for FUTON and the strongest model of each family (left), and every model's final PSNR against its training time (middle) and its inference throughput in megapixels per second (right).</sub>
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_kodim19.png" width="920" alt="kodim19: two regions magnified for every featured model, above each model's error">
 </p>
 <p align="center">
-  <img src="docs/assets/qualitative_kodim19.png" width="920" alt="kodim19: two regions magnified for every featured model, above each model's error">
+  <sub>Kodak at about 197k parameters: PSNR against training time for FUTON and the strongest model of each family (left), and every model's final PSNR against its training time (middle) and its inference throughput (right). Below, two regions of kodim19 above each model's error, with each model's PSNR over the whole image.</sub>
+</p>
+
+### Radiance fields
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/results_nerf.svg" width="920" alt="Blender scenes: validation PSNR against training time for FUTON and the strongest model of each family; every model's final test PSNR against its training time; and against its rendering speed">
 </p>
 <p align="center">
-  <img src="docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (sinc)">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lego.png" width="920" alt="The lego scene from a test view, with two regions magnified for every featured model">
 </p>
-
-## Installation
-
-Python 3.11+ and PyTorch 2.10+. A GPU is optional.
-
-```bash
-git clone https://github.com/pashtari/inro.git
-cd inro
-pip install -e .
-```
-
-Extras: `3d` (meshes as occupancy volumes, mesh export and rendering), `nerf` (nerfacc ray marching and video export), `dev` (black, pytest), `docs` (this site).
-
-```bash
-pip install -e ".[3d,nerf,dev]"
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (sinc)">
+</p>
+<p align="center">
+  <sub>Blender scenes at about 75k parameters: validation PSNR against training time (left), and every model's final test PSNR against its training time (middle) and its rendering speed (right). Below, the lego scene magnified and in orbit, with each model's test-view PSNR.</sub>
+</p>
 
 ## Quick start
+
+Python 3.11+ and PyTorch 2.10+; a GPU is optional.
+
+```bash
+pip install inro
+```
+
+`pip install "inro[3d,nerf]"` adds meshes, nerfacc and video export. The training scripts, configs and notebooks live in this repository: `git clone https://github.com/pashtari/inro.git`, then `pip install -e .`.
 
 Fit FUTON to an image and score it. On a GPU this takes about half a minute and reaches about 37 dB.
 
@@ -78,8 +95,7 @@ Fit FUTON to an image and score it. On a GPU this takes about half a minute and 
 import torch
 import inro
 
-image = "data/Kodak/kodim19.png"              # any RGB image
-dataset = inro.ImageCoordinateDataset(image)  # every pixel, at every step
+dataset = inro.ImageCoordinateDataset("data/Kodak/kodim19.png")  # any RGB image
 H, W, _ = dataset.target.shape
 
 model = inro.FUTON(
@@ -97,99 +113,42 @@ result = inro.train(
     metrics={"psnr": inro.psnr, "ssim": inro.ssim},
     eval_interval=250,
 )
-print(result["history"][-1]["eval"])          # {"psnr": 37.3, "ssim": 0.949, ...}
+print(result["history"][-1]["eval"])  # {"psnr": 37.3, "ssim": 0.949, ...}
 
 output = inro.chunked_inference(model, dataset.input, chunk_size=65536)  # (H, W, 3) in [-1, 1]
 dataset.save(dataset.postprocess(output.cpu()), "kodim19_futon.png")
 ```
 
-Coordinates live in [-1, 1] on every axis, targets in the model's output range, and `inro.train` runs Adam with cosine annealing. Every model in the zoo takes `in_features` and `out_features` first, so `inro.SIREN(2, 3, hidden_features=256, hidden_layers=4, output_activation=torch.tanh)` drops into the same call. The [quick start](https://pashtari.github.io/inro/getting-started/quickstart/) explains each step.
+Every model takes `in_features` and `out_features` first, so `inro.SIREN(2, 3, hidden_features=256, hidden_layers=4, output_activation=torch.tanh)` drops into the same call. The [quick start](https://pashtari.github.io/inro/getting-started/quickstart/) explains each step.
 
-## What is in the box
+## What's inside
 
-**Models**, all mapping `(..., C)` coordinates in [-1, 1] to `(..., D)` values:
-
-| Family | Models |
+| | |
 | --- | --- |
-| FUTON | `FUTON` / `FUTONEncoding` with bases `cosine`, `sinc`, `legendre`, `chebyshev`, `triangle`, `lanczos`; combiners `cp`, `hadamard`, `tr`, `tucker`; decoders `linear`, `mlp` |
-| Coordinate networks | `SIREN` (with FreSh's `fresh_select`), `FINER`, `Gauss`, `WIRE` / `RealWIRE`, `MFN`, `RFF`, `PEMLP`, and the generic `MLP` |
-| Grid and tensor models | `InstantNGP` / `HashEncoding`, `TensoRF`, `GAPlanes` / `MultiVector` / `FeatureGrid`, `FINR`, `GridINR` |
-| Deep Image Prior | `DIPUNet`, `DIPSkip` |
+| **FUTON** | `inro.FUTON` with the bases `cosine`, `sinc`, `legendre`, `chebyshev`, `triangle`, `lanczos`; the combiners `cp`, `hadamard`, `tr`, `tucker`; and the decoders `linear`, `mlp` |
+| **Baselines** | SIREN, FreSh, FINER, Gauss, WIRE, MFN, RFF, PE-MLP, Instant-NGP, TensoRF, GA-Planes, F-INR, Deep Image Prior |
+| **Data** | Coordinate datasets for images, occupancy volumes, MRI k-space, super-resolution and posed views |
+| **Training** | `inro.train`, `inro.evaluate`, metrics and losses, quantization-aware training, and [block coordinate descent solvers](https://pashtari.github.io/inro/api/futon/#solvers) for FUTON |
+| **Theory** | [`inro.futon_bound`](https://pashtari.github.io/inro/concepts/error-bound/) brackets the best error a linear FUTON can reach on a signal, and builds a FUTON that attains the upper bound |
+| **Compression** | [`inro.compression`](https://pashtari.github.io/inro/tutorials/compression/): a FUTON codec, PIL baselines, and one function that measures any codec |
+| **Novel views** | [`inro.nerf`](https://pashtari.github.io/inro/tutorials/nerf/): any model as the density network of a radiance field, trained and scored on posed views |
 
-**Datasets**: `ImageCoordinateDataset`, `MaskedImageCoordinateDataset`, `SuperResolutionDataset` (with the bicubic operator `resize_matrix` and `downsample`), `OccupancyCoordinateDataset`, `MRICoordinateDataset`, `DIPImageDataset`, and `inro.nerf.BlenderDataset`.
+<details>
+<summary><b>Reproducing the paper</b></summary>
 
-**Training and evaluation**: `inro.train`, `inro.evaluate`, `inro.chunked_inference`; metrics `psnr`, `ssim`, `ms_ssim`, `lpips`, `nmse`, `iou`, `bits_per_pixel`, and super-resolution's `super_resolution_metrics` on `luma`; losses `rate_distortion_loss`, `sdf_loss`, `super_resolution_loss`; `uniform_quantize` / `uniform_dequantize` and quantization-aware training.
-
-**Solvers**: `inro.LeastSquares` and `inro.MultiplicativeUpdate` fit a FUTON with a linear decoder by block coordinate descent, through the same `inro.train` call, in place of Adam.
-
-**Error bounds**: `inro.futon_bound` brackets the best error a FUTON with a linear decoder can reach on a sampled signal at a given spectral resolution and rank, and builds a FUTON that attains the upper bound; the [theorem and its proof](https://pashtari.github.io/inro/concepts/error-bound/) are in the docs.
-
-**Image compression** (`inro.compression`): a FUTON codec, PIL codecs as baselines, and one function that measures any codec.
-
-```python
-from torchvision.io import ImageReadMode, read_image
-
-image = read_image("data/Kodak/kodim19.png", mode=ImageReadMode.RGB)
-futon = inro.compression.evaluate_compression(
-    image, inro.compression.encode_futon, inro.compression.decode_futon,
-    basis=("cosine", {"num_components": 128}), combiner=("cp", {"rank": 64}), decoder="linear",
-)
-jpeg = inro.compression.evaluate_compression(
-    image, inro.compression.encode_pil, inro.compression.decode_pil, format="JPEG", quality=50
-)
-# each: {"PSNR (dB)": ..., "bit rate (bpp)": ..., "encoding time (ms)": ..., "decoding time (ms)": ...}
-```
-
-**Novel view synthesis** (`inro.nerf`): any model as the density network of a radiance field, occupancy-grid volume rendering (nerfacc when its CUDA extension works, pure PyTorch otherwise), and PSNR / SSIM / LPIPS on held-out views.
-
-```python
-root = "data/nerf/blender/lego"
-train_set = inro.nerf.BlenderDataset(root, split="train", downsample=4, skip=4)
-test_set = inro.nerf.BlenderDataset(root, split="test", downsample=4)
-
-field = inro.nerf.RadianceField(
-    (inro.FUTON, {"basis": ("sinc", {"num_components": 100, "grid_size": 2048}),  # a table per axis
-                  "combiner": ("cp", {"rank": 180}),
-                  "decoder": ("mlp", {"hidden_layers": 1, "hidden_features": 64})}),
-    ("mlp", {"hidden_features": 64, "hidden_layers": 2}),
-    aabb=train_set.aabb,
-)
-renderer = inro.nerf.create_renderer(aabb=train_set.aabb, near=train_set.near, far=train_set.far)
-inro.nerf.train(field, renderer, train_set, num_steps=25000, lr=1e-2)
-print(inro.nerf.evaluate(field, renderer, test_set)["mean"])
-```
-
-## Reproducing the paper
-
-Four download scripts, four training scripts and one report script produce every table and figure.
+Four download scripts and four training scripts produce every run behind the results. `configs/<task>.yaml` holds every model's class, arguments and learning rate; finished runs are skipped, so an interrupted sweep resumes. See [Reproducing the paper](https://pashtari.github.io/inro/experiments/reproduce/).
 
 ```bash
-python scripts/download_kodak.py         # 24 Kodak images, about 30 MB
-python scripts/download_meshes.py        # 5 Stanford meshes, about 3 GB
-python scripts/download_blender.py       # 8 Blender scenes, about 2.4 GB
-python scripts/download_div2k.py         # 100 DIV2K images and their 4x downsamplings, about 450 MB
+python scripts/download_kodak.py         # also download_meshes.py, download_blender.py, download_div2k.py
 
-python scripts/train_image.py --compile            # 24 images x 14 models -> logs/image/<image>/<model>/
-python scripts/train_occupancy.py --compile        # 5 shapes x 15 models  -> logs/occupancy/<shape>/<model>/
-python scripts/train_nerf.py --compile             # 8 scenes x 15 models  -> logs/nerf/<scene>/<model>/
-python scripts/train_super_resolution.py --compile # 100 images x 18 models -> logs/super_resolution/<image>/<model>/
-
-python scripts/report_paper.py           # tables and figures    -> results/
+python scripts/train_image.py --compile  # also train_occupancy.py, train_nerf.py, train_super_resolution.py
 ```
 
-`configs/<task>.yaml` holds every model's class, constructor arguments and learning rate, with a comment wherever a setting departs from the authors' code. `--data`, `--models`, `--config`, `--set KEY=VALUE`, `--log-dir` and `--overwrite` select signals, models and settings; finished runs are skipped, so an interrupted sweep resumes. `configs/ablation-futon/` holds the ablations. See [Reproducing the paper](https://pashtari.github.io/inro/experiments/reproduce/).
+</details>
 
 ## Documentation
 
-The full documentation is at **[pashtari.github.io/inro](https://pashtari.github.io/inro/)**:
-
-- [Getting started](https://pashtari.github.io/inro/getting-started/): installation, data, and a first neural field.
-- [Concepts](https://pashtari.github.io/inro/concepts/): how models, datasets and the training loop fit together; [FUTON](https://pashtari.github.io/inro/concepts/futon/) stage by stage; the [model zoo](https://pashtari.github.io/inro/concepts/models/); [conventions](https://pashtari.github.io/inro/concepts/conventions/).
-- [Tutorials](https://pashtari.github.io/inro/tutorials/): images, occupancy volumes, radiance fields, compression, custom components, and the notebooks in `notebooks/`.
-- [Experiments](https://pashtari.github.io/inro/experiments/): the benchmarks, the ablations, and reproduction.
-- [API reference](https://pashtari.github.io/inro/api/): every public class and function.
-
-To build it locally: `pip install -e ".[docs]" && mkdocs serve`.
+The full documentation is at **[pashtari.github.io/inro](https://pashtari.github.io/inro/)**: [getting started](https://pashtari.github.io/inro/getting-started/), [concepts](https://pashtari.github.io/inro/concepts/), [tutorials](https://pashtari.github.io/inro/tutorials/), [experiments](https://pashtari.github.io/inro/experiments/) and the [API reference](https://pashtari.github.io/inro/api/). To build it locally: `pip install -e ".[docs]" && mkdocs serve`.
 
 ## Citation
 
@@ -204,4 +163,4 @@ To build it locally: `pip install -e ".[docs]" && mkdocs serve`.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/pashtari/inro/blob/main/LICENSE).
