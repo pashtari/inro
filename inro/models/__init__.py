@@ -1,6 +1,6 @@
-"""Neural field architectures, encodings, and tensor factorizations.
+"""Implicit neural representations (INRs): architectures, encodings, solvers and bounds.
 
-Public names are also available at the package top level, e.g. ``inro.FUTON``.
+Every public name is also available at the top level, as in ``inro.FUTON``.
 """
 
 from .dip import DIPSkip, DIPUNet

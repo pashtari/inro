@@ -1,13 +1,13 @@
 """Integer arithmetic coding with per-position probability mass functions.
 
-Every position of a symbol sequence is coded under its own probability mass
-function (PMF), and alphabet sizes may differ between positions. PMFs are scaled
-to integer frequency tables and coded with a 32-bit integer arithmetic coder
-using bit-plus-follow (underflow) renormalization.
+Every position of a symbol sequence is coded under its own probability mass function
+(PMF), and alphabet sizes may differ between positions. PMFs are scaled to integer
+frequency tables and coded with a 32-bit integer arithmetic coder using bit-plus-follow
+(underflow) renormalization.
 
 References:
-    Witten et al., "Arithmetic Coding for Data Compression", Communications of
-    the ACM 1987.
+    Witten et al., "Arithmetic Coding for Data Compression", Communications of the ACM
+    1987.
 """
 
 import struct
@@ -48,7 +48,7 @@ class _BitWriter:
             self.bits_filled = 0
 
     def finish(self) -> bytes:
-        """Flush the last partial byte (zero-padded on the right); return all bytes."""
+        """Flush the last partial byte, zero-padded on the right; return all bytes."""
         if self.bits_filled:
             self.current_byte <<= 8 - self.bits_filled
             self.buffer.append(self.current_byte)
@@ -89,11 +89,11 @@ def _to_numpy(x: _PMF) -> np.ndarray:
 
 
 def _pmf_to_frequencies(pmf: _PMF, precision: int = 1 << 16) -> tuple[np.ndarray, int]:
-    """Scale a PMF to integer symbol frequencies.
+    """Return ``(frequencies, total)``, a PMF scaled to integer symbol frequencies.
 
-    Returns ``(frequencies, total)`` after normalizing, scaling by ``precision``
-    and flooring. Positive probabilities keep at least one count, so the total
-    may exceed ``precision``. Empty, negative or all-zero PMFs are rejected.
+    The PMF is normalized, scaled by ``precision`` and floored. Positive probabilities
+    keep at least one count, so the total may exceed ``precision``. Empty, negative or
+    all-zero PMFs are rejected.
     """
     probabilities = _to_numpy(pmf).astype(float).ravel()
     if probabilities.size == 0:
@@ -135,33 +135,28 @@ def encode_arithmetic(
 ) -> bytes:
     """Encode a symbol sequence with arithmetic coding.
 
-    Position ``i`` is coded under its own PMF ``pmfs[i]``, and alphabet sizes may
-    differ between positions. Every symbol must have nonzero probability under
-    its PMF: a zero-probability symbol is not rejected and silently corrupts the
-    bitstream.
+    Position ``i`` is coded under its own PMF ``pmfs[i]``, and alphabet sizes may differ
+    between positions. Every symbol must have nonzero probability under its PMF: a
+    zero-probability symbol is not rejected and silently corrupts the bitstream.
 
     Args:
-        symbols: Integer symbols, flattened to shape :math:`(N,)`. A Tensor must
-            be on the CPU.
-        pmfs: List or tuple of ``N`` PMFs; ``pmfs[i][k]`` is the (not necessarily
-            normalized) probability of symbol ``k`` at position ``i``. Each PMF is
-            a Tensor (any device), a NumPy array or a sequence of floats.
-        precision: Total integer frequency each PMF is scaled to (a count, not a
-            number of bits). Nonzero probabilities that would round to zero get
-            frequency ``1``, so a table's total can slightly exceed it. Must match
-            the value passed to :func:`decode_arithmetic`. Default: ``1 << 16``.
+        symbols: Integer symbols, flattened to ``(N,)``. A tensor must be on the CPU.
+        pmfs: List or tuple of ``N`` PMFs, where ``pmfs[i][k]`` is the probability of
+            symbol ``k`` at position ``i``, not necessarily normalized. Each PMF is a
+            tensor on any device, a NumPy array or a sequence of floats.
+        precision: Total integer frequency each PMF is scaled to, a count rather than a
+            number of bits. Nonzero probabilities keep a frequency of at least ``1``, so
+            the total can slightly exceed it. Must match :func:`decode_arithmetic`.
 
     Returns:
-        A 4-byte big-endian ``uint32`` symbol count ``N`` followed by the
-        compressed bitstream.
+        A 4-byte big-endian ``uint32`` symbol count ``N`` followed by the bitstream.
 
     Raises:
-        ValueError: If ``pmfs`` is not a list or tuple of length ``N``, a PMF is
-            empty, has a negative entry or sums to zero, or a symbol is outside
-            the alphabet of its PMF.
+        ValueError: If ``pmfs`` is not a list or tuple of length ``N``, a PMF is empty,
+            has a negative entry or sums to zero, or a symbol is outside the alphabet of
+            its PMF.
 
-    Examples::
-
+    Examples:
         >>> pmfs = [[0.7, 0.3], [0.1, 0.2, 0.7], [0.4, 0.6]]
         >>> encoded = encode_arithmetic([0, 2, 1], pmfs)
         >>> decode_arithmetic(encoded, pmfs)
@@ -230,15 +225,15 @@ def decode_arithmetic(
     Args:
         encoded: Bytes returned by :func:`encode_arithmetic`.
         pmfs: List or tuple of the PMFs used for encoding, one per symbol.
-        precision: The ``precision`` used for encoding. Default: ``1 << 16``.
+        precision: The ``precision`` used for encoding.
 
     Returns:
-        The decoded symbols as an ``int64`` array of shape :math:`(N,)`.
+        The decoded symbols, an ``int64`` array ``(N,)``.
 
     Raises:
-        ValueError: If ``encoded`` is shorter than the 4-byte header, ``pmfs`` is
-            not a list or tuple whose length equals the encoded symbol count, or a
-            PMF is empty, has a negative entry or sums to zero.
+        ValueError: If ``encoded`` is shorter than the 4-byte header, ``pmfs`` is not a
+            list or tuple whose length equals the encoded symbol count, or a PMF is
+            empty, has a negative entry or sums to zero.
     """
     if len(encoded) < 4:
         raise ValueError("Input too short")

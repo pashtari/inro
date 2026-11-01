@@ -1,32 +1,31 @@
 """Novel view synthesis with radiance fields and volume renderers.
 
-Use any pointwise neural field as the density network in :class:`RadianceField`.
-:func:`create_renderer` selects nerfacc when its CUDA extension works, or a
-PyTorch implementation otherwise. Training defaults follow torch-ngp's Blender
-recipe: scaled cameras, random backgrounds, uniform ray marching, and Adam
-with exponential learning-rate decay.
+Pointwise implicit neural representations (INRs) serve as the density network of a
+:class:`RadianceField`, and :func:`create_renderer` selects nerfacc when its CUDA
+extension works, PyTorch otherwise. Training defaults follow torch-ngp's Blender recipe:
+scaled cameras, random backgrounds, uniform ray marching, and Adam with exponential
+learning-rate decay.
 
-``inro.nerf.train`` and ``inro.nerf.evaluate`` fit and evaluate posed images.
-The package-level functions fit coordinate-value pairs directly.
+``inro.nerf.train`` and ``inro.nerf.evaluate`` fit and score posed images, while
+``inro.train`` and ``inro.evaluate`` fit and score coordinate-value pairs.
 
-Example::
-
-    import inro
-
-    dataset = inro.nerf.BlenderDataset(
-        "data/nerf/blender/lego", downsample=4, skip=4
-    )
-    field = inro.nerf.RadianceField(
-        inro.InstantNGP,
-        ("mlp", {"hidden_features": 64, "hidden_layers": 2}),
-        aabb=dataset.aabb,
-    )
-    renderer = inro.nerf.create_renderer(aabb=dataset.aabb, near=dataset.near)
-    result = inro.nerf.train(field, renderer, dataset, num_steps=20000)
-    test_set = inro.nerf.BlenderDataset(
-        "data/nerf/blender/lego", split="test", downsample=4
-    )
-    scores = inro.nerf.evaluate(field, renderer, test_set)  # PSNR, SSIM, LPIPS
+Examples:
+    >>> import inro
+    >>> root = "data/nerf/blender/lego"
+    >>> dataset = inro.nerf.BlenderDataset(root, downsample=4, skip=4)  # doctest: +SKIP
+    >>> field = inro.nerf.RadianceField(  # doctest: +SKIP
+    ...     inro.InstantNGP,
+    ...     ("mlp", {"hidden_features": 64, "hidden_layers": 2}),
+    ...     aabb=dataset.aabb,
+    ... )
+    >>> renderer = inro.nerf.create_renderer(  # doctest: +SKIP
+    ...     aabb=dataset.aabb, near=dataset.near
+    ... )
+    >>> result = inro.nerf.train(field, renderer, dataset)  # doctest: +SKIP
+    >>> test_set = inro.nerf.BlenderDataset(  # doctest: +SKIP
+    ...     root, split="test", downsample=4
+    ... )
+    >>> scores = inro.nerf.evaluate(field, renderer, test_set)  # doctest: +SKIP
 """
 
 from . import cameras, datasets, evaluation, fields, renderers, training

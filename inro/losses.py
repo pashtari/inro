@@ -1,9 +1,8 @@
 """Training losses and differentiable entropy estimates.
 
-Loss functions follow ``loss_fn(batch, model) -> (loss, metrics)``: they run
-the model on ``batch["input"]`` and return a scalar loss and logging values,
-kept as scalar tensors so that :func:`~inro.train` reads them only when
-it logs.
+A loss follows ``loss_fn(batch, model) -> (loss, metrics)``: it runs the model on
+``batch["input"]`` and returns a scalar loss and logging values, kept as scalar tensors
+so that :func:`~inro.train` reads them only when it logs.
 """
 
 import math
@@ -37,21 +36,26 @@ def soft_entropy(
     temperature: float = 1.0,
     eps: float = 1e-16,
 ) -> Tensor:
-    """Estimate entropy in bits using differentiable soft bin assignments.
+    """Estimate entropy in bits with differentiable soft bin assignments.
 
-    Bin centers span the detached input range. Each value receives a softmax
-    assignment based on squared distance; entropy is computed from the mean
-    assignment. Gradients flow through assignments, not through the bin layout.
+    Bin centers span the detached input range. Each element gets a softmax assignment
+    from its squared distance to them, and the entropy is that of the mean assignment.
+    Gradients flow through the assignments, not the bin layout.
 
     Args:
         x: Input tensor; all elements are pooled.
-        num_bins: Bin count. ``None`` uses the Freedman–Diaconis width
-            ``2 * IQR(x) / N**(1/3)`` and rounds the count up.
+        num_bins: Number of bins; ``None`` uses the Freedman–Diaconis width
+            ``2 * IQR(x) / N**(1/3)``, rounding the count up.
         temperature: Assignment kernel width relative to bin width; larger is softer.
         eps: Constant added inside the logarithm.
 
     Returns:
-        Scalar entropy tensor.
+        Scalar entropy.
+
+    Examples:
+        >>> x = torch.tensor([-1.0, 1.0])
+        >>> soft_entropy(x, num_bins=2, temperature=0.1).item()
+        1.0
     """
     x_flat = x.reshape(-1, 1)
 
@@ -80,8 +84,12 @@ def soft_entropy(
 def laplace_entropy(x: Tensor, eps: float = 1e-16) -> Tensor:
     """Return the differential entropy of a zero-mean Laplace fit, in bits.
 
-    Uses the maximum-likelihood scale ``b = mean(abs(x))`` and entropy
-    ``log2(2 * b * e + eps)``. All elements of ``x`` are pooled.
+    Uses the maximum-likelihood scale ``b = mean(abs(x))`` and the entropy
+    ``log2(2 * b * e + eps)``.
+
+    Args:
+        x: Input tensor; all elements are pooled.
+        eps: Constant added inside the logarithm.
     """
     scale = x.abs().mean()
     return torch.log2(2 * scale * math.e + eps)
@@ -95,19 +103,19 @@ def rate_distortion_loss(
 ) -> tuple[Tensor, dict[str, Tensor]]:
     """Balance reconstruction MSE with estimated parameter entropy.
 
-    The loss is ``MSE + alpha * entropy``, where entropy is the size-weighted
-    mean Laplace entropy of trainable parameter tensors. It is evaluated only
-    when ``alpha > 0``.
+    The loss is ``MSE + alpha * entropy``, the entropy being the size-weighted mean of
+    :func:`laplace_entropy` over the trainable parameters, evaluated only when
+    ``alpha > 0``.
 
     Args:
-        batch: Dictionary containing ``"input"`` and ``"target"`` tensors.
-        model: Neural field to evaluate and whose parameters define the rate.
+        batch: Batch with ``input`` and ``target``.
+        model: INR to evaluate.
         alpha: Weight of the rate term.
-        eps: Stability constant passed to :func:`laplace_entropy`.
+        eps: Constant added inside the logarithm.
 
     Returns:
-        Scalar loss and metrics as scalar tensors: ``mse``, ``psnr`` (for
-        targets in ``[-1, 1]``), ``loss``, and ``entropy`` when ``alpha > 0``.
+        Scalar loss and the metrics ``mse``, ``psnr`` (for targets in ``[-1, 1]``),
+            ``loss``, and ``entropy`` when ``alpha > 0``, as scalar tensors.
     """
     output = model(batch["input"])
     target = batch["target"]
@@ -140,9 +148,11 @@ def rate_distortion_loss(
 def sdf_loss(
     batch: dict[str, Any], model: nn.Module
 ) -> tuple[Tensor, dict[str, Tensor]]:
-    """Return L1 signed-distance loss and the metrics ``loss`` and ``l1``.
+    """Return the L1 signed-distance loss and the metrics ``loss`` and ``l1``.
 
-    Evaluates ``model(batch["input"])`` against ``batch["target"]``.
+    Args:
+        batch: Batch with ``input`` and ``target``.
+        model: INR to evaluate.
     """
     output = model(batch["input"])
     target = batch["target"]
@@ -157,10 +167,13 @@ def super_resolution_loss(
 ) -> tuple[Tensor, dict[str, Tensor]]:
     """Return the L1 loss through the degradation and the metrics ``l1`` and ``psnr``.
 
-    For the items of :class:`~inro.SuperResolutionDataset`: renders each
-    block's footprint, downsamples it with the block's kernel rows along both
-    axes, and matches the low-resolution pixels, with the mean absolute error
-    usual in super-resolution. The PSNR is for targets in ``[-1, 1]``.
+    Renders each block's footprint, downsamples it with the block's kernel rows along
+    both axes and matches the low-resolution pixels. The PSNR is for targets in
+    ``[-1, 1]``.
+
+    Args:
+        batch: Batch of :class:`~inro.SuperResolutionDataset` items.
+        model: INR to evaluate.
     """
     weights = batch["weight_y"], batch["weight_x"]
     output = downsample(model(batch["input"]), weights)

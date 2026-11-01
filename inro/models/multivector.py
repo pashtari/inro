@@ -1,4 +1,4 @@
-"""Learnable feature grids and expression-based combinations of lines, planes, and volumes."""
+"""Learnable feature grids and expressions that combine lines, planes and volumes."""
 
 import operator
 import re
@@ -14,27 +14,30 @@ __all__ = ["FeatureGrid", "MultiVector"]
 
 
 class FeatureGrid(nn.Module):
-    """Learnable feature grid with linear, bilinear, or trilinear interpolation.
+    """Learnable feature grid with linear, bilinear or trilinear interpolation.
 
-    Coordinates span ``[-1, 1]`` with ``align_corners=True``; points outside
-    this interval sample the border. Input is ``(N, in_features)`` (also
-    ``(N,)`` for 1D), and output is ``(N, features)``.
+    Coordinates span ``[-1, 1]`` with ``align_corners=True``, and points outside read
+    the border.
 
     Args:
         features: Feature channels at each grid vertex.
-        resolution: Resolution per axis; an int creates a 1D grid, and a sequence
-            of length two or three creates a 2D or 3D grid. Tensor order
-            ``(H, W)`` or ``(D, H, W)`` is reversed relative to coordinate
-            columns: column zero indexes ``W``, column one ``H``, and column
-            two ``D``.
+        resolution: Resolution per axis, an int for a 1D grid or a sequence of up to
+            three. The order ``(H, W)`` or ``(depth, H, W)`` is reversed against the
+            coordinates: their first column indexes ``W``, the second ``H`` and the
+            third ``depth``.
 
-    The learnable ``grid`` has shape ``(1, features, *resolution)``.
-    A 1D grid includes a dummy height axis for ``grid_sample``.
+    Attributes:
+        grid: Learnable features ``(1, features, *resolution)``, a 1D grid with a dummy
+            height axis for ``grid_sample``.
 
-    Example::
+    Shape:
+        - Input: ``(N, C)`` coordinates in ``[-1, 1]``, or ``(N,)`` in 1D.
+        - Output: ``(N, features)``.
 
-        grid = FeatureGrid(features=8, resolution=(32, 64))
-        features = grid(torch.rand(100, 2) * 2 - 1)  # (100, 8)
+    Examples:
+        >>> grid = FeatureGrid(features=8, resolution=(32, 64))
+        >>> grid(torch.rand(100, 2) * 2 - 1).shape
+        torch.Size([100, 8])
     """
 
     def __init__(self, features: int, resolution: int | Sequence[int]) -> None:
@@ -105,7 +108,8 @@ def _parse_atom(name: str) -> tuple[str, tuple[int, ...]]:
 def _parse_expression(expression: str) -> _ExpressionNode:
     """Parse a multivector expression into a syntax tree.
 
-    Grammar (precedence: o > + > ,):
+    The grammar, with precedence ``o`` > ``+`` > ``,``:
+
         expr   := '[' term (',' term)* ']' | term
         term   := factor ('+' factor)*
         factor := atom ('o' atom)*
@@ -195,45 +199,48 @@ def _per_grid(value: int | Sequence[int]) -> list[int]:
 
 
 class MultiVector(nn.Module):
-    """Combine learnable line, plane, and volume grids with an expression.
+    """Learnable line, plane and volume grids combined by an expression.
 
-    Each atom samples a :class:`FeatureGrid` at the corresponding coordinate
-    columns, following the grid decomposition of GA-Planes:
+    Each atom samples a :class:`FeatureGrid` at its coordinate columns, following the
+    grid decomposition of GA-Planes:
 
-    - ``e1``, ``e2``, ``e3``: lines along coordinate columns zero, one, two.
+    - ``e1``, ``e2``, ``e3``: lines along the first, second and third columns.
     - ``e12``, ``e13``, ``e23``: planes over the named pair of columns.
     - ``e123``: a volume over all three columns.
     - ``o``: elementwise product; ``+``: elementwise sum.
     - ``[term, term, ...]``: channel concatenation.
 
-    Precedence is ``o`` > ``+`` > ``,``. For example, ``"[e1 o e2, e12]"``
-    concatenates a product of line features with plane features. Atoms using
-    axis three require ``in_features=3``. Coordinate axes and operand widths
-    are not checked for compatibility at construction.
+    Precedence is ``o`` > ``+`` > ``,``. Atoms on the third axis need ``in_features=3``;
+    neither this nor the operands' widths are checked at construction.
 
     Args:
-        in_features: Number of coordinate axes, two or three.
-        expr: Expression selecting and combining grids.
+        in_features: Number of coordinate axes ``C``, ``2`` or ``3``.
+        expr: Expression that selects and combines the grids.
         features: Feature channels per grid: an int for all grids, or
-            ``(line, plane, volume)`` values; shorter sequences repeat their
-            last entry. Operands of ``o`` and ``+`` must have equal widths.
-        resolution: Resolution per axis per grid, with the same int/sequence
-            convention. Planes are square and volumes are cubic.
+            ``(line, plane, volume)`` values, a short sequence repeating its last value.
+            Operands of ``o`` and ``+`` must have equal channel counts.
+        resolution: Resolution per axis per grid, given as ``features`` is. Planes are
+            square and volumes are cubic.
 
-    Input ``(N, in_features)`` in ``[-1, 1]`` produces ``(N, out_features)``.
-    ``lines`` and ``planes`` are module dictionaries keyed by atom name, or
-    ``None`` when unused; ``volume`` is the volume grid or ``None``.
-    ``features_per_term`` lists the width of each top-level concatenated term
-    (or one width when the expression is not bracketed).
+    Attributes:
+        lines: Line grids keyed by atom name, or ``None`` when unused.
+        planes: Plane grids keyed by atom name, or ``None`` when unused.
+        volume: Volume grid, or ``None`` when unused.
+        features_per_term: Width of each top-level concatenated term, or one width when
+            the expression is not bracketed.
 
-    Example::
+    Shape:
+        - Input: ``(N, C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(N, out_features)``.
 
-        model = MultiVector(2, "[e1 o e2, e12]", 8, (64, 16))
-        features = model(torch.rand(100, 2) * 2 - 1)  # (100, 16)
+    Examples:
+        >>> model = MultiVector(2, "[e1 o e2, e12]", 8, (64, 16))
+        >>> model(torch.rand(100, 2) * 2 - 1).shape
+        torch.Size([100, 16])
 
     References:
-        Sivgin et al., "Geometric Algebra Planes: Convex Implicit Neural
-        Volumes", arXiv 2024.
+        Sivgin et al., "Geometric Algebra Planes: Convex Implicit Neural Volumes",
+        ICML 2025.
     """
 
     def __init__(
@@ -300,8 +307,7 @@ class MultiVector(nn.Module):
             name: features[grid[kind]] for name, (kind, _) in parsed_atoms.items()
         }
 
-        # FeatureGrid already initializes itself; re-drawing here is redundant
-        # but kept so seeded models reproduce earlier checkpoints exactly.
+        # A redundant draw, kept so that seeded models reproduce their checkpoints.
         self.reset_parameters()
 
         self._terms = self._ast[1] if self._ast[0] == "concat" else [self._ast]
@@ -310,14 +316,14 @@ class MultiVector(nn.Module):
         ]
 
     def reset_parameters(self) -> None:
-        """Initialize every feature grid from a zero-mean normal distribution."""
+        r"""Re-initialize every grid's features from :math:`\mathcal{N}(0, 0.1^2)`."""
         for grid in self.modules():
             if isinstance(grid, FeatureGrid):
                 grid.reset_parameters()
 
     @property
     def out_features(self) -> int:
-        """Total number of output features, ``sum(features_per_term)``."""
+        """Number of output features, ``sum(features_per_term)``."""
         return sum(self.features_per_term)
 
     def forward(self, x: Tensor) -> Tensor:

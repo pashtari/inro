@@ -1,10 +1,10 @@
 """Command line and bookkeeping shared by the ``train_*.py`` benchmark scripts.
 
 Each run directory ``<log-dir>/<signal>/<model>`` holds ``log.txt``,
-``log.json``, ``checkpoint.pt``, the final reconstruction, and ``results.json``
-with the model setup, parameter count, training time, final metrics, and
-training history. Finished runs are skipped, so an interrupted sweep resumes
-where it stopped; ``--overwrite`` reruns them instead.
+``log.json``, ``checkpoint.pt``, the final reconstruction where the task saves
+one, and ``results.json`` with the model setup, parameter count, training time,
+final metrics, and training history. Finished runs are skipped, so an
+interrupted sweep resumes where it stopped; ``--overwrite`` reruns them instead.
 
 The runs of ``configs/<name>.yaml`` go to ``logs/<name>`` unless ``--log-dir``
 says otherwise. Several configs are merged in order, the last naming the log
@@ -12,7 +12,7 @@ directory, and ``--set`` overrides a single value. Runs are keyed by model
 name, so give variants their own names or their own ``--log-dir``::
 
     --config configs/ablation-futon/basis.yaml  # -> logs/ablation-futon/basis
-    --set models.FUTON-sinc.train.lr=0.05 --log-dir logs/sinc-lr
+    --set models.FUTON-sinc.train.lr=3e-2 --log-dir logs/sinc-lr
 
 To collect results::
 
@@ -40,9 +40,9 @@ import inro
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# fit(config, model, data_path, run_dir, device) -> record
+# Called as fit(config, model, data_path, run_dir, device), returning a record.
 FitFn = Callable[[dict, dict, Path, Path, torch.device], dict[str, Any]]
-# prepare(model, data_path) -> model, for settings that depend on the signal
+# Called as prepare(model, data_path), for settings that depend on the signal.
 PrepareFn = Callable[[dict, Path], dict[str, Any]]
 
 
@@ -55,7 +55,7 @@ def build(model: dict[str, Any]) -> tuple[type[torch.nn.Module], dict[str, Any]]
 
 
 def resolve(value: Any, **sizes: int) -> Any:
-    """Evaluate size expressions such as ``"max(H, W) // 2"`` or ``"D"``, recursively."""
+    """Evaluate size expressions such as ``"max(H, W) // 2"``, recursively."""
     if isinstance(value, dict):
         return {key: resolve(item, **sizes) for key, item in value.items()}
     if isinstance(value, list):
@@ -68,8 +68,7 @@ def resolve(value: Any, **sizes: int) -> Any:
 def futon_rank(
     components: Sequence[int], budget: int, hidden: int, outputs: int
 ) -> int:
-    """The largest CP rank, a multiple of 5, at which FUTON has at most ``budget``
-    parameters.
+    """Return the largest CP rank, a multiple of 5, that keeps FUTON within ``budget``.
 
     Rank ``R`` costs ``R * sum(components)`` factor entries and ``R * hidden`` in
     a decoder of one hidden layer of width ``hidden``, whose bias and output
@@ -80,8 +79,7 @@ def futon_rank(
 
 
 def fill_rank(model: dict[str, Any], outputs: int) -> dict[str, Any]:
-    """A resolved FUTON entry whose ``rank: budget`` takes the rank of its
-    ``budget``; any other entry as it is."""
+    """Fill in a resolved entry's ``rank: budget``; any other entry stays as it is."""
     if "budget" not in model:
         return model
     combiner, settings = model["kwargs"]["combiner"]
@@ -97,7 +95,7 @@ def fill_rank(model: dict[str, Any], outputs: int) -> dict[str, Any]:
 
 
 def default_log_dir(config: Path) -> Path:
-    """``logs/<name>`` for ``configs/<name>.yaml``, so each config's runs stay apart."""
+    """Return ``logs/<name>`` for ``configs/<name>.yaml``, keeping runs apart."""
     config, configs = config.resolve(), ROOT / "configs"
     name = (
         config.relative_to(configs) if config.is_relative_to(configs) else config.name
@@ -106,7 +104,7 @@ def default_log_dir(config: Path) -> Path:
 
 
 def relative(path: Path) -> str:
-    """A path inside the repository as a repository-relative one."""
+    """Return a path relative to the repository if it lies inside, else absolute."""
     resolved = path.resolve()
     return str(
         resolved.relative_to(ROOT) if resolved.is_relative_to(ROOT) else resolved
@@ -171,15 +169,23 @@ def fresh(
     render: Callable[[dict[str, Any]], torch.Tensor],
     seed: int,
 ) -> dict[str, Any] | None:
-    """FreSh (Kania et al., ICLR 2025) for a model whose config holds ``fresh``.
+    """Run FreSh (Kania et al., ICLR 2025) for a model whose config holds ``fresh``.
 
-    ``model["fresh"]`` holds arguments of :func:`inro.fresh_select`, and
-    ``render(kwargs)`` builds an untrained model from constructor arguments
-    and returns its output on the signal's grid. Sets ``kwargs["first_omega"]``
-    to the choice and reseeds with ``seed``, so that the model's own
-    initialization is a run's without the search. Returns the choice, every
-    candidate's score and the seconds the search took, or ``None`` for a
-    model without ``fresh``.
+    Reseeds afterwards, so that the model's own initialization is a run's without
+    the search.
+
+    Args:
+        model: Config entry, whose ``fresh`` holds arguments of
+            :func:`inro.fresh_select`.
+        kwargs: Constructor arguments, whose ``first_omega`` is set to the choice.
+        targets: Signals to match.
+        render: Builds an untrained model from constructor arguments and returns its
+            output on the signal's grid.
+        seed: Seed of the run.
+
+    Returns:
+        The choice ``omega``, the ``seconds`` the search took and every candidate's
+        ``scores``, or ``None`` for a model without ``fresh``.
     """
     if "fresh" not in model:
         return None
@@ -195,7 +201,7 @@ def fresh(
 
 
 def provenance(device: torch.device) -> dict[str, str]:
-    """The code and hardware behind a result: commit, PyTorch, device and host.
+    """Return the code and hardware behind a result: commit, PyTorch, device and host.
 
     The commit is marked ``-dirty`` when tracked files differ from it.
     """
@@ -218,7 +224,7 @@ def provenance(device: torch.device) -> dict[str, str]:
 
 
 def on_grid(model: torch.nn.Module, dataset: Any, device: torch.device) -> torch.Tensor:
-    """A model's output at every point of a dataset's grid, shaped like its target."""
+    """Return a model's output on a dataset's whole grid, shaped like its target."""
     output = inro.chunked_inference(
         model, dataset.input, chunk_size=2**18, device=device
     )
@@ -241,15 +247,14 @@ def compile_model(model: torch.nn.Module) -> None:
 def warm_up(
     model: torch.nn.Module, dataset: Any, device: torch.device, compile: bool = False
 ) -> None:
-    """One forward and backward pass before training is timed.
+    """Run one forward and backward pass before training is timed.
 
     The first pass through a model sets up its kernels, which would otherwise
     land in the training time of a run that trains alone in its process.
-    With ``compile``, the model is first compiled in place (see
-    :func:`compile_model`), and this pass compiles it; the batch has the
-    leading dimension that ``inro.train``'s loader adds, so that training
-    reuses the graph. The pass steps no optimizer and leaves the parameters
-    as they were; ``inro.train`` reseeds before it draws its own batches.
+    With ``compile``, this pass compiles the model (see :func:`compile_model`), on
+    a batch with the leading dimension of ``inro.train``'s loader, so that training
+    reuses the graph. The parameters stay as they were, and ``inro.train`` reseeds
+    before it draws its own batches.
     """
     model.to(device).train()
     if compile:
@@ -261,10 +266,10 @@ def warm_up(
 def warm_up_field(
     field: torch.nn.Module, dataset: Any, device: torch.device, compile: bool = False
 ) -> None:
-    """One occupancy update and one rendered ray batch before training is timed.
+    """Run one occupancy update and one rendered ray batch before training is timed.
 
     A throwaway renderer takes the update, so the one that trains starts from
-    the same empty grid as in the sweeps. ``compile`` compiles the field's
+    the same empty grid as in the sweeps. ``compile`` compiles the radiance field's
     networks first, as :func:`warm_up` does a model.
     """
     field.to(device).train()

@@ -14,9 +14,17 @@ __all__ = ["RealGaborLayer", "ComplexGaborLayer", "RealWIRE", "WIRE"]
 class RealGaborLayer(nn.Module):
     """Real Gabor layer ``cos(omega * z1) * exp(-(scale * z2)**2)``.
 
-    A linear projection produces ``z1`` and ``z2`` with ``out_features``
-    channels each. ``omega`` controls frequency and ``scale`` controls the
-    inverse Gaussian width. Leading input dimensions are preserved.
+    A linear projection gives ``z1`` and ``z2``, with ``out_features`` channels each.
+
+    Args:
+        in_features: Input width.
+        out_features: Output width.
+        omega: Frequency multiplier.
+        scale: Inverse Gaussian width.
+
+    Shape:
+        - Input: ``(..., in_features)``.
+        - Output: ``(..., out_features)``.
     """
 
     def __init__(
@@ -44,10 +52,18 @@ class RealGaborLayer(nn.Module):
 class ComplexGaborLayer(nn.Module):
     """Complex Gabor layer ``exp(1j * omega * z - abs(scale * z)**2)``.
 
-    Here ``z = linear(x)``. The projection uses real weights when
-    ``is_first=True`` and complex weights otherwise. Maps
-    ``(..., in_features)`` to complex ``(..., out_features)`` values;
-    ``omega`` controls frequency and ``scale`` the inverse Gaussian width.
+    Here ``z = linear(x)``.
+
+    Args:
+        in_features: Input width.
+        out_features: Output width.
+        omega: Frequency multiplier.
+        scale: Inverse Gaussian width.
+        is_first: Whether to use real weights, for real inputs, rather than complex.
+
+    Shape:
+        - Input: ``(..., in_features)``, real if ``is_first``, else complex.
+        - Output: ``(..., out_features)``, complex.
     """
 
     def __init__(
@@ -74,20 +90,23 @@ class ComplexGaborLayer(nn.Module):
 
 
 class RealWIRE(MLP):
-    """Real-valued variant of :class:`WIRE` with :class:`RealGaborLayer`.
+    """Real-valued variant of :class:`WIRE` with :class:`RealGaborLayer` hidden layers.
 
-    Uses PyTorch's default initialization and a linear output layer. The
-    hidden width is reduced as in WIRE; each real Gabor layer projects to
-    twice that width to form its two wavelet terms.
+    Uses a linear output layer and PyTorch's default initialization. Each hidden layer
+    projects to twice the reduced width, to form its two wavelet terms.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
-        hidden_features: Nominal width, divided by ``sqrt(2)`` and rounded down.
-        hidden_layers: Number of Gabor layers; must be at least one.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
+        hidden_features: Hidden width, divided by ``sqrt(2)`` and rounded down.
+        hidden_layers: Number of hidden layers.
         omega: Frequency multiplier.
         scale: Inverse Gaussian width.
-        output_activation: Optional callable applied to the output.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
     """
 
     def __init__(
@@ -115,22 +134,28 @@ class RealWIRE(MLP):
 
 
 class WIRE(nn.Module):
-    """Wavelet implicit neural representation (Saragadam et al., CVPR 2023).
+    """Wavelet implicit neural representation with complex Gabor layers.
 
-    Uses a real first projection, complex Gabor hidden layers, and a complex
-    linear output layer, all with PyTorch's default initialization. Returns
-    the real part of the output, followed by ``output_activation``.
-    Maps real ``(..., in_features)`` to real ``(..., out_features)`` values.
+    Uses :class:`ComplexGaborLayer` hidden layers, the first with real weights, and a
+    complex linear output layer, all with PyTorch's default initialization. The real
+    part of the output goes through ``output_activation``. Dividing the width keeps the
+    parameter count comparable to real-valued networks.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
-        hidden_features: Nominal width, divided by ``sqrt(2)`` and rounded down
-            to keep the parameter count comparable to real-valued networks.
-        hidden_layers: Number of Gabor layers; must be at least one.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
+        hidden_features: Hidden width, divided by ``sqrt(2)`` and rounded down.
+        hidden_layers: Number of hidden layers.
         omega: Frequency multiplier.
         scale: Inverse Gaussian width.
-        output_activation: Optional callable applied to the output.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``, real.
+        - Output: ``(..., D)``, real.
+
+    References:
+        Saragadam et al., "WIRE: Wavelet Implicit Neural Representations", CVPR 2023.
     """
 
     def __init__(

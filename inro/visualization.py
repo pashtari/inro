@@ -14,25 +14,28 @@ __all__ = ["LinePlot"]
 
 
 class LinePlot:
-    """Seaborn line plot of tabular results, e.g. rate-distortion curves.
+    """Seaborn line plot of tabular results, such as rate-distortion curves.
 
     Args:
-        data: Results in any form accepted by :class:`pandas.DataFrame`: a
-            DataFrame, a mapping from column names to sequences, or a sequence
-            of record dictionaries.
-        columns: Columns passed to :class:`pandas.DataFrame`; ``None`` keeps
-            all columns.
+        data: Results in any form :class:`pandas.DataFrame` accepts: a DataFrame, a
+            mapping from column names to sequences, or a sequence of record
+            dictionaries.
+        columns: Columns passed to :class:`pandas.DataFrame`; ``None`` keeps all
+            columns.
 
     Attributes:
         data: The results as a :class:`pandas.DataFrame`.
         fig: Figure created by the last :meth:`plot` call, or ``None``.
         ax: Axes created by the last :meth:`plot` call, or ``None``.
 
-    Example::
-
-        plot = LinePlot(records)
-        fig, ax = plot.plot(x="bpp", y="psnr", hue="method")
-        plot.save("figures", "rate_distortion")
+    Examples:
+        >>> records = [
+        ...     {"bpp": 0.1, "psnr": 30.0, "method": "FUTON"},
+        ...     {"bpp": 0.2, "psnr": 33.0, "method": "FUTON"},
+        ... ]
+        >>> plot = LinePlot(records)
+        >>> fig, ax = plot.plot(x="bpp", y="psnr", hue="method")
+        >>> plot.save("figures", "rate_distortion")  # doctest: +SKIP
     """
 
     def __init__(
@@ -58,16 +61,16 @@ class LinePlot:
         """Draw lines grouped by ``hue`` and store the resulting ``fig`` and ``ax``.
 
         Args:
-            x: Column for the x-axis.
-            y: Column for the y-axis.
+            x: Column of the x-axis.
+            y: Column of the y-axis.
             hue: Column defining both line color and style.
-            xlim: Left/right limits; ``None`` keeps a limit automatic.
-            ylim: Bottom/top limits; ``None`` keeps a limit automatic.
-            legend_labels: Existing legend labels to select and order; labels
-                must match exactly. ``None`` uses ``hue`` values in
-                first-appearance order, requiring a string-valued column.
+            xlim: Left and right limits; ``None`` keeps a limit automatic.
+            ylim: Bottom and top limits; ``None`` keeps a limit automatic.
+            legend_labels: Existing labels to keep in the legend, in order, matching
+                exactly; ``None`` uses the ``hue`` values in order of appearance, which
+                must be strings.
             legend_loc: Legend location accepted by ``seaborn.move_legend``.
-            **kwargs: Passed to ``seaborn.lineplot``, including aggregation options.
+            **kwargs: Passed to ``seaborn.lineplot``, such as aggregation options.
 
         Returns:
             The new figure and axes.
@@ -106,9 +109,13 @@ class LinePlot:
     ) -> None:
         """Save the last plot to ``save_dir/{file_name}.{format}`` with tight bounds.
 
-        Creates the directory if needed. Call :meth:`plot` first and supply a
-        non-empty ``file_name`` so matplotlib recognizes the extension.
-        The ``format`` argument specifies the filename extension.
+        Call :meth:`plot` first.
+
+        Args:
+            save_dir: Output directory, created if needed.
+            file_name: File name without extension; must not be empty, for matplotlib to
+                recognize the extension.
+            format: Extension of the file, which sets its format.
         """
         os.makedirs(save_dir, exist_ok=True)
 

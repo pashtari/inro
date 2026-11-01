@@ -13,7 +13,7 @@ DOUBLE = torch.float64
 
 
 def signal(sizes, channels, seed=0):
-    """A smooth random signal of shape ``(*sizes, channels)`` plus a little noise."""
+    """Return a smooth random signal ``(*sizes, channels)`` plus a little noise."""
     generator = torch.Generator().manual_seed(seed)
     axes = [torch.linspace(-1, 1, n, dtype=DOUBLE) for n in sizes]
     x = torch.stack(torch.meshgrid(*axes, indexing="ij"), -1).reshape(-1, len(sizes))
@@ -25,7 +25,7 @@ def signal(sizes, channels, seed=0):
 
 
 def features(basis, sizes):
-    """A basis's features on the grid ``linspace(-1, 1, N_c)`` of each axis."""
+    """Return a basis's features on the grid ``linspace(-1, 1, N_c)`` of each axis."""
     return [
         basis.axis_features(torch.linspace(-1, 1, n, dtype=DOUBLE), c).double()
         for c, n in enumerate(sizes)
@@ -33,7 +33,7 @@ def features(basis, sizes):
 
 
 def futon(basis, rank, channels):
-    """The paper's model: a CP combiner and a linear decoder, both without bias."""
+    """Build the paper's model: a CP combiner and a linear decoder without bias."""
     return inro.FUTON(
         len(basis.num_components),
         channels,
@@ -59,8 +59,7 @@ def grid_error(model, sizes, target):
     ],
 )
 def test_upper_bound_is_attained_and_bounds_are_ordered(sizes, channels, basis):
-    """A FUTON given the bound's factors has exactly the upper bound's error,
-    and truncation <= lower <= upper, each nonincreasing in the rank."""
+    """Order ``truncation <= lower <= upper``, the last two nonincreasing in rank."""
     name, components = basis
     basis = inro.FUTON(len(sizes), channels, (name, {"num_components": components}),
                        ("cp", {"rank": 1}), ("linear", {"bias": False})).encoding.basis.double()  # fmt: skip
@@ -77,7 +76,7 @@ def test_upper_bound_is_attained_and_bounds_are_ordered(sizes, channels, basis):
 
 
 def test_every_futon_is_above_the_lower_bound():
-    """Random and trained FUTONs alike stay above the lower bound of their rank."""
+    """Compare random and trained FUTONs with the lower bound of their rank."""
     sizes, channels, rank = (10, 8), 3, 3
     basis = inro.SincBasis(2, num_components=[6, 5])
     target = signal(sizes, channels, seed=1)
@@ -99,9 +98,7 @@ def test_every_futon_is_above_the_lower_bound():
 
 
 def test_matrix_case_is_exact():
-    """With a full span, two axes and one channel, the best FUTON of rank R is
-    the truncated SVD of the signal itself (Eckart and Young): the bounds meet
-    there, whatever the basis."""
+    """Make the bounds meet at the truncated SVD (Eckart and Young) on a full span."""
     sizes, rank = (9, 7), 3
     target = signal(sizes, 1, seed=2)
     generator = torch.Generator().manual_seed(3)
@@ -115,7 +112,7 @@ def test_matrix_case_is_exact():
 
 
 def test_bounds_depend_only_on_the_span():
-    """Features Phi_c and Phi_c M_c, for invertible M_c, give the same bounds."""
+    """Give ``Phi_c`` and ``Phi_c M_c``, for invertible ``M_c``, the same bounds."""
     sizes, channels = (11, 9, 6), 2
     target = signal(sizes, channels, seed=4)
     generator = torch.Generator().manual_seed(5)
@@ -132,7 +129,7 @@ def test_bounds_depend_only_on_the_span():
 
 
 def test_redundant_features_span_the_grid():
-    """More functions than points: the span is the whole axis, nothing is truncated."""
+    """Truncate nothing when functions outnumber points: the span is the whole axis."""
     sizes, channels = (6, 5), 2
     target = signal(sizes, channels, seed=6)
     generator = torch.Generator().manual_seed(7)
@@ -144,14 +141,12 @@ def test_redundant_features_span_the_grid():
 
 
 def test_cosine_coefficients_are_a_dct_block():
-    """The paper's cosine basis is orthonormal at pixel centres, so the
-    truncation is the energy outside the leading block of the orthonormal DCT
-    of the signal, which an FFT computes."""
+    """Truncate to a DCT block, the cosine basis being orthonormal at pixel centers."""
     sizes, keep = (16, 12), (5, 4)
     target = signal(sizes, 1, seed=8)
     phis = []
     for n, k in zip(sizes, keep):
-        x = (torch.arange(n, dtype=DOUBLE) + 0.5) / n  # pixel centres in [0, 1]
+        x = (torch.arange(n, dtype=DOUBLE) + 0.5) / n  # pixel centers in [0, 1]
         scale = torch.full((k,), math.sqrt(2.0), dtype=DOUBLE)
         scale[0] = 1.0
         phis.append(

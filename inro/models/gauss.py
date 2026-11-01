@@ -11,10 +11,16 @@ __all__ = ["GaussLayer", "Gauss"]
 
 
 class GaussLayer(nn.Module):
-    """Gaussian layer ``exp(-(scale * linear(x))**2)``.
+    """Gaussian layer ``exp(-(scale * linear(x))**2)`` of :class:`Gauss`.
 
-    Maps ``(..., in_features)`` to ``(..., out_features)``. Larger ``scale``
-    produces narrower Gaussians.
+    Args:
+        in_features: Input width.
+        out_features: Output width.
+        scale: Inverse Gaussian width.
+
+    Shape:
+        - Input: ``(..., in_features)``.
+        - Output: ``(..., out_features)``.
     """
 
     def __init__(
@@ -32,17 +38,26 @@ class GaussLayer(nn.Module):
 
 
 class Gauss(MLP):
-    """Gaussian coordinate MLP (Ramasinghe and Lucey, ECCV 2022).
+    """Gaussian coordinate MLP.
 
-    Uses :class:`GaussLayer` hidden layers and PyTorch's default initialization.
+    An :class:`MLP` with :class:`GaussLayer` hidden layers, a linear output layer and
+    PyTorch's default initialization.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
         hidden_features: Hidden width.
-        hidden_layers: Number of Gaussian layers; must be at least one.
-        scale: Inverse Gaussian width in every hidden layer.
-        output_activation: Optional callable applied to the output.
+        hidden_layers: Number of hidden layers.
+        scale: Inverse Gaussian width.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Ramasinghe and Lucey, "Beyond Periodicity: Towards a Unifying Framework for
+        Activations in Coordinate-MLPs", ECCV 2022.
     """
 
     def __init__(

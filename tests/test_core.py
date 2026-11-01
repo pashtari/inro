@@ -63,8 +63,7 @@ def test_quantized_parameters_round_trip_and_remain_trainable(quant_max, dtype):
     ],
 )
 def test_targets_are_laid_out_as_batches(dataset, shape):
-    """An item's target has the strides of a loader's batch of it, so that a
-    solver's sweep compiled on the item does not recompile for the batches."""
+    """Match a batch's strides, so a sweep compiled on an item does not recompile."""
     target = dataset.preprocess(torch.zeros(shape, dtype=torch.uint8))
     batch = torch.utils.data.default_collate([target])
     assert target[None].stride() == batch.stride()

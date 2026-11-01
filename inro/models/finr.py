@@ -12,51 +12,45 @@ __all__ = ["FINR"]
 
 
 class FINR(nn.Module):
-    """Functional tensor decomposition with SIREN axes (Vemuri et al., WACV 2026).
+    r"""Functional tensor decomposition with one SIREN per coordinate axis.
 
-    One network per input coordinate maps that coordinate alone to factors,
-    and a tensor format combines the factors of all coordinates, per output
-    channel, with no decoder after it:
+    Each axis's network maps its coordinate alone to factors, and a tensor format
+    combines the axes' factors per output channel, with no decoder after it:
 
-    - ``"cp"``: ``y_c = sum_r prod_i a_i[c, r]``, for any number of inputs;
-    - ``"tt"``: for three inputs, the tensor train ``y_c = b[c]^T G[c] d[c]``,
-      whose ``R x R`` core comes from the first coordinate's network, as in
-      the authors' code.
+    - ``"cp"``: :math:`y_d = \sum_r \prod_c a_{c,dr}`, for any ``C``.
+    - ``"tt"``: the tensor train
+      :math:`y_d = \boldsymbol{u}_d^\top \boldsymbol{G}_d \boldsymbol{v}_d`, for
+      ``C = 3``, whose ``R x R`` core comes from the first axis's network, as in the
+      authors' code.
 
-    Each axis network is a SIREN as in the authors' image code:
-    ``hidden_layers`` sine layers ``sin(omega (W x + b))``, with ``omega``
-    ``first_omega`` in the first and ``hidden_omega`` after, and a linear
-    head. Weights are drawn from ``U(-1/n, 1/n)`` in the first layer and from
-    ``U(-sqrt(6/n) / hidden_omega, sqrt(6/n) / hidden_omega)`` in the later
-    layers and the head, ``n`` being the fan-in, and every bias is zero.
-
-    ``positional_encoding`` puts the authors' positional encoding before each
-    network, as their image experiments do: ``sin(2^k x)`` and then
-    ``cos(2^k x)`` for ``k`` from ``int(-(n - 1) / 2)`` up to, but not
-    including, ``int((n + 1) / 2)``, computed as their code does, so that
-    ``n = 10`` gives the nine bands ``2^-4, ..., 2^4``, and no raw coordinate.
-
-    On a grid, each network runs once per distinct value of its coordinate in
-    a batch, and its factors are gathered per point: the output is the same
-    as running it per point, and it is the separable evaluation the
-    decomposition is made for.
+    Each network has ``hidden_layers`` sine layers and a linear head.
 
     Args:
-        in_features: Number of input coordinates, one network each.
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
         rank: Rank ``R`` of the decomposition.
-        hidden_features: Width of each axis network.
-        hidden_layers: Number of sine layers of each axis network; at least one.
-        mode: ``"cp"``, or ``"tt"`` for three inputs.
-        first_omega: Frequency of the first sine layer.
-        hidden_omega: Frequency of the later sine layers.
-        positional_encoding: The authors' ``pos_enc``, the size of the
-            positional encoding before each network; 0 feeds it the raw
-            coordinate.
-        grid: Whether inputs lie on a grid, so that a coordinate takes few
-            distinct values in a batch; off for scattered points, such as a
-            radiance field's samples, where finding them would only cost time.
-        output_activation: Optional callable applied to the output.
+        hidden_features: Hidden width.
+        hidden_layers: Number of hidden layers.
+        mode: Tensor format, ``"cp"``, or ``"tt"`` for ``C = 3``.
+        first_omega: Frequency multiplier of the first sine layer.
+        hidden_omega: Frequency multiplier of the later sine layers.
+        positional_encoding: Size ``n`` of the authors' ``pos_enc``, which replaces each
+            network's raw coordinate by ``sin(2^k x)`` and then ``cos(2^k x)`` for ``k``
+            in ``range(int(-(n - 1) / 2), int((n + 1) / 2))``, so ``n = 10`` gives the
+            nine bands ``2^-4, ..., 2^4``. ``0`` keeps the raw coordinate.
+        grid: Whether to run each network once per distinct coordinate, when at most
+            half of a batch's are distinct, and gather the factors per point; the output
+            is the same. Turn it off for scattered points, such as a radiance field's
+            samples, where finding the distinct ones only costs time.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Vemuri et al., "F-INR: Functional Tensor Decomposition for Implicit Neural
+        Representations", WACV 2026.
     """
 
     def __init__(
@@ -114,7 +108,12 @@ class FINR(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self) -> None:
-        """Initialize as the authors' image code does, biases at zero."""
+        """Initialize as the authors' image code does, biases at zero.
+
+        Weights are drawn from ``U(-1/n, 1/n)`` in the first layer and from
+        ``U(-sqrt(6/n) / hidden_omega, sqrt(6/n) / hidden_omega)`` after it, for fan-in
+        ``n``.
+        """
         for network in self.axes:
             for index, layer in enumerate(network):
                 linear = layer.linear if isinstance(layer, SineLayer) else layer
@@ -128,14 +127,14 @@ class FINR(nn.Module):
                 linear.bias.zero_()
 
     def _encode(self, coordinate: Tensor) -> Tensor:
-        """A ``(n,)`` coordinate as a network's ``(n, features)`` input."""
+        """Return a coordinate ``(N,)`` as a network's input ``(N, features)``."""
         if not len(self.bands):
             return coordinate[:, None]
         angles = coordinate[:, None] * self.bands
         return torch.cat([angles.sin(), angles.cos()], dim=-1)
 
     def _factors(self, network: nn.Module, coordinate: Tensor) -> Tensor:
-        """``network`` on each point's coordinate, once per distinct value on a grid."""
+        """Run ``network`` on each point, once per distinct coordinate on a grid."""
         if self.grid and not coordinate.requires_grad:
             values, inverse = torch.unique(coordinate, return_inverse=True)
             if 2 * len(values) <= len(coordinate):

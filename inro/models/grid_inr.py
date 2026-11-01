@@ -1,4 +1,4 @@
-"""Grid of independent INRs with smooth overlap blending."""
+"""Grid of independent implicit neural representations (INRs) with blended overlaps."""
 
 import math
 from collections.abc import Sequence
@@ -14,23 +14,32 @@ __all__ = ["GridINR"]
 class GridINR(nn.Module):
     """Independent coordinate networks on a regular grid of patches.
 
-    Coordinates in ``[-1, 1]`` are mapped to each patch's local ``[-1, 1]``
-    domain. Overlapping patches blend their outputs with Hermite smoothstep
-    weights. Up to ``2**in_features`` networks contribute to each point.
-    Maps ``(..., in_features)`` to ``(..., out_features)``.
+    Coordinates in ``[-1, 1]`` are mapped to each patch's local ``[-1, 1]`` domain.
+    Overlapping patches blend their outputs with Hermite smoothstep weights, so up to
+    ``2**C`` networks contribute to each point.
 
     Args:
-        inr_class: Module class accepting ``(in_features, out_features,
-            **inr_kwargs)``; a separate instance is built per patch.
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
-        patches_per_axis: Patch count per axis; an int applies to every axis.
-        overlap: Fraction of a cell width added on each side of a patch.
-            Zero gives hard boundaries; values above 0.5 cause discontinuities.
-        **inr_kwargs: Arguments passed to each patch network.
+        inr_class: Module class, built once per patch as
+            ``inr_class(in_features, out_features, **inr_kwargs)``.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
+        patches_per_axis: Number of patches, shared or per axis.
+        overlap: Fraction of a cell width added on each side of a patch. ``0`` gives
+            hard boundaries; values above ``0.5`` cause discontinuities.
+        **inr_kwargs: Keyword arguments of each patch network.
 
-    The ``inrs`` ModuleList uses row-major patch order, with the last
-    coordinate axis varying fastest.
+    Attributes:
+        inrs: Patch networks in row-major order, the last axis varying fastest.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    Examples:
+        >>> from inro import SIREN
+        >>> model = GridINR(SIREN, 2, 3, patches_per_axis=2, hidden_features=16)
+        >>> model(torch.rand(8, 2) * 2 - 1).shape
+        torch.Size([8, 3])
     """
 
     def __init__(
@@ -85,7 +94,7 @@ class GridINR(nn.Module):
         return t * t * (3 - 2 * t)
 
     def _to_local(self, fraction: Tensor) -> Tensor:
-        """Map cell coordinates to [-1, 1], reserving room for overlap."""
+        """Map cell coordinates to ``[-1, 1]``, reserving room for overlap."""
         if self.overlap > 0:
             return (fraction + self.overlap) / (1 + 2 * self.overlap) * 2 - 1
         return fraction * 2 - 1
@@ -190,7 +199,6 @@ class GridINR(nn.Module):
         local_x = torch.cat(all_local_x)
         patch_outputs = self._eval_patches(patch_indices, local_x)
 
-        # Accumulate contributions in the original point order.
         weights = torch.cat(all_weights).unsqueeze(-1)
         point_indices = torch.cat(all_point_indices)
 

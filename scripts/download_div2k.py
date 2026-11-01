@@ -1,4 +1,4 @@
-"""Download the DIV2K images for 4x super-resolution.
+"""Downloader for the DIV2K images of 4x super-resolution.
 
 The 100 validation images of DIV2K (Agustsson and Timofte, CVPRW 2017), 2040
 pixels on the long side, and their 4x bicubic downsamplings (MATLAB's
@@ -7,14 +7,13 @@ imresize), from the official site:
     https://data.vision.ee.ethz.ch/cvl/DIV2K/
 
 The archives unpack in the release's layout, as DIV2K_valid_HR/0801.png and
-DIV2K_valid_LR_bicubic/X4/0801x4.png; notebooks/image_super_resolution.ipynb
-reads image 0887 from there. ``--training`` adds the three training images
-that every setting of the benchmark was tuned on, 0395, 0431 and 0777, which
-configs/ablation-futon/components_width_super_resolution.yaml runs on: it
-fetches the training archives, 3.8 GB, and keeps only those images. An
-archive whose images all exist is skipped.
+DIV2K_valid_LR_bicubic/X4/0801x4.png. ``--training`` adds the three training
+images every setting of the benchmark was tuned on, 0395, 0431 and 0777: it
+fetches the training archives, 3.8 GB, and keeps only those images. An archive
+whose images all exist is skipped.
 
 Usage:
+
     python scripts/download_div2k.py
     python scripts/download_div2k.py --training   # and the three tuning images
 """
@@ -60,7 +59,7 @@ def main():
             continue
         print(f"  {name}", flush=True)
         args.output_dir.mkdir(parents=True, exist_ok=True)
-        # Beside the images rather than in /tmp, which is small on some clusters.
+        # Beside the images rather than in /tmp, which can be too small for 3.8 GB.
         with tempfile.TemporaryFile(dir=args.output_dir) as archive:
             with urllib.request.urlopen(URL.format(name)) as response:
                 shutil.copyfileobj(response, archive)

@@ -43,23 +43,22 @@ def render_image(
     background: Tensor | None = None,
     chunk_size: int | None = None,
 ) -> dict[str, Tensor]:
-    """Render rays in chunks without gradients or stratified jitter.
+    """Render rays in chunks, without gradients or stratified jitter.
 
-    Both modules enter eval mode and return to training mode if ``field``
-    was training. Changing chunk size may change floating-point reductions.
+    Both modules enter eval mode, and return to training mode if ``field`` was training.
 
     Args:
-        field: Radiance field; rays move to its parameter device.
-        renderer: Volume renderer, e.g. from :func:`create_renderer`.
-        rays_o: Ray origins ``(*, 3)``, e.g. ``(H, W, 3)``.
-        rays_d: Unit directions with the same shape as ``rays_o``.
-        background: Shared background color ``(3,)``; ``None`` uses white.
-        chunk_size: Rays per forward pass. ``None`` budgets ``2**19`` marching
-            slots per pass, using the renderer's full marching step count.
+        field: Radiance field; rendering runs on the device of its parameters.
+        renderer: Volume renderer on the device of ``field``, such as from
+            :func:`create_renderer`.
+        rays_o: Ray origins ``(..., 3)``, such as ``(H, W, 3)`` for a view.
+        rays_d: Unit ray directions ``(..., 3)``.
+        background: Background color ``(3,)``; ``None`` uses white.
+        chunk_size: Rays per forward pass; ``None`` fits ``2**19`` marching samples.
 
     Returns:
-        Dict with ``"rgb"`` ``(*, 3)``, ``"opacity"`` ``(*, 1)``, and
-        ``"depth"`` ``(*, 1)``, preserving the leading ray dimensions.
+        Dictionary with ``rgb`` ``(..., 3)``, ``opacity`` ``(..., 1)`` and ``depth``
+            ``(..., 1)``, with the leading dimensions of ``rays_o``.
     """
     if chunk_size is None:
         # Marching buffers are allocated before the per-ray sample cap is applied.
@@ -96,29 +95,30 @@ def evaluate(
     chunk_size: int | None = None,
     return_images: bool = False,
 ) -> dict[str, Any]:
-    """Evaluate held-out views against the dataset's background.
+    """Score held-out views, composited onto the dataset's background.
 
-    Renders are clamped to ``[0, 1]`` before scoring. Both modules enter eval
-    mode and return to training mode if ``field`` was training.
+    Renders are clamped to ``[0, 1]`` before scoring. Both modules enter eval mode, and
+    return to training mode if ``field`` was training.
 
     Args:
-        field: Radiance field; predictions and targets use its parameter device.
-        renderer: Volume renderer, e.g. from :func:`create_renderer`.
-        dataset: Posed RGBA images and the background used for compositing.
+        field: Radiance field; rendering runs on the device of its parameters.
+        renderer: Volume renderer on the device of ``field``, such as from
+            :func:`create_renderer`.
+        dataset: Posed RGBA images and the background they are composited onto.
         indices: View indices; ``None`` evaluates all views.
-        metrics: Mapping of names to functions ``fn(pred, target)`` on
-            ``(3, H, W)`` images in ``[0, 1]``. ``None`` selects PSNR, SSIM, and
-            LPIPS (VGG), the standard novel view synthesis metrics.
-        chunk_size: Rays per forward pass; see :func:`render_image`.
-        return_images: Include rendered images in the result.
+        metrics: Metrics by name, called as ``fn(pred, target)`` on images ``(3, H, W)``
+            in ``[0, 1]``; ``None`` uses PSNR, SSIM and LPIPS (VGG).
+        chunk_size: Rays per forward pass; ``None`` fits ``2**19`` marching samples.
+        return_images: Whether to include the rendered images in the result.
 
     Returns:
-        ``"views"`` contains one dict per view with its ``"view"`` index,
-        ``"duration"`` in seconds (CUDA-synchronized), ``"peak_memory"`` (the
-        most bytes its render allocated beyond what was on the device, zero
-        off CUDA), and metrics. ``"mean"``
-        averages these entries except the index, or is empty for no views.
-        When requested, ``"images"`` contains ``(H, W, 3)`` CPU tensors.
+        Dictionary with these keys.
+
+        - ``views``: One record per view, with ``view`` (its index), ``duration``
+          (seconds of its render), ``peak_memory`` (the most bytes it allocated beyond
+          what the device already held, zero off CUDA) and the metric values.
+        - ``mean``: Average of these entries except the index, empty without views.
+        - ``images``: Rendered CPU tensors ``(H, W, 3)``, if ``return_images``.
     """
     if metrics is None:
         metrics = {"psnr": psnr, "ssim": ssim, "lpips": lpips}
@@ -179,22 +179,20 @@ def render_views(
     *,
     chunk_size: int | None = None,
 ) -> list[NDArray[np.uint8]]:
-    """Render an orbit (or any pose list) as uint8 frames for a video.
+    """Render camera poses, such as an orbit, as ``uint8`` frames for a video.
 
-    Both modules enter eval mode and return to training mode if ``field``
-    was training.
+    Both modules enter eval mode, and return to training mode if ``field`` was training.
 
     Args:
-        field: Radiance field.
-        renderer: Volume renderer, e.g. from
-            :func:`~inro.nerf.create_renderer`.
-        dataset: Supplies the camera intrinsics and background color.
-        poses: Camera-to-world matrices ``(4, 4)`` (e.g. from
-            :func:`inro.nerf.pose_spherical`).
-        chunk_size: Rays per forward pass; see :func:`render_image`.
+        field: Radiance field; rendering runs on the device of its parameters.
+        renderer: Volume renderer on the device of ``field``, such as from
+            :func:`create_renderer`.
+        dataset: Source of the camera intrinsics and the background color.
+        poses: Camera-to-world poses ``(4, 4)``, such as from :func:`pose_spherical`.
+        chunk_size: Rays per forward pass; ``None`` fits ``2**19`` marching samples.
 
     Returns:
-        List of ``(H, W, 3)`` uint8 NumPy arrays, one per pose.
+        List of ``uint8`` NumPy arrays ``(H, W, 3)``, one per pose.
     """
     background = dataset.background.to(next(field.parameters()).device)
     frames: list[NDArray[np.uint8]] = []

@@ -1,19 +1,11 @@
-r"""How well a FUTON with a linear decoder can fit a sampled signal, bounded both ways.
+"""Bounds on how well a FUTON with a linear decoder can fit a sampled signal.
 
-A FUTON with a CP combiner and a linear decoder, both without bias, is the
-paper's model: its weight tensor :math:`\mathcal{W} = [\![\mathbf{U}^{(1)},
-\dots, \mathbf{U}^{(C)}, \mathbf{V}]\!]` has CP rank at most ``R``. On a
-signal's sampling grid, its error splits exactly in two: the error of the best
-approximation in the basis's span, which no rank removes, and the CP misfit of
-the signal's coefficients in an orthonormal basis of that span.
-:func:`futon_bound` computes the first exactly and brackets the best second:
-from below by the singular values of the coefficients' matricizations, and from
-above by an explicit CP tensor, the leading terms of a nested SVD refined by
-alternating least squares. Its factors, mapped back through the basis, make a
-FUTON whose error is exactly the upper bound. Everything a bound rests on is
-computed in float64; only the search for the factors runs in float32, since
-any factors give a valid bound once their error is taken exactly. The theorem
-and its proof are in the documentation, under Concepts.
+On a signal's sampling grid, the error of a FUTON with a CP combiner and a linear
+decoder, both without bias, splits exactly in two: the error of the best approximation
+in the basis's span, which no rank removes, and the CP misfit of the signal's
+coefficients in an orthonormal basis of that span. :func:`futon_bound` computes the
+first exactly, brackets the best second, and returns the factors of a FUTON that attains
+the upper bound. The documentation's error bound page states and proves the theorem.
 """
 
 import math
@@ -32,22 +24,21 @@ __all__ = ["FUTONBound", "futon_bound"]
 
 @dataclass
 class FUTONBound:
-    """Bounds on the best mean squared error of a FUTON with a linear decoder.
+    r"""Bounds on the best mean squared error of a FUTON with a linear decoder.
 
-    Errors are means over the grid's points and the signal's channels, as
-    :func:`inro.train` reports them, and are in float64.
+    Errors are float64 means over the grid's points and the signal's channels, as
+    :func:`inro.train` reports them.
 
     Attributes:
-        ranks: The CP ranks, ascending.
-        truncation: The error of the best approximation in the basis's span,
-            which no rank goes below; exact.
-        lower: Per rank, a lower bound on the error of every FUTON of that
-            rank; exact for a matrix of coefficients, that is, one axis, or two
-            and one channel.
-        upper: Per rank, the error of the FUTON in ``factors``, and so an
-            upper bound on the best one's.
-        factors: Per rank, the factor matrices ``U^(c)`` of shape ``(K_c, R)``
-            and the decoder ``V`` of shape ``(D, R)`` that attain ``upper``.
+        ranks: CP ranks, ascending.
+        truncation: Error of the best approximation in the basis's span, which no rank
+            goes below; exact.
+        lower: Per rank, a lower bound on the error of every FUTON of that rank; exact
+            for a matrix of coefficients, that is, one axis, or two and one channel.
+        upper: Per rank, the error of the FUTON in ``factors``, and so an upper bound on
+            the best one's.
+        factors: Per rank, the factors :math:`\boldsymbol{U}^{(c)}`, ``(K_c, R)``, and
+            the decoder :math:`\boldsymbol{V}`, ``(D, R)``, that attain ``upper``.
     """
 
     ranks: list[int]
@@ -60,8 +51,15 @@ class FUTONBound:
     def initialize(self, model: FUTON) -> None:
         """Give ``model`` the factors and the decoder that attain ``upper`` at its rank.
 
-        The model must use the basis and the grid the bound was computed with;
-        its error on that grid is then the bound, up to its own precision.
+        The model's error on the bound's grid is then the bound, up to its precision.
+
+        Args:
+            model: FUTON with the bound's basis, a CP combiner and a linear decoder
+                without bias.
+
+        Raises:
+            ValueError: If ``model`` has another combiner or decoder, or a rank without
+                a bound.
         """
         if not (
             isinstance(model.encoding.combiner, CPCombiner)
@@ -79,18 +77,18 @@ class FUTONBound:
 
 
 def _unfold(tensor: Tensor, rows: Sequence[int]) -> Tensor:
-    """The matricization with ``rows`` as row modes and the rest as columns."""
+    """Return the matricization with ``rows`` as row modes and the rest as columns."""
     columns = [mode for mode in range(tensor.ndim) if mode not in rows]
     shape = math.prod(tensor.shape[mode] for mode in rows)
     return tensor.permute(*rows, *columns).reshape(shape, -1)
 
 
 def _tails(tensor: Tensor, ranks: Sequence[int]) -> Tensor:
-    """Per rank, the most energy beyond that rank in any matricization.
+    """Return, per rank, the most energy beyond that rank in any matricization.
 
-    A CP tensor of rank ``R`` has matricizations of rank at most ``R``, so by
-    Eckart and Young none comes closer to ``tensor`` than the energy of the
-    singular values a matricization has beyond the ``R``-th.
+    A CP tensor of rank ``R`` has matricizations of rank at most ``R``, so by Eckart and
+    Young none comes closer to ``tensor`` than the energy of the singular values a
+    matricization has beyond the ``R``-th.
     """
     best = torch.zeros(len(ranks), dtype=tensor.dtype)
     for size in range(1, tensor.ndim // 2 + 1):
@@ -110,15 +108,19 @@ def _tails(tensor: Tensor, ranks: Sequence[int]) -> Tensor:
 
 
 def _expansion(tensor: Tensor, order: Sequence[int]) -> tuple[Tensor, list[Tensor]]:
-    """The orthonormal rank-1 expansion of a batch of tensors, by nested SVDs.
+    """Return the orthonormal rank-1 expansion of a batch of tensors, by nested SVDs.
 
-    ``tensor`` is ``(B, I_1, ..., I_M)``. The SVD of each tensor's
-    matricization with ``order[0]`` as rows writes it as a sum of orthogonal
-    terms, each a unit vector times a unit tensor of the other modes, which
-    are expanded in turn, all at once as a batch. The result is a sum of
-    mutually orthogonal rank-1 tensors of unit norm, each weighted by a
-    product of singular values. Returns the weights ``(B, L)`` and, per mode,
-    the unit vectors ``(B, L, I_m)`` of the terms.
+    The SVD of each tensor's matricization with ``order[0]`` as rows writes it as a sum
+    of orthogonal terms, each a unit vector times a unit tensor of the other modes,
+    which are expanded in turn, all at once as a batch.
+
+    Args:
+        tensor: Batch of tensors ``(B, I_1, ..., I_M)``.
+        order: Modes in the order they are split off.
+
+    Returns:
+        The terms' weights ``(B, L)``, products of singular values, and, per mode, their
+        unit vectors ``(B, L, I_m)``.
     """
     batch, *shape = tensor.shape
     first = order[0]
@@ -144,14 +146,14 @@ def _expansion(tensor: Tensor, order: Sequence[int]) -> tuple[Tensor, list[Tenso
 
 
 def _residual(tensor: Tensor, factors: Sequence[Tensor]) -> float:
-    """``||tensor - [[factors]]||_F^2``, with the CP tensor formed in full."""
+    """Return ``||tensor - [[factors]]||_F^2``, with the CP tensor formed in full."""
     letters = "abcdefgh"[: tensor.ndim]
     spec = f"{','.join(letter + 'r' for letter in letters)}->{letters}"
     return float((tensor - torch.einsum(spec, *factors)).square().sum())
 
 
 def _sweep(tensor: Tensor, factors: list[Tensor]) -> list[Tensor]:
-    """One sweep of alternating least squares: each mode's factor solved exactly."""
+    """Run one sweep of alternating least squares, each mode's factor solved exactly."""
     letters = "abcdefgh"[: tensor.ndim]
     for mode in range(tensor.ndim):
         others = [k for k in range(tensor.ndim) if k != mode]
@@ -172,13 +174,12 @@ def _sweep(tensor: Tensor, factors: list[Tensor]) -> list[Tensor]:
 def _als(
     tensor: Tensor, factors: list[Tensor], sweeps: int, tol: float, floor: float
 ) -> list[Tensor]:
-    """Alternating least squares from ``factors``, until the bound settles.
+    """Run alternating least squares from ``factors``, until the bound settles.
 
-    After each sweep, the step it took is extended by ``k^(1/3)`` at sweep
-    ``k`` and kept if that lowers the residual: Bro's line search, which
-    shortens the slow stretches of ALS. Neither move raises the residual, and
-    the sweeps stop once one lowers it by less than ``tol`` of the bound,
-    ``floor`` plus the residual, that it is part of.
+    After each sweep, the step it took is extended by ``k^(1/3)`` at sweep ``k`` and
+    kept if that lowers the residual: Bro's line search, which shortens the slow
+    stretches of ALS. The sweeps stop once one lowers the residual by less than ``tol``
+    of the bound, ``floor`` plus the residual, that it is part of.
     """
     error = _residual(tensor, factors)
     for k in range(1, sweeps + 1):
@@ -209,40 +210,40 @@ def futon_bound(
 ) -> FUTONBound:
     """Bound the best grid error of a FUTON with a linear decoder on a signal.
 
-    Every FUTON with a CP combiner and a linear decoder, both without bias,
-    with these per-axis features and rank ``R``, has a mean squared error on
-    the grid of at least ``lower[R]``, and the one given by ``factors[R]`` has
-    exactly ``upper[R]``; no FUTON goes below ``truncation``. The bounds
-    depend on the basis only through each axis's span, so any basis of the
-    same span gives the same ones.
+    Every FUTON with a CP combiner and a linear decoder, both without bias, with these
+    per-axis features and rank ``R`` has a mean squared error on the grid of at least
+    the bound's ``lower`` at ``R``, and the one given by its ``factors`` has exactly its
+    ``upper``; no FUTON goes below ``truncation``. The bounds depend on the basis only
+    through each axis's span.
 
     Args:
-        signal: Samples of shape ``(N_1, ..., N_C, D)`` on a grid.
-        features: Per axis ``c``, the basis at that axis's grid coordinates,
-            of shape ``(N_c, K_c)``: any functions, orthonormal or not. For a
-            FUTON's basis on a coordinate dataset's grid, it is
+        signal: Samples ``(N_1, ..., N_C, D)`` on a grid.
+        features: Per axis ``c``, the basis ``(N_c, K_c)`` at that axis's grid
+            coordinates, orthonormal or not. For a FUTON's basis on a coordinate
+            dataset's grid, it is
             ``basis.axis_features(torch.linspace(-1, 1, N_c), c)``.
-        ranks: The CP ranks ``R`` to bound.
-        sweeps: Most alternating least-squares sweeps that refine each upper
-            bound, in float32, from its SVD form, the ``R`` heaviest terms of
-            the nested SVDs; ``0`` keeps the SVD form.
-        tol: The sweeps stop once one lowers the bound by less than this
-            fraction of it.
+        ranks: CP ranks ``R`` to bound.
+        sweeps: Maximum number of alternating least-squares sweeps that refine each
+            upper bound, in float32, from its SVD form, the ``R`` heaviest terms of the
+            nested SVDs; ``0`` keeps the SVD form.
+        tol: Fraction of the bound below which a sweep's decrease stops the sweeps.
 
     Returns:
         The bounds and the factors that attain the upper ones, on the CPU.
 
-    Example::
+    Raises:
+        ValueError: If ``features`` is not one matrix of ``N_c`` rows per axis.
 
-        data = inro.ImageCoordinateDataset("kodim19.png")
-        H, W, _ = data.target.shape
-        basis = inro.SincBasis(2, num_components=[H // 2, W // 2])
-        features = [
-            basis.axis_features(torch.linspace(-1, 1, n), c)
-            for c, n in enumerate((H, W))
-        ]
-        bound = inro.futon_bound(data.target, features, ranks=[64, 256])
-        psnr = 10 * torch.log10(4 / bound.upper)  # guaranteed, in dB
+    Examples:
+        >>> from inro import SincBasis
+        >>> signal = torch.rand(32, 32, 3) * 2 - 1
+        >>> basis = SincBasis(2, num_components=16)
+        >>> grid = torch.linspace(-1, 1, 32)
+        >>> features = [basis.axis_features(grid, c) for c in range(2)]
+        >>> bound = futon_bound(signal, features, ranks=[4, 8], sweeps=10)
+        >>> psnr = 10 * torch.log10(4 / bound.upper)  # guaranteed, in dB
+        >>> psnr.shape
+        torch.Size([2])
     """
     ranks = sorted({ranks} if isinstance(ranks, int) else set(ranks))
     signal = signal.double()

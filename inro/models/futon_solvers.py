@@ -1,23 +1,11 @@
 """Block coordinate descent for FUTON: solvers in place of a gradient optimizer.
 
-A FUTON with a CP combiner and a linear decoder, both without bias, is the
-paper's model, and it is multilinear: with the other blocks held, its output
-is linear in each factor matrix and in the decoder, so fitting one block is a
-least-squares problem. :class:`BCD` sweeps the blocks once per batch and
-leaves each block's update to a subclass: :class:`LeastSquares` solves the
-block's problem, for any basis, and :class:`MultiplicativeUpdate` takes Lee
-and Seung's step, which keeps a nonnegative model nonnegative. Both are
-optimizers that :func:`inro.train` takes in place of Adam, on the same
-datasets.
-
-References:
-    Lee and Seung, "Algorithms for non-negative matrix factorization",
-    NeurIPS 2001.
-    Gillis and Glineur, "Accelerated multiplicative updates and hierarchical
-    ALS algorithms for nonnegative matrix factorization", Neural Computation
-    2012.
-    Mairal, Bach, Ponce and Sapiro, "Online learning for matrix factorization
-    and sparse coding", JMLR 2010.
+A FUTON with a CP combiner and a linear decoder, both without bias, is multilinear, so
+fitting one block with the others held is a least-squares problem. :class:`BCD` sweeps
+the blocks once per batch and leaves each block's update to a subclass:
+:class:`LeastSquares` solves the block's problem, for any basis, and
+:class:`MultiplicativeUpdate` takes Lee and Seung's step, which keeps a nonnegative
+model nonnegative. :func:`inro.train` takes both in place of Adam, on the same datasets.
 """
 
 from collections.abc import Mapping, Sequence
@@ -36,13 +24,13 @@ MODES = "ijklmn"  # einsum letters of a grid's axes and, last, its channels
 
 
 def _cp(factors: Sequence[Tensor]) -> Tensor:
-    """The CP tensor ``(M_1, ..., M_n)`` of factor matrices ``(M_k, R)``."""
+    """Return the CP tensor ``(I_1, ..., I_M)`` of factor matrices ``(I_m, R)``."""
     modes = MODES[: len(factors)]
     return torch.einsum(",".join(m + "r" for m in modes) + "->" + modes, *factors)
 
 
 def _correlation(grid: Tensor, factors: Sequence[Tensor], mode: int) -> Tensor:
-    """``grid`` contracted with every factor matrix but ``mode``'s: ``(M_mode, R)``."""
+    """Contract ``grid`` with every factor matrix but ``mode``'s: ``(I_mode, R)``."""
     modes = MODES[: grid.dim()]
     rest = [k for k in range(grid.dim()) if k != mode]
     operands = ",".join([modes, *(modes[k] + "r" for k in rest)])
@@ -53,12 +41,17 @@ def _correlation(grid: Tensor, factors: Sequence[Tensor], mode: int) -> Tensor:
 
 @torch.compiler.disable()  # sizes that depend on the data
 def _distinct(x: Tensor) -> list[tuple[Tensor, Tensor]]:
-    """Each axis's distinct coordinates and the row of every point among them."""
+    """Return each axis's distinct coordinates and every point's row among them."""
     return [torch.unique(u, return_inverse=True) for u in x.unbind(-1)]
 
 
 def ridged(gram: Tensor, ridge: float) -> Tensor:
-    """A Gram matrix with ``ridge`` times its mean diagonal added to the diagonal."""
+    """Return a Gram matrix with a multiple of its mean diagonal added to its diagonal.
+
+    Args:
+        gram: Gram matrix.
+        ridge: Multiple of the mean diagonal.
+    """
     eye = torch.eye(len(gram), dtype=gram.dtype, device=gram.device)
     return gram + ridge * gram.diagonal().mean() * eye
 
@@ -66,53 +59,37 @@ def ridged(gram: Tensor, ridge: float) -> Tensor:
 class BCD(Optimizer):
     """Block coordinate descent over a FUTON's factor matrices and decoder.
 
-    On a grid with ``M_c`` coordinates along axis ``c`` the model is a CP
-    tensor, with one factor per axis, the response ``T_c A_c`` of the basis's
-    table ``T_c`` ``(M_c, K_c)`` and the factor matrix ``A_c`` ``(K_c, R)``,
-    and one for the channels, the decoder ``W`` ``(D, R)``. With the other
-    blocks held, the mean squared error's normal equations for ``A_c`` are
-    ``P A_c Q = B``, small and of the size of ``A_c``: ``P = T_c^T T_c / M_c``
-    is the basis's Gram matrix, ``Q`` the elementwise product of ``W^T W`` and
-    of the other axes' Gram matrices ``(T_j A_j)^T (T_j A_j) / M_j``, and
-    ``B`` the targets' correlation with the rest of the model. The decoder's
-    are ``W G = C``, with ``G`` the product of every axis's Gram matrix.
+    On a grid the model is a CP tensor, so with the other blocks held each block has
+    small normal equations, which a subclass's :meth:`solve` handles. :meth:`step`
+    updates the factors in order, then the decoder, and holds every axis's response at
+    unit mean square, the decoder's columns taking the scales.
 
-    A batch is taken as points of the grid the basis declares, or else of the
-    grid of its distinct coordinates. The Gram matrices are the grid's, and a
-    right-hand side is what the model explains on the grid plus what it misses
-    at the batch's points, ``B = P A_c Q + T_c^T E_c / N`` for the residual's
-    correlation ``E_c`` over the ``N`` points: exact on a whole grid and, on a
-    random share of it, the whole grid's in expectation, with the noise of the
-    residual rather than of the signal. A sweep thus costs a few products of
-    matrices over the grid whatever share of it the batch holds, and a whole
-    grid is where the solvers need no momentum and the fewest sweeps. There,
-    without momentum, no update of :class:`MultiplicativeUpdate`, or of
-    :class:`LeastSquares` without its ridge, raises the batch's error.
-
-    :meth:`step` updates the factors in order and then the decoder, each from
-    the others' latest values, through a subclass's :meth:`solve`, and holds
-    every axis's response at unit mean square, the decoder's columns taking
-    the scales, which fixes the freedom of a CP model to trade scale between
-    its blocks. :meth:`compile` compiles the sweep with ``torch.compile``.
-
-    ``momentum`` averages each block's statistics over the batches, as online
-    matrix factorization does, with weights that sum to one from the first
-    batch on. The newest batch's weight, ``1 - momentum``, is the solver's
-    ``lr``, which a scheduler anneals as it would a gradient step's:
-    :func:`inro.train` takes it down to a hundredth, so that the
-    average reaches further back as the model settles.
+    A batch is taken as points of the grid the basis declares, or else of the grid of
+    its distinct coordinates. Only the residual comes from its points, so a sweep costs
+    about the same on any share of the grid, and a whole grid with ``momentum=0`` is the
+    fast setting. On a whole grid at ``lr=1``, no update of
+    :class:`MultiplicativeUpdate`, or of :class:`LeastSquares` without its ridge, raises
+    the batch's error.
 
     Args:
-        model: A FUTON with a CP combiner and a linear decoder, both without
-            bias, whose basis evaluates one axis at a time through
-            ``axis_features``, as the built-in ones do. Its parameters are
-            updated in place.
-        momentum: Weight of the past batches in a block's statistics; ``0``
-            takes each batch on its own, which suits whole grids.
-        initialize: Draw the parameters anew with :meth:`reset_parameters`;
+        model: FUTON with a CP combiner and a linear decoder, both without bias, whose
+            basis evaluates one axis at a time through ``axis_features``, as the
+            built-in ones do. Updated in place.
+        momentum: Weight of the past batches in a block's statistics, in ``[0, 1)``, as
+            in online matrix factorization; ``0`` takes each batch on its own. The
+            solver's ``lr``, the newest batch's weight, starts at ``1 - momentum``, and
+            a scheduler anneals it as it would a gradient step's: :func:`inro.train`
+            takes it down to a hundredth.
+        initialize: Whether to draw the parameters anew with :meth:`reset_parameters`;
             ``False`` keeps the model's.
-        **defaults: A subclass's settings, kept in ``self.defaults`` with the
-            others.
+        **defaults: A subclass's settings, kept in ``self.defaults``.
+
+    Raises:
+        ValueError: If ``model`` is not such a FUTON or ``momentum`` is out of range.
+
+    References:
+        Mairal et al., "Online learning for matrix factorization and sparse coding",
+        JMLR 2010.
     """
 
     def __init__(
@@ -148,54 +125,59 @@ class BCD(Optimizer):
     def reset_parameters(self) -> None:
         """Draw the parameters as the solver wants them.
 
-        A subclass draws the entries; each factor is then divided by the sum of
-        its basis's magnitudes in the middle of the domain, so that each axis's
-        response there is at most about one, and the decoder sums the ``R``
-        components to about one half, so that the first sweep starts from an
-        output of the signal's order. Magnitudes, since a signed basis's values
-        there can cancel: the cosines' sum to zero when ``K_c`` is 0 or 3
-        modulo 4.
+        A subclass draws the entries. Each factor is then divided by the sum of its
+        basis's magnitudes in the middle of the domain, so that each axis's response
+        there is at most about one, and the decoder by ``2 * R``, so that its components
+        sum to about one half: the first sweep starts from an output of the signal's
+        order.
         """
         basis: Any = self.model.encoding.basis  # any basis with axis_features
         for c, factor in enumerate(self._factors):
+            # Magnitudes, since a signed basis's values can cancel: the cosines' sum to
+            # zero when K_c is 0 or 3 modulo 4.
             middle = basis.axis_features(factor.new_zeros(1), c)
             factor.copy_(self._draw(factor) / middle.abs().sum())
         self._weight.copy_(self._draw(self._weight) / (2 * self._weight.shape[1]))
 
     def _draw(self, param: Tensor) -> Tensor:
-        """A parameter's entries drawn anew, before scaling."""
+        """Draw a parameter's entries anew, before scaling."""
         raise NotImplementedError
 
     def _left(self, table: Tensor) -> Tensor:
-        """An axis's basis Gram matrix ``P``, as :meth:`solve` takes it."""
+        """Return an axis's basis Gram matrix, as :meth:`solve` takes it."""
         return table.T @ table / len(table)
 
     def _check(self, x: Tensor, y: Tensor) -> None:
-        """Check the first batch, its points ``x`` and values ``y``, before its
-        sweep; the base class has no checks."""
+        """Check the first batch's points ``x`` and values ``y`` before its sweep.
+
+        The base class has no checks.
+        """
 
     def solve(
         self, value: Tensor, right: Tensor, gram: Tensor, left: Tensor | None = None
     ) -> Tensor:
-        """A block's new value, from its problem ``left @ value @ gram = right``.
+        """Return a block's new value, from its problem ``left @ value @ gram = right``.
 
         Args:
-            value: The block, ``(K_c, R)`` for a factor and ``(D, R)`` for the
+            value: Current block, ``(K_c, R)`` for a factor and ``(D, R)`` for the
                 decoder.
-            right: The right-hand side, of the block's shape.
-            gram: The other blocks' Gram matrix ``Q`` or ``G``, ``(R, R)``.
-            left: The basis's Gram matrix as :meth:`_left` gives it, or
-                ``None``, the identity, for the decoder.
+            right: Right-hand side, of the block's shape.
+            gram: Elementwise product of the other blocks' Gram matrices, ``(R, R)``.
+            left: Gram matrix of the basis, in the form the subclass prepares it;
+                ``None`` is the identity, for the decoder.
         """
         raise NotImplementedError
 
     def compile(
         self, batch: Mapping[str, Tensor] | None = None, **options: Any
     ) -> None:
-        """Compile the sweep with ``torch.compile``, given ``options``.
+        """Compile the sweep with ``torch.compile``.
 
-        With a ``batch``, compile it now, on that batch's shapes, and leave the
-        model and the solver as they were, so that no timed step pays for it.
+        Args:
+            batch: Batch to compile on now, at its shapes, leaving the model and the
+                solver as they were, so that no timed step pays for it; ``None``
+                compiles at the first step.
+            **options: Keyword arguments of ``torch.compile``.
         """
         self._sweep = torch.compile(self._sweep_eagerly, **options)
         if batch is not None:
@@ -209,12 +191,12 @@ class BCD(Optimizer):
 
     @torch.no_grad()
     def step(self, batch: Mapping[str, Tensor]) -> Tensor:  # type: ignore[override]
-        """One sweep over the factor matrices and the decoder on a batch.
+        """Run one sweep over the factor matrices and the decoder on a batch.
 
         Args:
-            batch: ``input``, coordinates ``(*, C)`` in [-1, 1], and
-                ``target``, their values ``(*, D)``, as a dataset yields them.
-                The points must lie on a grid, as a coordinate dataset's do.
+            batch: ``input``, coordinates ``(..., C)`` in ``[-1, 1]``, and ``target``,
+                their values ``(..., D)``, as a dataset yields them. The points must lie
+                on a grid, as a coordinate dataset's do.
 
         Returns:
             The batch's mean squared error before the sweep.
@@ -230,10 +212,10 @@ class BCD(Optimizer):
         return self._sweep(x, y)
 
     def _start(self, x: Tensor) -> None:
-        """Every block's averages, which start at zero, before the first batch.
+        """Set every block's averages to zero before the first batch.
 
-        On a declared grid the tables are fixed, so each axis's left-hand side
-        is too, and is made once.
+        On a declared grid the tables are fixed, so each axis's left-hand side is too,
+        and is made once.
         """
         self._lr = x.new_zeros(())
         square = (self._weight.shape[1],) * 2
@@ -245,7 +227,7 @@ class BCD(Optimizer):
                 self.state[factor]["left"] = self._left(table)
 
     def _average(self, param: Tensor, *statistics: Tensor) -> tuple[Tensor, ...]:
-        """A block's statistics, averaged over the batches seen."""
+        """Return a block's statistics, averaged over the batches seen."""
         state = self.state[param]
         # The batches' weights sum to one, whatever the step size was at each.
         state["total"].mul_(1 - self._lr).add_(self._lr)
@@ -255,8 +237,11 @@ class BCD(Optimizer):
         return state["statistics"]
 
     def _grid(self, x: Tensor) -> tuple[list[Tensor], tuple[Tensor, ...]]:
-        """Each axis's table, over the grid the basis declares or else over the
-        batch's distinct coordinates, and every point's row in it."""
+        """Return each axis's table and every point's row in it.
+
+        A table covers the grid the basis declares, or else the batch's distinct
+        coordinates.
+        """
         basis: Any = self.model.encoding.basis  # any basis with axis_features
         if getattr(basis, "grid_size", None) is not None:
             features = basis(x)
@@ -270,14 +255,13 @@ class BCD(Optimizer):
         return tables, tuple(rows for _, rows in distinct)
 
     def _targets(self, y: Tensor, output: Tensor) -> Tensor:
-        """What the decoder's output should fit for the model's to approach ``y``.
+        """Return what the decoder's output must fit for the model's to approach ``y``.
 
-        Without an output activation the values themselves. With one, the
-        Gauss-Newton target from the current ``output``: the output plus the
-        residual over the activation's slope, with the squared slopes bounded
-        by their largest so that every block stays an unweighted
-        least-squares problem. For an affine activation it is exact. The
-        activation acts elementwise, so its slopes are one forward derivative.
+        Without an output activation, ``y`` itself. With one, the Gauss-Newton target
+        from the current ``output``: the output plus the residual over the activation's
+        slope, with the squared slopes bounded by their largest so that every block
+        stays an unweighted least-squares problem. It is exact for an affine activation.
+        The activation acts elementwise, so its slopes are one forward derivative.
         """
         activation = self.model.output_activation
         if isinstance(activation, nn.Identity):
@@ -300,15 +284,15 @@ class BCD(Optimizer):
         targets = self._targets(y, output)
 
         def missed(output: Tensor) -> Tensor:
-            """What the model misses at the points, summed into the grid."""
+            """Sum what the model misses at the points into the grid."""
             grid = y.new_zeros(*(len(table) for table in tables), y.shape[1])
             return grid.index_put_(rows, targets - output, accumulate=True)
 
         error = missed(output)
         for c, (table, factor) in enumerate(zip(tables, factors)):
             gram = reduce(torch.mul, grams[:c] + grams[c + 1 :], weight.T @ weight)
-            # What the model explains, from the Gram matrices, and what it
-            # misses, from the batch; see the class's notes.
+            # What the model explains, from the Gram matrices, and what it misses, from
+            # the batch: exact on a whole grid, unbiased on a random share.
             explained = modes[c] @ gram / len(table)
             right = table.T @ (explained + _correlation(error, modes, c) / count)
             right, gram = self._average(factor, right, gram)
@@ -336,21 +320,32 @@ class BCD(Optimizer):
 class LeastSquares(BCD):
     """Alternating least squares: every block takes its problem's solution.
 
-    The problem ``P A Q = B`` is solved one side at a time, each with a ridge
-    against collinear functions or components: from the left by the inverse
-    of ``P``, which depends on the basis and the grid alone and is made once
-    on a declared grid, and from the right by the Cholesky factorization of
-    ``Q``. Any basis will do, signed or not. With an activation at the output
-    the targets are Gauss-Newton ones, refitted every sweep, so the sweeps
-    descend the activated model's error rather than minimize a fixed one. The
-    parameters start from normal draws.
+    A block's problem is solved one side at a time, each with a ridge against collinear
+    functions or components, for any basis, signed or not. With an output activation the
+    targets are Gauss-Newton ones, refitted every sweep, so the sweeps descend the
+    activated model's error rather than minimize a fixed one. The parameters start from
+    normal draws.
 
     Args:
         model: See :class:`BCD`.
-        ridge: Added to the diagonal of each Gram matrix, relative to its
-            mean diagonal.
+        ridge: Added to the diagonal of each Gram matrix, relative to its mean diagonal.
         momentum: See :class:`BCD`.
         initialize: See :class:`BCD`.
+
+    Examples:
+        >>> model = FUTON(
+        ...     in_features=2,
+        ...     out_features=3,
+        ...     basis=("sinc", {"num_components": 16}),
+        ...     combiner=("cp", {"rank": 8}),
+        ...     decoder=("linear", {"bias": False}),
+        ... )
+        >>> solver = LeastSquares(model, momentum=0)
+        >>> axis = torch.linspace(-1, 1, 32)
+        >>> x = torch.cartesian_prod(axis, axis)
+        >>> loss = solver.step({"input": x, "target": torch.rand(len(x), 3)})
+        >>> loss.shape
+        torch.Size([])
     """
 
     def __init__(
@@ -372,6 +367,7 @@ class LeastSquares(BCD):
     def solve(
         self, value: Tensor, right: Tensor, gram: Tensor, left: Tensor | None = None
     ) -> Tensor:
+        """Return the block's ridged solution; see :meth:`BCD.solve`."""
         if left is not None:
             right = left @ right
         # The Gram matrix is symmetric, so the right solve is a left one transposed.
@@ -382,30 +378,29 @@ class LeastSquares(BCD):
 class MultiplicativeUpdate(BCD):
     """Lee and Seung's multiplicative updates, for a nonnegative model.
 
-    With everything nonnegative, the two parts of a block's gradient are too,
-    and the update multiplies the block elementwise by their ratio,
-    ``A <- A * B / (P A Q)``, or sets an entry to zero where a minibatch's
-    estimate of ``B`` is negative. That is the minimizer of the auxiliary
-    function Lee and Seung build for a quadratic with a nonnegative Hessian:
-    the block's problem is never worse after the update, the block stays
-    nonnegative, and one at a fixed point stays there. A block's problem is
-    fixed for the sweep and an update costs two small products, so each block
-    takes ``inner`` of them in a row, as Gillis and Glineur propose.
+    The update multiplies a block elementwise by the ratio of its gradient's two parts,
+    ``value * right / (left @ value @ gram)``. It never worsens the block's problem and
+    keeps the block nonnegative; each block takes ``inner`` of them in a row, as Gillis
+    and Glineur propose.
 
-    The model needs a nonnegative basis, the triangle with
-    ``normalize=False`` so that its functions sum to one, nonnegative targets
-    and nonnegative parameters, which are drawn uniformly in [0.5, 1.5]
-    before scaling. A signal in [-1, 1] is fitted through the affine output
-    activation ``lambda z: 2 * z - 1``, under which the targets are its
-    values rescaled to [0, 1].
+    The first :meth:`step` checks that the basis, the targets and the parameters are
+    nonnegative. Use the triangle basis with ``normalize=False``, whose functions sum to
+    one, and fit a signal in ``[-1, 1]`` through the affine output activation
+    ``lambda z: 2 * z - 1``, under which its targets are in ``[0, 1]``. The parameters
+    start uniformly in ``[0.5, 1.5]``, before scaling.
 
     Args:
         model: See :class:`BCD`.
-        inner: Updates of each block per sweep.
-        floor: Lower bound on a denominator, against division by zero where a
-            basis function sees no sample.
+        inner: Number of updates of each block per sweep.
+        floor: Lower bound on a denominator, against division by zero where a basis
+            function sees no sample.
         momentum: See :class:`BCD`.
         initialize: See :class:`BCD`.
+
+    References:
+        Lee and Seung, "Algorithms for non-negative matrix factorization", NeurIPS 2001.
+        Gillis and Glineur, "Accelerated multiplicative updates and hierarchical ALS
+        algorithms for nonnegative matrix factorization", Neural Computation 2012.
     """
 
     def __init__(
@@ -440,6 +435,7 @@ class MultiplicativeUpdate(BCD):
     def solve(
         self, value: Tensor, right: Tensor, gram: Tensor, left: Tensor | None = None
     ) -> Tensor:
+        """Return the block after ``inner`` updates; see :meth:`BCD.solve`."""
         floor = self.defaults["floor"]
         for _ in range(self.defaults["inner"]):
             denominator = value @ gram if left is None else left @ value @ gram

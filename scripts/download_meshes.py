@@ -1,4 +1,4 @@
-"""Download meshes from the Stanford 3D Scanning Repository.
+"""Downloader for meshes of the Stanford 3D Scanning Repository.
 
 The 5 meshes used by FINER (CVPR 2024) and BACON (CVPR 2022), fetched from the
 official source:
@@ -12,6 +12,7 @@ each mesh (FINER's convention) and voxelizes it with trimesh.
 Available meshes: armadillo, dragon, happy_buddha, lucy, thai_statue.
 
 Usage:
+
     python scripts/download_meshes.py
     python scripts/download_meshes.py --meshes lucy armadillo
 """
@@ -27,8 +28,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STANFORD = "http://graphics.stanford.edu"
 
-# ``member`` selects the mesh inside a tar archive; ``rotation`` is applied to
-# the vertices, and is omitted for meshes that are already in canonical pose.
+# ``member`` selects the mesh inside a tar archive; ``rotation``, where a release
+# needs it, takes the vertices to canonical pose.
 MESHES = {
     "armadillo": {
         "url": f"{STANFORD}/pub/3Dscanrep/armadillo/Armadillo.ply.gz",
@@ -99,7 +100,7 @@ def download_mesh(name: str, info: dict, output_dir: Path, force: bool) -> None:
 
     print(f"  [{name}] {info['url']}")
     suffix = ".tar.gz" if "member" in info else ".ply.gz"
-    # Written under another name until complete; trimesh reads the format from the suffix.
+    # Another name until complete and rotated; trimesh reads the format from the suffix.
     part = dest.with_name(f"{name}.part.ply")
     with tempfile.NamedTemporaryFile(suffix=suffix) as archive:
         urllib.request.urlretrieve(info["url"], archive.name, reporthook=report)
@@ -108,7 +109,7 @@ def download_mesh(name: str, info: dict, output_dir: Path, force: bool) -> None:
 
     if "rotation" in info:
         rotate(part, info["rotation"])
-    part.replace(dest)  # only a complete mesh, rotated where needed, takes the name
+    part.replace(dest)
     print(f"  {dest.name} ({dest.stat().st_size / 1e6:.1f} MB)")
 
 

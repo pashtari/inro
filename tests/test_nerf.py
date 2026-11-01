@@ -1,9 +1,7 @@
-"""Construction/protocol smoke tests for :mod:`inro.nerf`.
+"""Smoke tests for :mod:`inro.nerf`: construction and the protocol's constants.
 
-Every row the NeRF notebook trains must at least *build* and run a forward
-pass, and the marching/dataset constants the protocol is pinned to must not
-drift. These are the checks that turn a construction-time ``TypeError`` into a
-red test instead of a notebook that dies mid-run.
+Every backbone must build and run a forward pass, and the marching and dataset
+constants the protocol is pinned to must not drift.
 """
 
 import math
@@ -20,9 +18,9 @@ GEOMETRY_FEATURES = 15
 COLOR_NET = ("mlp", {"hidden_features": 64, "hidden_layers": 2})
 MLP_CONFIG = {"hidden_features": 182, "hidden_layers": 3}
 
-# Mirrors CONFIGS in notebooks/nerf.ipynb.
+# Density networks at about the benchmark's parameter budget.
 DENSITY_NETS = {
-    # narrower: the 63-dim positional encoding widens layer 1
+    # Narrower: the 63-dim positional encoding widens layer 1.
     "PE-MLP": (
         inro.PEMLP,
         {**MLP_CONFIG, "hidden_features": 168, "num_frequencies": 10},
@@ -94,7 +92,7 @@ DENSITY_NETS = {
             "decoder": ("mlp", {"hidden_layers": 1}),
         },
     ),
-    "CP-tent": (  # the basis ablation: same budget, tent pulses
+    "CP-tent": (  # same budget, tent pulses
         inro.FUTON,
         {
             "basis": ("triangle", {"num_components": 130, "normalize": False}),
@@ -106,7 +104,7 @@ DENSITY_NETS = {
 
 
 def _field(density_net, **kwargs):
-    if isinstance(density_net, tuple):  # the notebook supplies this per row
+    if isinstance(density_net, tuple):
         cls, kw = density_net
         density_net = (cls, {"output_activation": torch.nn.Identity(), **kw})
     kwargs.setdefault("color_net", COLOR_NET)
@@ -116,7 +114,7 @@ def _field(density_net, **kwargs):
 
 @pytest.mark.parametrize("name", sorted(DENSITY_NETS))
 def test_backbone_builds_and_runs(name):
-    """Every notebook backbone constructs and returns finite (rgb, sigma)."""
+    """Return finite ``(rgb, sigma)`` from every backbone."""
     torch.manual_seed(0)
     field = _field(DENSITY_NETS[name])
 
@@ -131,14 +129,14 @@ def test_backbone_builds_and_runs(name):
 
 @pytest.mark.parametrize("name", sorted(DENSITY_NETS))
 def test_backbone_parameter_matched(name):
-    """The backbone comparison is only fair if the rows stay parameter-matched."""
+    """Keep the rows parameter-matched, as a fair comparison needs."""
     torch.manual_seed(0)
     num_params = inro.count_parameters(_field(DENSITY_NETS[name]))
     assert 74_000 <= num_params <= 79_000, f"{name}: {num_params:,} params"
 
 
 def test_finer_reproduction_parameter_count():
-    """FINER end to end is exactly network_finer.py's 201,842 parameters."""
+    """Count the 201,842 parameters of ``network_finer.py`` for FINER end to end."""
     torch.manual_seed(0)
     field = _field(
         (inro.FINER, {**MLP_CONFIG, "omega": 30.0}),
@@ -153,7 +151,7 @@ def test_finer_reproduction_parameter_count():
 
 
 def test_density_net_logits_are_unbounded():
-    """The caller supplies Identity; a tanh default would cap density at e."""
+    """Leave density logits unbounded: a tanh would cap the density at ``e``."""
     field = _field(
         (inro.SIREN, {**MLP_CONFIG, "output_activation": torch.nn.Identity()})
     )
@@ -165,7 +163,7 @@ def test_density_net_logits_are_unbounded():
 
 
 def test_renderer_marching_constants():
-    """Ray marching is pinned to torch-ngp's --max_steps 1024 over the unit box."""
+    """Pin ray marching to torch-ngp's ``--max_steps 1024`` over the unit box."""
     renderer = inro.nerf.create_renderer(
         backend="pytorch", aabb=(-1.0, -1.0, -1.0, 1.0, 1.0, 1.0), near=0.2, far=10.0
     )
@@ -175,7 +173,7 @@ def test_renderer_marching_constants():
 
 @pytest.mark.skipif(not DATA_ROOT.exists(), reason="Blender lego scene not present")
 def test_blender_train_split_and_radius():
-    """FINER's protocol: --trainskip 4 --downscale 4 --scale 0.8 -> 25 views."""
+    """Follow FINER's ``--trainskip 4 --downscale 4 --scale 0.8``: 25 views."""
     dataset = inro.nerf.BlenderDataset(DATA_ROOT, split="train", downsample=4, skip=4)
     assert len(dataset) == 25
     assert dataset.images.shape[1:3] == (200, 200)
@@ -184,8 +182,7 @@ def test_blender_train_split_and_radius():
 
 @pytest.mark.skipif(not DATA_ROOT.exists(), reason="Blender lego scene not present")
 def test_train_loop_runs_and_loss_is_finite(tmp_path):
-    """A few optimizer steps must run end to end and produce a finite loss,
-    and the saved run must restore the occupancy grid it was scored with."""
+    """Restore the occupancy grid a run was scored with, after a few steps."""
     torch.manual_seed(0)
     dataset = inro.nerf.BlenderDataset(DATA_ROOT, split="train", downsample=4, skip=4)
     field = _field(DENSITY_NETS["FUTON-lanczos"], aabb=dataset.aabb)

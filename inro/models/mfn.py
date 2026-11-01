@@ -10,15 +10,22 @@ __all__ = ["GaborFilter", "MFN"]
 
 
 class GaborFilter(nn.Module):
-    """Gabor filter ``sin(Wx + b) * exp(-0.5 * gamma * ||x - mu||**2)``.
+    r"""Gabor filter ``sin(Wx + b) * exp(-gamma * ||x - mu||**2 / 2)`` of :class:`MFN`.
 
-    Learnable centers ``mu`` start uniformly in ``[-1, 1]``; inverse squared
-    widths ``gamma`` follow a Gamma distribution with shape ``alpha`` and
-    rate ``beta``. Linear weights are scaled by ``input_scale * sqrt(gamma)``
-    and biases are uniform in ``[-π, π]``.
+    The centers ``mu`` start uniformly in ``[-1, 1]`` and the inverse squared widths
+    ``gamma`` from a Gamma distribution, both learnable. The weights ``W`` are scaled by
+    ``input_scale * sqrt(gamma)`` and the biases ``b`` start in :math:`[-\pi, \pi]`.
 
-    Maps ``(..., in_features)`` to ``(..., out_features)`` with at least one
-    leading dimension. See :class:`MFN`.
+    Args:
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of filters.
+        input_scale: Frequency scale.
+        alpha: Gamma shape.
+        beta: Gamma rate.
+
+    Shape:
+        - Input: ``(..., C)``, with at least one leading dimension.
+        - Output: ``(..., out_features)``.
     """
 
     def __init__(
@@ -52,25 +59,31 @@ class GaborFilter(nn.Module):
 
 
 class MFN(nn.Module):
-    """Multiplicative Gabor filter network (Fathony et al., ICLR 2021).
+    """Multiplicative Gabor filter network.
 
-    Each stage multiplies a filter of the raw coordinates by a linear
-    transform of the previous hidden state. A linear layer produces the
-    output. Maps ``(..., in_features)`` to ``(..., out_features)`` with at
-    least one leading dimension.
+    Each hidden layer multiplies a :class:`GaborFilter` of the raw coordinates by a
+    linear transform of the previous hidden state; the first takes its filter alone. A
+    linear layer gives the output.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
-        hidden_features: Number of filters per stage.
-        hidden_layers: Number of filter stages; must be at least one.
-        input_scale: Frequency scale, divided by ``sqrt(hidden_layers)``
-            for each filter.
-        weight_scale: Hidden linear weights are uniform within
-            ``±sqrt(weight_scale / hidden_features)``.
-        alpha: Gamma shape parameter, divided by ``hidden_layers`` per filter.
-        beta: Gamma rate parameter.
-        output_activation: Optional callable applied to the output.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
+        hidden_features: Hidden width.
+        hidden_layers: Number of hidden layers, one filter each.
+        input_scale: Frequency scale, divided by ``sqrt(hidden_layers)`` per filter.
+        weight_scale: Scale of the hidden linear weights, drawn uniformly within
+            ``sqrt(weight_scale / hidden_features)`` of zero.
+        alpha: Gamma shape, divided by ``hidden_layers`` per filter.
+        beta: Gamma rate.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``, with at least one leading
+          dimension.
+        - Output: ``(..., D)``.
+
+    References:
+        Fathony et al., "Multiplicative Filter Networks", ICLR 2021.
     """
 
     def __init__(

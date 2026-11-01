@@ -1,7 +1,11 @@
-"""Deep Image Prior networks (Ulyanov et al., CVPR 2018).
+"""Deep Image Prior networks.
 
-Adapted from https://github.com/DmitryUlyanov/deep-image-prior/tree/master/models.
-DIPSkip is the skip-connected encoder-decoder baseline; DIPUNet is a U-Net.
+:class:`DIPSkip` is the skip-connected encoder-decoder baseline and :class:`DIPUNet` a
+U-Net, both adapted from
+https://github.com/DmitryUlyanov/deep-image-prior/tree/master/models.
+
+References:
+    Ulyanov et al., "Deep Image Prior", CVPR 2018.
 """
 
 from collections.abc import Callable, Sequence
@@ -21,7 +25,7 @@ def _conv2d(
     bias: bool = True,
     padding_mode: Literal["zeros", "reflect"] = "reflect",
 ) -> nn.Sequential:
-    """Convolution with centered zero or reflection padding."""
+    """Return a convolution with centered zero or reflection padding."""
     padding = (kernel_size - 1) // 2
     if padding_mode == "reflect":
         return nn.Sequential(
@@ -45,7 +49,7 @@ def _conv2d_bn_lrelu(
     bias: bool = True,
     padding_mode: Literal["zeros", "reflect"] = "reflect",
 ) -> list[nn.Module]:
-    """Convolution, BatchNorm and LeakyReLU(0.2) layers of a DIPSkip block."""
+    """Return the convolution, BatchNorm and LeakyReLU(0.2) layers of a block."""
     return [
         _conv2d(in_channels, out_channels, kernel_size, stride, bias, padding_mode),
         nn.BatchNorm2d(out_channels),
@@ -54,7 +58,7 @@ def _conv2d_bn_lrelu(
 
 
 def _center_crop(x: Tensor, height: int, width: int) -> Tensor:
-    """Crop the spatial center of an ``(B, C, H, W)`` tensor."""
+    """Crop the spatial center of a ``(B, channels, H, W)`` tensor."""
     top = (x.size(2) - height) // 2
     left = (x.size(3) - width) // 2
     return x[:, :, top : top + height, left : left + width]
@@ -109,10 +113,10 @@ class _UNetDown(nn.Module):
 
 
 class _UNetUp(nn.Module):
-    """Upsample, concatenate a skip feature, and apply a double convolution.
+    """Upsampling, concatenation of a skip feature and a double convolution.
 
-    Decoder convolutions are unnormalized. Transposed convolutions always
-    include a bias, matching the reference implementation.
+    Decoder convolutions are unnormalized. Transposed convolutions always include a
+    bias, as in the reference implementation.
     """
 
     def __init__(
@@ -149,22 +153,23 @@ class _UNetUp(nn.Module):
 
 
 class DIPUNet(nn.Module):
-    """U-Net from Deep Image Prior, with four downsampling/upsampling stages.
-
-    Maps ``(B, in_channels, H, W)`` to ``(B, out_channels, H', W')``, where
-    output dimensions are cropped to multiples of 16.
+    """U-Net of Deep Image Prior, with four downsampling and upsampling stages.
 
     Args:
         in_channels: Input noise channels; match the dataset's ``noise_channels``.
         out_channels: Output channels.
-        feature_scale: Divisor of base widths ``[64, 128, 256, 512, 1024]``.
-        norm_layer: Normalization constructor for input and encoder blocks,
-            or ``None`` to disable it. Decoder blocks are unnormalized.
-        upsample_mode: Transposed convolution (``"deconv"``), or interpolation
-            (``"nearest"`` / ``"bilinear"``) followed by a convolution.
-        padding_mode: ``"zeros"`` or ``"reflect"``.
-        bias: Include convolution biases; transposed convolutions always do.
-        sigmoid_output: Apply a sigmoid after the final convolution.
+        feature_scale: Divisor of the base widths ``[64, 128, 256, 512, 1024]``.
+        norm_layer: Normalization constructor of the input and encoder blocks; ``None``
+            disables it. Decoder blocks are unnormalized.
+        upsample_mode: Upsampling, ``"deconv"`` for a transposed convolution, or
+            ``"nearest"`` or ``"bilinear"`` for interpolation followed by a convolution.
+        padding_mode: Padding, ``"zeros"`` or ``"reflect"``.
+        bias: Whether to include convolution biases; transposed convolutions always do.
+        sigmoid_output: Whether to apply a sigmoid after the final convolution.
+
+    Shape:
+        - Input: ``(B, in_channels, H, W)``.
+        - Output: ``(B, out_channels, H', W')``, with sides cropped to multiples of 16.
     """
 
     def __init__(
@@ -216,27 +221,30 @@ class DIPUNet(nn.Module):
 class DIPSkip(nn.Module):
     """Deep Image Prior encoder-decoder with a skip branch at each scale.
 
-    Strided convolutions downsample the input; the decoder upsamples and
-    concatenates skip features. Hidden convolutions use BatchNorm and
-    LeakyReLU(0.2). Maps ``(B, in_channels, H, W)`` to
-    ``(B, out_channels, H, W)`` for odd kernel sizes; even kernels shrink the
-    output. Center crops align branches for odd spatial dimensions.
+    Strided convolutions downsample the input; the decoder upsamples and concatenates
+    skip features, center-cropped at odd sizes. Hidden convolutions use BatchNorm and
+    LeakyReLU(0.2).
 
     Args:
         in_channels: Input noise channels; match the dataset's ``noise_channels``.
         out_channels: Output channels.
         down_channels: Encoder widths, one per scale.
         up_channels: Decoder widths, one per scale.
-        skip_channels: Skip widths, one per scale; channel sequences must have
+        skip_channels: Skip widths, one per scale; the three channel sequences must have
             equal length.
-        down_kernel_size: Encoder kernel size, or a list/tuple per scale.
-        up_kernel_size: Decoder kernel size, or a list/tuple per scale.
+        down_kernel_size: Encoder kernel size, shared or per scale.
+        up_kernel_size: Decoder kernel size, shared or per scale.
         skip_kernel_size: Skip convolution kernel size.
-        up_conv1x1: Add a 1×1 convolution/BatchNorm/LeakyReLU decoder block.
-        upsample_mode: Interpolation mode, or a list/tuple per scale.
-        padding_mode: ``"zeros"`` or ``"reflect"``.
-        bias: Include convolution biases.
-        sigmoid_output: Apply a sigmoid after the final convolution.
+        up_conv1x1: Whether to add a 1x1 convolution, BatchNorm and LeakyReLU block to
+            each decoder.
+        upsample_mode: Interpolation mode, shared or per scale.
+        padding_mode: Padding, ``"zeros"`` or ``"reflect"``.
+        bias: Whether to include convolution biases.
+        sigmoid_output: Whether to apply a sigmoid after the final convolution.
+
+    Shape:
+        - Input: ``(B, in_channels, H, W)``.
+        - Output: ``(B, out_channels, H, W)``; even kernel sizes shrink it.
     """
 
     def __init__(
@@ -327,7 +335,6 @@ class DIPSkip(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x: Tensor) -> Tensor:
-        # Skip features branch off before each downsampling step.
         skips: list[Tensor] = []
         for skip_conv, encoder in zip(self.skip_convs, self.encoders):
             skips.append(skip_conv(x))

@@ -1,21 +1,19 @@
-"""Super-resolution benchmark: recover DIV2K images from their 4x bicubic downsamplings.
+"""Super-resolution benchmark: recover DIV2K images from 4x bicubic downsamplings.
 
-Every model in configs/super_resolution.yaml sees only the low-resolution (LR)
-image and is scored against the high-resolution (HR) original. The benchmark's
-degradation, antialiased bicubic downsampling (MATLAB's imresize), is linear
-and separable: one matrix per axis describes it exactly, borders included
-(inro.resize_matrix), and an LR pixel needs the field only under its kernel.
-Each step renders the HR pixels under random blocks of LR pixels
-(inro.SuperResolutionDataset), downsamples them with those matrices and matches
-the LR pixels (inro.super_resolution_loss, L1). DIP renders the whole image from
-fixed noise, and the interpolations upsample the LR image with PIL, whose
-bicubic filter is MATLAB's. As is standard, PSNR and SSIM are computed on luma
-(BT.601 Y) and LPIPS on RGB, all without a 4-pixel border
-(inro.super_resolution_metrics).
+Every model in configs/super_resolution.yaml sees only the low-resolution (LR) image
+and is scored against the high-resolution (HR) original. Each step renders the HR
+pixels under random blocks of LR pixels (``inro.SuperResolutionDataset``), downsamples
+them with one matrix per axis (``inro.resize_matrix``), exactly MATLAB's antialiased
+bicubic imresize, and matches the LR pixels (``inro.super_resolution_loss``, L1). DIP
+renders the whole image from fixed noise, and the interpolations upsample the LR image
+with PIL, whose bicubic filter is MATLAB's. PSNR and SSIM are computed on luma (BT.601
+Y) and LPIPS on RGB, all without a 4-pixel border (``inro.super_resolution_metrics``).
 
 Usage:
+
     python scripts/train_super_resolution.py
-    python scripts/train_super_resolution.py --data data/DIV2K/DIV2K_valid_HR/0882.png --models Bicubic FUTON-sinc
+    python scripts/train_super_resolution.py --models Bicubic FUTON-sinc
+    python scripts/train_super_resolution.py --data data/DIV2K/DIV2K_valid_HR/0882.png
 """
 
 import time
@@ -52,7 +50,7 @@ INTERPOLATIONS = {
 
 
 def low_resolution(path: Path, scale: int) -> Path:
-    """The DIV2K release's bicubic downsampling of a high-resolution image."""
+    """Return the path of the DIV2K release's bicubic downsampling of an HR image."""
     folder = path.parent.name.replace("HR", "LR_bicubic")
     return path.parents[1] / folder / f"X{scale}" / f"{path.stem}x{scale}{path.suffix}"
 
@@ -60,8 +58,7 @@ def low_resolution(path: Path, scale: int) -> Path:
 def prior_loss(
     batch: dict[str, Any], model: nn.Module, kernels: Sequence[Tensor]
 ) -> tuple[Tensor, dict]:
-    """Render the HR image from noise, downsample it, and match the LR image:
-    the mean absolute error, with the fit's PSNR for the training log."""
+    """Return DIP's L1 loss on the downsampled render and the fit's PSNR for the log."""
     output = inro.downsample(model(batch["input"]).movedim(1, -1), kernels)
     target = batch["target"].movedim(1, -1)
     loss = F.l1_loss(output, target)
@@ -92,7 +89,7 @@ def interpolate(
 
 
 def prepare(model: dict, path: Path) -> dict[str, Any]:
-    """Fill in the HR height H and width W, and FUTON's rank from its budget."""
+    """Fill in the HR height ``H`` and width ``W``, and FUTON's rank from its budget."""
     width, height = Image.open(path).size
     return fill_rank(resolve(model, H=height, W=width), outputs=3)
 
@@ -100,6 +97,7 @@ def prepare(model: dict, path: Path) -> dict[str, Any]:
 def fit(
     config: dict, model: dict, path: Path, out: Path, device: torch.device
 ) -> dict[str, Any]:
+    """Recover one HR image from its LR version with one model, and score it."""
     scale = config["data"]["scale"]
     if "interpolation" in model:
         return interpolate(model, path, scale, device)
@@ -124,7 +122,7 @@ def fit(
         loss_fn = partial(prior_loss, kernels=kernels)
         train["chunk_size"] = None  # a CNN renders the whole image at once
     else:
-        # FreSh sees what the field is fitted to: the low-resolution image.
+        # FreSh sees what the INR is fitted to: the low-resolution image.
         observed = inro.ImageCoordinateDataset(low_resolution(path, scale))
         search = fresh(
             model,

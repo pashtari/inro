@@ -12,19 +12,26 @@ def uniform_quantize(
 ) -> tuple[nn.Module, dict[str, dict[str, Tensor]]]:
     """Fake-quantize model parameters in place and return their integer codes.
 
-    Each parameter becomes ``clamp(round(s * w), -quant_max, quant_max) / s``,
-    where ``s = quant_max / max(abs(w))``. Pass a model copy to retain the
-    original weights. All-zero tensors become NaN; complex parameters are
-    unsupported.
+    Each parameter ``w`` becomes ``clamp(round(s * w), -quant_max, quant_max) / s``,
+    with ``s = quant_max / max(abs(w))``. All-zero tensors become NaN; complex
+    parameters are unsupported.
 
     Args:
-        model: Module to quantize in place.
-        quant_max: Largest integer level, less than ``2**63``. Codes use the
-            smallest signed integer dtype that can hold this value.
+        model: Module to quantize in place; pass a copy to keep the original weights.
+        quant_max: Largest integer level, less than ``2**63``; codes use the smallest
+            signed integer dtype that holds it.
 
     Returns:
         The same model and a dictionary mapping parameter names to
-        ``{"quant": codes, "scale": s}``, both detached CPU tensors.
+            ``{"quant": codes, "scale": s}``, both detached CPU tensors.
+
+    Examples:
+        >>> model, codes = uniform_quantize(nn.Linear(2, 3), quant_max=127)
+        >>> codes["weight"]["quant"].dtype
+        torch.int8
+        >>> restored = uniform_dequantize(nn.Linear(2, 3), codes)
+        >>> restored.weight.equal(model.weight)
+        True
     """
     for dtype in (torch.int8, torch.int16, torch.int32, torch.int64):
         if quant_max <= torch.iinfo(dtype).max:
@@ -52,9 +59,12 @@ def uniform_dequantize(
 ) -> nn.Module:
     """Load parameters from :func:`uniform_quantize` codes in place.
 
-    ``model_dict`` must have the same parameter names as ``model``. Each
-    parameter is overwritten with ``quant.float() / scale.float()``.
-    Returns the same model.
+    Args:
+        model: Module to overwrite in place.
+        model_dict: Codes and scales of every parameter of ``model``, by name.
+
+    Returns:
+        The same model, each parameter being ``quant.float() / scale.float()``.
     """
     for name, param in model.named_parameters():
         codes = model_dict[name]["quant"].float()

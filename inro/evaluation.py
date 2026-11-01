@@ -1,4 +1,4 @@
-"""Chunked inference and dataset evaluation for neural fields."""
+"""Chunked inference and evaluation of implicit neural representations (INRs)."""
 
 import os
 import time
@@ -29,18 +29,27 @@ def chunked_inference(
 ) -> Tensor:
     """Evaluate coordinates in chunks under ``torch.no_grad()``.
 
-    Moves ``model`` to ``device`` and leaves it in evaluation mode. Leading
-    input dimensions are flattened for chunking, then restored in the output.
+    Moves ``model`` to ``device`` and leaves it in evaluation mode. Chunking flattens
+    the leading dimensions, which the output restores.
 
     Args:
-        model: Maps ``(N, in_features)`` to ``(N, out_features)``.
-        x: Coordinates of shape ``(*, in_features)``.
-        chunk_size: Rows per forward pass. ``None`` or a non-positive value
-            evaluates the full input without flattening.
-        device: Inference device; ``None`` selects CUDA when available, else CPU.
+        model: INR to evaluate.
+        x: Coordinates.
+        chunk_size: Coordinates per forward pass; ``None`` or a non-positive value
+            evaluates all at once.
+        device: Device to run on; ``None`` uses CUDA when available, else the CPU.
 
     Returns:
-        Model output of shape ``(*, out_features)`` on ``device``.
+        Output on ``device``.
+
+    Shape:
+        - Input: ``(..., C)``.
+        - Output: ``(..., D)``.
+
+    Examples:
+        >>> x = torch.rand(4, 5, 2)
+        >>> chunked_inference(nn.Linear(2, 3), x, chunk_size=8, device="cpu").shape
+        torch.Size([4, 5, 3])
     """
     device = device or torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -70,33 +79,43 @@ def evaluate(
     log_dir: str | os.PathLike[str] | None = None,
     save_reconstruction: bool = True,
 ) -> dict[str, Any]:
-    """Reconstruct each dataset item, compute metrics and optionally save outputs.
+    """Reconstruct each dataset item, compute metrics and optionally save the result.
 
-    Items must contain ``id``, ``input`` and ``_original``. Model output is
-    mapped through ``dataset.postprocess`` when available, then moved to CPU
-    for metrics. The model is moved to ``device`` and left in evaluation mode.
+    Items must hold ``id``, ``input`` and ``_original``. The output passes through
+    ``dataset.postprocess``, when it exists, and moves to the CPU for metrics. The model
+    moves to ``device`` and stays in evaluation mode.
 
     Args:
-        model: Trained neural field.
-        dataset: Dataset to evaluate one item at a time.
-        model_dict: Parameter dictionary encoded for rate metrics; ``None``
-            uses ``model.state_dict()``.
-        metrics: Functions called as ``fn(reconstruction, original)``.
-        rate_metrics: Functions called as ``fn(encoded_bytes, original)``.
-        chunk_size: Coordinates per forward pass; see :func:`chunked_inference`.
-        device: Evaluation device.
+        model: INR to evaluate.
+        dataset: Dataset evaluated one item at a time.
+        model_dict: Parameters encoded for rate metrics; ``None`` uses
+            ``model.state_dict()``.
+        metrics: Distortion metrics by name, called as ``fn(reconstruction, original)``.
+        rate_metrics: Rate metrics by name, called as ``fn(encoded_bytes, original)``.
+        chunk_size: Coordinates per forward pass; ``None`` or a non-positive value
+            evaluates all at once.
+        device: Device to run on.
         ckpt_path: State dict to load first, if the file exists.
-        log_dir: Directory for appended logs and reconstructions, created if
-            needed. ``None`` logs to console only.
-        save_reconstruction: Save with ``dataset.save`` under
-            ``log_dir/{id}_reconstructed`` when a log directory is given.
+        log_dir: Directory for ``log.txt`` and ``log.json`` (both appended) and
+            reconstructions; ``None`` writes no files.
+        save_reconstruction: Whether to save each reconstruction with ``dataset.save``
+            as ``log_dir/{id}_reconstructed``.
 
     Returns:
-        ``config`` with model name, parameter count and chunk size; ``history``
-        with one record per sample containing its ID, elapsed time, duration
-        (the reconstruction's, metrics left out), ``peak_memory`` (the most
-        bytes it allocated beyond what was on the device, zero off CUDA) and
-        metric values.
+        Dictionary with these keys.
+
+        - ``config``: Holds ``model``, ``num_params`` and ``chunk_size``.
+        - ``history``: One record per item, with ``id``, ``elapsed`` (seconds since
+          the evaluation started), ``duration`` (seconds of its reconstruction,
+          metrics left out), ``peak_memory`` (the most bytes it allocated beyond
+          what the device already held, zero off CUDA) and the metric values.
+
+    Examples:
+        >>> from inro import ImageCoordinateDataset, psnr
+        >>> dataset = ImageCoordinateDataset(torch.zeros(3, 8, 8, dtype=torch.uint8))
+        >>> results = evaluate(nn.Linear(2, 3), dataset, metrics={"psnr": psnr})
+        >>> sorted(results["history"][0])
+        ['duration', 'elapsed', 'id', 'peak_memory', 'psnr']
     """
     model_dict = model_dict or model.state_dict()
     metrics = metrics or {}

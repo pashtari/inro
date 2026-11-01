@@ -49,19 +49,24 @@ def build_module(
 ) -> nn.Module:
     """Build a module from an instance, registry key, class, or ``(key/class, params)``.
 
-    A two-element list also works, so specs can be loaded from JSON. Instances
-    are returned unchanged. Otherwise, the resolved class receives ``*args``,
-    ``**params`` and ``**kwargs``; duplicate keyword arguments raise TypeError.
+    An instance is returned unchanged. Otherwise the class receives ``*args``,
+    ``**params`` and ``**kwargs``.
 
     Args:
-        spec: Module instance, key, class, or a key/class paired with parameters.
+        spec: Module instance, key, class, or a key or class paired with parameters, in
+            a tuple or a list, so that specs can come from JSON.
         registry: Mapping from string keys to module classes.
-        *args: Positional arguments passed to the constructor.
-        **kwargs: Additional constructor arguments.
+        *args: Positional arguments of the constructor.
+        **kwargs: Keyword arguments of the constructor, which must not repeat
+            ``params``.
 
-    Example::
+    Raises:
+        ValueError: If ``spec`` has another form.
+        KeyError: If the key is not in ``registry``.
 
-        build_module(("linear", {"bias": False}), {"linear": nn.Linear}, 4, 2)
+    Examples:
+        >>> build_module(("linear", {"bias": False}), {"linear": nn.Linear}, 4, 2)
+        Linear(in_features=4, out_features=2, bias=False)
     """
     if isinstance(spec, nn.Module):
         return spec
@@ -108,7 +113,7 @@ def _average_dicts(dicts: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def _format_metrics(record: Mapping[str, Any]) -> str:
-    """``name=value`` for a record's float metrics, its times and memory left out."""
+    """Format a record's float metrics as ``name=value``, except times and memory."""
     skip = ("elapsed", "duration", "peak_memory")
     return " ".join(
         f"{name}={value:.4g}"
@@ -120,8 +125,15 @@ def _format_metrics(record: Mapping[str, Any]) -> str:
 def count_parameters(model: nn.Module, trainable_only: bool = True) -> int:
     """Count parameters as real numbers, counting complex elements twice.
 
-    Only parameters with ``requires_grad=True`` count when ``trainable_only``
-    is set. Counting real components makes real and complex models comparable.
+    Counting real components makes real and complex models comparable.
+
+    Args:
+        model: Module whose parameters are counted.
+        trainable_only: Whether to count only parameters with ``requires_grad=True``.
+
+    Examples:
+        >>> count_parameters(nn.Linear(2, 3))
+        9
     """
     return sum(
         param.numel() * (2 if param.is_complex() else 1)
@@ -131,11 +143,13 @@ def count_parameters(model: nn.Module, trainable_only: bool = True) -> int:
 
 
 class JSONLogger:
-    """Append timestamped records to a JSON file.
+    """Logger that appends timestamped records to a JSON file.
 
-    Records are pretty-printed JSON objects separated by newlines. Read them
-    with :func:`read_json_records` or :func:`iter_json_records`. A missing or
-    empty ``path`` disables writing.
+    Records are pretty-printed JSON objects separated by newlines. Read them with
+    :func:`read_json_records` or :func:`iter_json_records`.
+
+    Args:
+        path: File to append to; ``None`` or an empty path disables writing.
     """
 
     def __init__(self, path: str | os.PathLike[str] | None = None) -> None:
@@ -144,7 +158,8 @@ class JSONLogger:
     def log(self, entry: Mapping[str, Any]) -> None:
         """Append a JSON-serializable record with a UTC ISO 8601 timestamp.
 
-        An explicit ``timestamp`` in ``entry`` takes precedence.
+        Args:
+            entry: Record to append; its own ``timestamp``, if any, takes precedence.
         """
         timestamp = datetime.now(timezone.utc).isoformat()
         entry = {"timestamp": timestamp, **entry}
@@ -154,8 +169,10 @@ class JSONLogger:
 
 
 class _ProgressBarHandler(logging.StreamHandler):
-    """A console handler that writes through tqdm, which clears a progress bar
-    on the same stream before each line and draws it again after."""
+    """Console handler that writes through tqdm, to keep a progress bar intact.
+
+    tqdm clears a bar on the same stream before each line and draws it again after.
+    """
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -174,22 +191,20 @@ def setup_experiment_loggers(
 ) -> tuple[logging.Logger, JSONLogger]:
     """Configure console, text and JSON logging for an experiment.
 
-    Replaces the named logger's handlers and disables propagation. The console
-    shows ``INFO`` messages, such as the trainers' line per record, written
-    around a progress bar rather than through it, and the text file also keeps
-    ``DEBUG`` ones. Text files append after an optional initial truncation,
-    allowing training and evaluation loggers to share a file. JSON records
-    always append.
+    Replaces the named logger's handlers and disables propagation. The console shows
+    ``INFO`` messages, written around a progress bar rather than through it, and the
+    text file ``DEBUG`` ones as well. JSON records always append.
 
     Args:
-        log_dir: Output directory, created if needed; ``None`` logs to console only.
+        log_dir: Directory of the logs, created if needed; ``None`` writes no files.
         logger_name: Name passed to :func:`logging.getLogger`.
-        log_filename: Text log filename within ``log_dir``.
-        json_filename: JSON log filename within ``log_dir``.
-        mode: ``"w"`` truncates the text log once; ``"a"`` appends.
+        log_filename: Name of the text log within ``log_dir``.
+        json_filename: Name of the JSON log within ``log_dir``.
+        mode: ``"w"`` truncates the text log first; ``"a"`` appends, so that training
+            and evaluation can share the file.
 
     Returns:
-        The text logger and JSON logger (disabled when ``log_dir`` is absent).
+        The text logger and the JSON logger, which writes nothing without ``log_dir``.
     """
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
@@ -228,8 +243,14 @@ def setup_experiment_loggers(
 def iter_json_records(path: str | os.PathLike[str]) -> Iterator[dict[str, Any]]:
     """Yield records from a stream of JSON objects, including pretty-printed logs.
 
-    Parsing stops at the first malformed or incomplete record, so an
-    interrupted final write is ignored.
+    Parsing stops at the first malformed or incomplete record, so an interrupted final
+    write is ignored.
+
+    Args:
+        path: JSON log file.
+
+    Yields:
+        Each record as a dictionary.
     """
     decoder = json.JSONDecoder()
     with open(path, "r", encoding="utf-8") as log_file:
@@ -247,7 +268,11 @@ def iter_json_records(path: str | os.PathLike[str]) -> Iterator[dict[str, Any]]:
 
 
 def read_json_records(path: str | os.PathLike[str]) -> list[dict[str, Any]]:
-    """Read all records yielded by :func:`iter_json_records`."""
+    """Read all records that :func:`iter_json_records` yields.
+
+    Args:
+        path: JSON log file.
+    """
     return list(iter_json_records(path))
 
 
@@ -258,13 +283,24 @@ def sobel_gradients(
 ) -> tuple[Tensor, Tensor]:
     """Return per-channel Sobel gradients ``(gx, gy)`` of a channels-last batch.
 
-    Input and outputs have shape ``(B, H, W, C)``; computation uses float32.
-    ``gx`` points along increasing columns and ``gy`` along increasing rows.
+    ``gx`` points along increasing columns and ``gy`` along increasing rows. Computation
+    uses float32.
 
     Args:
-        image: Image batch in channels-last layout.
-        normalize: Divide kernels by 8 so a unit ramp has unit gradient.
-        padding_mode: Mode for one-pixel padding; ``"constant"`` pads with zeros.
+        image: Image batch.
+        normalize: Whether to divide the kernels by 8, so that a unit ramp has unit
+            gradient.
+        padding_mode: Mode of the one-pixel padding; ``"constant"`` pads with zeros.
+
+    Shape:
+        - Input: ``(B, H, W, channels)``.
+        - Output: Two tensors ``(B, H, W, channels)``.
+
+    Examples:
+        >>> ramp = torch.arange(4.0).expand(4, 4)[None, :, :, None]
+        >>> gx, gy = sobel_gradients(ramp)
+        >>> gx[0, 1, 1, 0].item(), gy[0, 1, 1, 0].item()
+        (1.0, 0.0)
     """
     x = image.movedim(-1, 1).float()
     channels = x.shape[1]
@@ -286,11 +322,19 @@ def sobel_gradients(
 
 
 def encode_dict(data: dict[str, Any], compress: bool = True) -> bytes:
-    """Serialize a tensor dictionary to bytes, optionally with gzip compression.
+    """Serialize a tensor dictionary to bytes with :func:`torch.save`.
 
-    Uses :func:`torch.save`. To round-trip through :func:`decode_dict`, values
-    must be tensors, primitive types or standard containers accepted by
-    ``torch.load(weights_only=True)``.
+    To round-trip through :func:`decode_dict`, values must be tensors, primitive types
+    or standard containers accepted by ``torch.load(weights_only=True)``.
+
+    Args:
+        data: Dictionary to serialize.
+        compress: Whether to compress with gzip.
+
+    Examples:
+        >>> encoded = encode_dict({"weight": torch.ones(2)})
+        >>> decode_dict(encoded)["weight"].tolist()
+        [1.0, 1.0]
     """
     buffer = io.BytesIO()
     torch.save(data, buffer)
@@ -301,15 +345,22 @@ def encode_dict(data: dict[str, Any], compress: bool = True) -> bytes:
 def decode_dict(encoded: bytes, compressed: bool = True) -> dict[str, Any]:
     """Deserialize :func:`encode_dict` output, loading tensors onto the CPU.
 
-    ``compressed`` must match the encoder's ``compress`` argument. Loading uses
-    PyTorch's default ``weights_only=True``.
+    Loading uses PyTorch's default ``weights_only=True``.
+
+    Args:
+        encoded: Serialized dictionary.
+        compressed: Whether ``encoded`` is gzipped, matching the encoder's ``compress``.
     """
     raw = gzip.decompress(encoded) if compressed else encoded
     return torch.load(io.BytesIO(raw), map_location="cpu")
 
 
 def read_config(path: str | os.PathLike[str]) -> dict[str, Any]:
-    """Read a UTF-8 JSON configuration file."""
+    """Read a UTF-8 JSON configuration file.
+
+    Args:
+        path: File to read.
+    """
     with open(path, "r", encoding="utf-8") as json_file:
         return json.load(json_file)
 
@@ -321,7 +372,10 @@ def save_results(
 ) -> None:
     """Write records to ``save_dir/{prefix}_results.json``, replacing any existing file.
 
-    Creates the directory if needed.
+    Args:
+        results: JSON-serializable records.
+        save_dir: Output directory, created if needed.
+        prefix: Prefix of the file name.
     """
     os.makedirs(save_dir, exist_ok=True)
     with open(
@@ -338,15 +392,17 @@ def add_sensor_noise(
 ) -> Tensor:
     """Simulate photon shot noise and Gaussian readout noise.
 
-    The image is converted to float32, scaled to photon counts, Poisson-sampled,
-    then perturbed by Gaussian noise. The result is divided by integration time
-    and clamped to ``[0, 1]``, with the same shape and device as the input.
+    The image is scaled to photon counts, Poisson-sampled and perturbed by Gaussian
+    noise, then divided by the integration time and clamped to ``[0, 1]``.
 
     Args:
-        image: Image with values in ``[0, 1]``.
+        image: Image in ``[0, 1]``.
         readout_noise_std: Gaussian standard deviation in count units.
         integration_time: Photon-count scale; longer exposures reduce relative noise.
-        seed: Reseeds the global PyTorch RNG, affecting subsequent random draws.
+        seed: Seed of the global PyTorch RNG.
+
+    Returns:
+        Noisy float32 image, with the shape and device of ``image``.
     """
     torch.manual_seed(seed)
     # Sample in float32 even when the input uses a lower-precision dtype.
@@ -362,11 +418,13 @@ def render_mesh(
     width: int = 1920,
     height: int = 1080,
 ) -> None:
-    """Render a mesh to an image using a hidden Open3D window.
+    """Render a mesh to an image with a hidden Open3D window (``3d`` extra).
 
-    Requires the ``3d`` extra. Trimesh loads ``mesh_path`` and joins scenes into
-    one mesh; Open3D renders the default view at ``width`` by ``height`` pixels.
-    ``image_path`` determines the output format.
+    Args:
+        mesh_path: Mesh file loaded with trimesh; a scene is joined into one mesh.
+        image_path: Output image, whose suffix sets the format.
+        width: Image width in pixels.
+        height: Image height in pixels.
     """
     import open3d as o3d
     import trimesh
@@ -390,13 +448,14 @@ def render_mesh(
 def radon(image: Tensor, angles: Tensor) -> Tensor:
     """Compute a sinogram by rotating the image and summing along its height.
 
+    Rotations use Kornia's bilinear interpolation and zero padding.
+
     Args:
-        image: Tensor of shape ``(1, C, H, W)``.
-        angles: Angles in degrees, shape ``(A,)``, on the image device.
+        image: Image ``(1, channels, H, W)``.
+        angles: Angles ``(A,)`` in degrees, on the image's device.
 
     Returns:
-        Shape ``(A, C, W)`` with singleton dimensions removed. Rotations use
-        Kornia's bilinear interpolation and zero padding.
+        Sinogram ``(A, channels, W)``, with singleton dimensions removed.
     """
     import kornia
 

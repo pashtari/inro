@@ -12,10 +12,16 @@ __all__ = ["SineLayer", "SIREN"]
 
 
 class SineLayer(nn.Module):
-    """Sine layer ``sin(omega * linear(x))`` used by :class:`SIREN`.
+    """Sine layer ``sin(omega * linear(x))`` of :class:`SIREN`.
 
-    Maps ``(..., in_features)`` to ``(..., out_features)``; ``omega`` controls
-    frequency.
+    Args:
+        in_features: Input width.
+        out_features: Output width.
+        omega: Frequency multiplier.
+
+    Shape:
+        - Input: ``(..., in_features)``.
+        - Output: ``(..., out_features)``.
     """
 
     def __init__(
@@ -33,21 +39,29 @@ class SineLayer(nn.Module):
 
 
 class SIREN(MLP):
-    """Sinusoidal representation network (Sitzmann et al., NeurIPS 2020).
+    """Sinusoidal representation network.
 
-    An :class:`MLP` with sine hidden layers, a linear output layer,
-    and SIREN weight initialization. Biases keep PyTorch's defaults.
+    An :class:`MLP` with :class:`SineLayer` hidden layers, a linear output layer and
+    SIREN weight initialization. Biases keep PyTorch's defaults.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
         hidden_features: Hidden width.
-        hidden_layers: Number of sine layers; must be at least one.
-        omega: Frequency multiplier in every sine layer.
-        first_omega: Frequency of the first sine layer alone, the one
-            :func:`inro.fresh_select` chooses; ``None`` keeps ``omega``.
-            The later layers' initialization follows ``omega``.
-        output_activation: Optional callable applied to the output.
+        hidden_layers: Number of hidden layers.
+        omega: Frequency multiplier.
+        first_omega: Frequency multiplier of the first layer alone, the one
+            :func:`inro.fresh_select` chooses; ``None`` uses ``omega``. The later
+            layers' initialization follows ``omega``.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Sitzmann et al., "Implicit Neural Representations with Periodic Activation
+        Functions", NeurIPS 2020.
     """
 
     def __init__(
@@ -81,11 +95,11 @@ class SIREN(MLP):
 
 @torch.no_grad()
 def _siren_init_(layers: nn.ModuleList, omega: float) -> None:
-    """Initialize SIREN-style weights in place (Sitzmann et al., Sec. 3.2).
+    """Initialize SIREN weights in place (Sitzmann et al., Sec. 3.2).
 
-    The first layer uses ``U(-1/n, 1/n)`` and later layers, including the
-    linear output, ``U(-sqrt(6/n)/omega, sqrt(6/n)/omega)``, where ``n`` is
-    the layer's input width. Biases are left unchanged.
+    The first layer draws from ``U(-1/n, 1/n)`` and the later ones, the linear output
+    included, from ``U(-sqrt(6/n)/omega, sqrt(6/n)/omega)``, for a layer's input width
+    ``n``. Biases are left unchanged.
     """
     for i, layer in enumerate(layers):
         if i == 0:

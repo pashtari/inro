@@ -1,9 +1,9 @@
 """Posed RGBA images and ray sampling for NeRF synthetic (Blender) scenes.
 
-Camera defaults follow torch-ngp's Blender recipe used by FINER:
-``scene_scale=0.8``, ``bound=1``, and ``near=0.2``. Images load at full
-resolution by default; ``downsample=4, skip=4`` gives FINER's 25 training
-views at 200 x 200. Straight RGBA keeps the background a rendering choice.
+Camera defaults follow torch-ngp's Blender recipe, as used by FINER:
+``scene_scale=0.8``, ``bound=1`` and ``near=0.2``. Images load at full resolution;
+``downsample=4, skip=4`` gives FINER's 25 training views at 200 x 200. Straight RGBA
+keeps the background a rendering choice.
 """
 
 import json
@@ -25,38 +25,36 @@ __all__ = ["BlenderDataset"]
 
 
 class BlenderDataset(Dataset[dict[str, Tensor]]):
-    """A Blender scene with full-view access and random ray sampling.
+    """Blender scene with full-view access and random ray sampling.
 
-    ``dataset[i]`` returns full-image rays and RGBA. :meth:`sample_rays` draws
-    uniformly across views and pixels, generating rays from stored poses to
-    avoid a full ray buffer. Poses retain Blender's coordinate convention and
-    have their translations multiplied by ``scene_scale``.
+    ``dataset[i]`` returns one view's rays and RGBA, and :meth:`sample_rays` generates
+    rays from the stored poses, without a ray buffer. Poses keep Blender's convention,
+    with translations multiplied by ``scene_scale``.
 
     Args:
-        root: Scene directory containing ``transforms_{split}.json`` and images.
-        split: Split name, usually ``"train"``, ``"val"``, or ``"test"``.
-        downsample: Integer resolution reduction factor, using area averaging.
-            ``4`` gives 200 x 200 Blender images; for divisible sizes this
-            matches torch-ngp's area filter up to uint8 rounding.
-        skip: Keep every ``skip``-th frame in file order. ``4`` selects 25 of
-            the 100 training views; use ``1`` for evaluation.
+        root: Scene directory holding ``transforms_{split}.json`` and the images.
+        split: Split name, usually ``"train"``, ``"val"`` or ``"test"``.
+        downsample: Integer factor of resolution reduction by area averaging; ``4``
+            gives 200 x 200 Blender images.
+        skip: Keep every ``skip``-th frame in file order; ``4`` selects 25 of the 100
+            training views, and evaluation uses ``1``.
         scene_scale: Scale applied to camera positions.
         bound: Half-extent of the scene box ``[-bound, bound]^3``.
-        near: Near-plane floor, stored for constructing the renderer.
-        background: Scalar or three-channel background in ``[0, 1]``.
-            White is the standard Blender evaluation background.
+        near: Near-plane distance, stored for the renderer.
+        background: Background color in ``[0, 1]``, a scalar or three channels. White is
+            the standard for evaluating Blender scenes.
 
     Attributes:
-        images: ``(N, H, W, 4)`` float32 straight RGBA in ``[0, 1]``.
-        poses: ``(N, 4, 4)`` float32 camera-to-world matrices, with scaled positions.
-        directions: Shared ``(H, W, 3)`` camera-frame ray directions.
-        radius: Mean camera distance from the origin after scaling.
+        images: Straight RGBA images ``(views, H, W, 4)`` in ``[0, 1]``.
+        poses: Camera-to-world poses ``(views, 4, 4)``, with scaled translations.
+        directions: Camera-frame ray directions ``(H, W, 3)``, shared by all views.
+        radius: Mean camera distance from the origin, after scaling.
         focal: Focal length in pixels at the loaded resolution.
-        height: Loaded image height in pixels.
-        width: Loaded image width in pixels.
-        far: ``None``: each ray ends at the scene-box exit.
-        aabb: ``(6,)`` float32 scene box ``(-bound, ..., bound)``.
-        background: ``(3,)`` float32 background color.
+        height: Image height ``H`` in pixels at the loaded resolution.
+        width: Image width ``W`` in pixels at the loaded resolution.
+        far: Far-plane distance, always ``None``: each ray ends at the box exit.
+        aabb: Scene box ``(xmin, ymin, zmin, xmax, ymax, zmax)``, from ``bound``.
+        background: Background color ``(3,)``.
     """
 
     def __init__(
@@ -125,10 +123,10 @@ class BlenderDataset(Dataset[dict[str, Tensor]]):
         self.directions = generate_ray_directions(self.height, self.width, self.focal)
 
     def to(self, device: str | torch.device) -> Self:
-        """Move stored tensors to ``device`` in place and return this dataset.
+        """Move the stored tensors to a device in place and return this dataset.
 
-        Subsequent sampling runs on that device, avoiding per-step transfers.
-        Unlike ``nn.Module.to``, this method accepts only a device.
+        Args:
+            device: Device to move to; sampling then runs there, without transfers.
         """
         for name in ("images", "poses", "directions", "aabb", "background"):
             setattr(self, name, getattr(self, name).to(device))
@@ -138,10 +136,11 @@ class BlenderDataset(Dataset[dict[str, Tensor]]):
         return len(self.images)
 
     def __getitem__(self, index: int) -> dict[str, Tensor]:
-        """Return full-image rays and RGBA pixels for one view.
+        """Return the rays and pixels of one view.
 
-        ``"rays_o"`` and unit ``"rays_d"`` have shape ``(H, W, 3)``;
-        ``"rgba"`` contains straight RGBA in ``[0, 1]`` of shape ``(H, W, 4)``.
+        Returns:
+            Dictionary with ``rays_o`` and unit ``rays_d``, each ``(H, W, 3)``, and
+                ``rgba``, straight RGBA ``(H, W, 4)`` in ``[0, 1]``.
         """
         rays_o, rays_d = generate_rays(self.poses[index], self.directions)
         return {"rays_o": rays_o, "rays_d": rays_d, "rgba": self.images[index]}
@@ -150,48 +149,45 @@ class BlenderDataset(Dataset[dict[str, Tensor]]):
         """Composite straight RGBA onto a background color.
 
         Args:
-            rgba: Straight (non-premultiplied) RGBA in ``[0, 1]`` of shape
-                ``(*, 4)``.
-            background: Color to composite onto, broadcastable to the RGB
-                shape ``(*, 3)``. ``None`` uses :attr:`background`.
+            rgba: Straight RGBA ``(..., 4)`` in ``[0, 1]``.
+            background: Background color broadcastable to ``(..., 3)``; ``None`` uses
+                :attr:`background`.
 
         Returns:
-            Composited RGB of shape ``(*, 3)``.
+            Composited RGB ``(..., 3)``.
         """
         background = self.background if background is None else background
         rgb, alpha = rgba[..., :3], rgba[..., 3:]
         return rgb * alpha + background * (1.0 - alpha)
 
     def rays_for_pose(self, c2w: Tensor) -> tuple[Tensor, Tensor]:
-        """Generate full-image rays for an arbitrary camera pose.
+        """Generate the rays of a full image for any camera pose.
 
         Args:
-            c2w: Camera-to-world pose of shape ``(4, 4)`` or ``(3, 4)`` (e.g.
-                from :func:`~inro.nerf.pose_spherical`); it is moved to
-                the device of :attr:`directions`.
+            c2w: Camera-to-world pose ``(4, 4)`` or ``(3, 4)``, such as from
+                :func:`~inro.nerf.pose_spherical`, used as given: its translation must
+                be scaled like :attr:`poses`.
 
         Returns:
-            ``(rays_o, rays_d)``, each of shape ``(H, W, 3)``, with ``rays_d``
-            unit norm.
+            Ray origins and unit directions, each ``(H, W, 3)``, on the device of
+                :attr:`directions`.
         """
         return generate_rays(c2w.to(self.directions.device), self.directions)
 
     def sample_rays(
         self, num_rays: int, generator: torch.Generator | None = None
     ) -> dict[str, Tensor]:
-        """Sample a random batch of rays uniformly over all views and pixels.
+        """Sample rays uniformly over all views and pixels, with replacement.
 
         Args:
-            num_rays: Number of rays to sample.
-            generator: Random number generator. Indices are drawn on the
-                generator's device and then moved to the storage device, so a
-                CPU generator also works with CUDA storage. ``None`` draws from
-                the global RNG on the storage device.
+            num_rays: Number of rays ``N``.
+            generator: Random number generator, which may be on another device than the
+                data, such as a CPU generator with data on CUDA. ``None`` uses the
+                global generator of the data's device.
 
         Returns:
-            Dict with ``"rays_o"`` and ``"rays_d"`` of shape ``(num_rays, 3)``
-            (``rays_d`` unit norm) and ``"rgba"`` of shape ``(num_rays, 4)``
-            (straight RGBA), on the device of :attr:`images`.
+            Dictionary with ``rays_o`` and unit ``rays_d``, each ``(N, 3)``, and
+                ``rgba``, straight RGBA ``(N, 4)``, on the device of :attr:`images`.
         """
         device = self.images.device
         num_pixels = self.height * self.width

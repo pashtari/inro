@@ -1,4 +1,4 @@
-"""Training loop for neural fields on coordinate datasets."""
+"""Training loop for implicit neural representations (INRs) on coordinate datasets."""
 
 import copy
 import itertools
@@ -32,22 +32,24 @@ LossFn: TypeAlias = Callable[
 
 
 def _mse_metrics(mse: Tensor) -> dict[str, Tensor]:
-    """The MSE and the PSNR of targets in ``[-1, 1]``, left on the device."""
+    """Return the MSE and the PSNR of targets in ``[-1, 1]``, left on the device."""
     return {"mse": mse, "psnr": 10 * torch.log10(4.0 / mse)}
 
 
 def _mse_loss(
     batch: dict[str, Any], model: nn.Module
 ) -> tuple[Tensor, dict[str, Tensor]]:
-    """Default reconstruction loss, with PSNR for targets in ``[-1, 1]``."""
+    """Return the MSE loss and its metrics, with PSNR for targets in ``[-1, 1]``."""
     mse = F.mse_loss(model(batch["input"]), batch["target"])
     return mse, _mse_metrics(mse.detach())
 
 
 def _training_batch(items: list[dict[str, Any]]) -> dict[str, Any]:
-    """Collate items for a training step without their underscored entries,
-    such as the reference signal, which only evaluation reads and which would
-    otherwise be copied at every step."""
+    """Collate items for a training step, without their underscored keys.
+
+    Only evaluation reads those, such as the reference signal, which would otherwise be
+    copied at every step.
+    """
     return default_collate(
         [
             {key: value for key, value in item.items() if not key.startswith("_")}
@@ -83,70 +85,70 @@ def train(
     log_dir: str | os.PathLike[str] | None = None,
     seed: int = 0,
 ) -> dict[str, Any]:
-    """Fit a neural field, by default with Adam and a cosine-annealed learning rate.
+    """Fit an INR, by default with Adam and a cosine-annealed learning rate.
 
-    Each step draws one batch and takes one optimizer step; the loader passes
-    over ``train_dataset`` again whenever it runs out. The scheduler anneals
-    the learning rate over ``num_steps`` to ``lr / 100``. Moves model and
-    supported datasets to ``device`` in place. Optional quantization modifies
-    parameters during training, evaluates a quantized copy and quantizes the
-    final model in place.
+    Each step draws one batch and takes one optimizer step. The learning rate anneals
+    over ``num_steps`` to a hundredth of its initial value. The model and the datasets
+    with a ``to`` method move to ``device`` in place.
 
     Args:
-        model: Neural field to train in place.
-        train_dataset: Dataset returning ``input`` and ``target`` entries;
-            entries named with a leading underscore, such as the reference
-            ``_original``, are left out of training batches.
+        model: INR to train in place.
+        train_dataset: Dataset whose items hold ``input`` and ``target``; keys with a
+            leading underscore stay out of training batches.
         eval_dataset: Evaluation dataset; ``None`` or empty uses ``train_dataset``.
-        loss_fn: Called as ``loss_fn(batch, model) -> (loss, metrics)``.
-            ``None`` uses MSE and logs PSNR assuming targets in ``[-1, 1]``.
-            Metrics may stay scalar tensors: they are read only when logged,
-            so that no step waits for the GPU.
-        batch_size: Training batch size.
+        loss_fn: Called as ``loss_fn(batch, model) -> (loss, metrics)``; ``None`` uses
+            MSE and logs PSNR for targets in ``[-1, 1]``. Metrics may stay scalar
+            tensors, read only when logged.
+        batch_size: Items per batch.
         num_steps: Number of training steps.
-        optimizer: Steps once per batch, its learning rate under the cosine
-            schedule; ``None`` builds Adam from ``lr``, ``weight_decay``,
-            ``adam_betas`` and ``adam_eps``. A block coordinate descent solver
-            for FUTON, :class:`~inro.models.futon_solvers.BCD`, fits
-            each batch itself, without ``loss_fn``; its learning rate is the
-            weight of the newest batch in its statistics.
-        lr: Initial learning rate.
-        weight_decay: Adam weight decay.
-        adam_betas: Adam moment decay rates; Instant-NGP's reference code uses
-            ``(0.9, 0.99)``, while the benchmarks keep PyTorch's defaults.
-        adam_eps: Adam epsilon; hash grids use ``1e-15``.
-        quantize: Enable quantized evaluation and final in-place quantization.
-        quant_max: Largest integer quantization level.
-        quant_interval: Steps between intermediate fake quantizations.
-            Non-positive values disable them; requires ``quantize=True``.
-        metrics: Distortion metrics passed to :func:`evaluate`.
-        rate_metrics: Rate metrics passed to :func:`evaluate`.
-        log_interval: Steps between history records, each also a line on the
-            console and in the text log, with the evaluation's metrics when
-            the step evaluates. Final and evaluation steps are always
-            recorded; non-positive values record only those.
-        eval_interval: Evaluate every this many steps and at the final step.
-            ``None`` evaluates only at the end; non-positive values disable it.
-        chunk_size: Coordinates per evaluation forward pass; ``None`` uses all.
-        save_reconstruction: Save each evaluation's reconstruction under
-            ``log_dir``; see :func:`evaluate`.
-        device: Training device; ``None`` selects CUDA when available, else CPU.
+        optimizer: Optimizer under the cosine schedule; ``None`` builds Adam from
+            ``lr``, ``weight_decay``, ``adam_betas`` and ``adam_eps``. A
+            :class:`~inro.models.futon_solvers.BCD` solver fits each batch itself,
+            without ``loss_fn``.
+        lr: Initial learning rate of Adam.
+        weight_decay: Weight decay of Adam.
+        adam_betas: Moment decay rates of Adam.
+        adam_eps: Epsilon of Adam.
+        quantize: Whether to evaluate a quantized copy and quantize the final model in
+            place.
+        quant_max: Largest integer level, less than ``2**63``; codes use the smallest
+            signed integer dtype that holds it.
+        quant_interval: Steps between fake quantizations of the model, with
+            ``quantize=True``; non-positive values disable them.
+        metrics: Distortion metrics by name, called as ``fn(reconstruction, original)``.
+        rate_metrics: Rate metrics by name, called as ``fn(encoded_bytes, original)``.
+        log_interval: Steps between history records; final and evaluation steps are
+            always recorded, and non-positive values record only those.
+        eval_interval: Steps between evaluations, the final step always included;
+            ``None`` evaluates only there and non-positive values never.
+        chunk_size: Coordinates per forward pass; ``None`` or a non-positive value
+            evaluates all at once.
+        save_reconstruction: Whether to save each reconstruction with ``dataset.save``
+            as ``log_dir/{id}_reconstructed``.
+        device: Device to run on; ``None`` uses CUDA when available, else the CPU.
         ckpt_path: State dict to load first, if the file exists.
-        log_dir: Directory for ``log.txt``, with a line per record, ``log.json``,
-            reconstructions and ``checkpoint.pt``. Text logs are truncated
-            initially; JSON records append. ``None`` keeps no files; the
-            console shows a progress bar, the records and a summary either way.
-        seed: Seed for the global PyTorch RNG.
+        log_dir: Directory for ``log.txt`` (truncated first), ``log.json`` (appended),
+            reconstructions and ``checkpoint.pt``; ``None`` writes no files.
+        seed: Seed of the global PyTorch RNG.
 
     Returns:
-        ``config`` with the run's settings and ``peak_memory``, the most bytes
-        a training step allocated beyond the data and parameters already on
-        the device, drawing its batch and evaluations left out (zero off CUDA),
-        ``model_dict`` with final parameters (integer codes and scales when
-        quantized), and ``history`` with one record per logged step. Records
-        contain ``step``, ``elapsed``, the seconds spent training so far
-        (evaluating and logging left out), the training metrics of the step's
-        batch, and averaged evaluation metrics under ``eval`` when evaluated.
+        Dictionary with these keys.
+
+        - ``config``: Settings of the run, and ``peak_memory``, the most bytes a
+          training step allocated beyond what the device already held (zero off
+          CUDA).
+        - ``model_dict``: Final parameters, as integer codes and scales when
+          quantized.
+        - ``history``: One record per logged step, with ``step``, ``elapsed``
+          (seconds spent training so far), the metrics of the step's batch and, if
+          the step evaluated, the averaged evaluation metrics under ``eval``.
+
+    Examples:
+        >>> from inro import ImageCoordinateDataset
+        >>> dataset = ImageCoordinateDataset(torch.zeros(3, 8, 8, dtype=torch.uint8))
+        >>> results = train(nn.Linear(2, 3), dataset, num_steps=2, device="cpu")
+        >>> sorted(results)
+        ['config', 'history', 'model_dict']
     """
     logger, json_logger = setup_experiment_loggers(log_dir, __name__)
     torch.manual_seed(seed)

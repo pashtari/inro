@@ -4,8 +4,9 @@ Models are trained with validation views and scored on all test views, each
 rendered whole, in one pass.
 
 Usage:
+
     python scripts/train_nerf.py
-    python scripts/train_nerf.py --data data/nerf/blender/lego --models MFN --device cuda:1
+    python scripts/train_nerf.py --data data/nerf/blender/lego --models MFN
 """
 
 from pathlib import Path
@@ -25,8 +26,10 @@ DATA = sorted(
 def fresh_targets(
     dataset: inro.nerf.BlenderDataset, device: torch.device, count: int = 10
 ) -> list[torch.Tensor]:
-    """FreSh's targets for a radiance field: training views drawn at random,
-    without repeats, composited onto black as the authors' code does."""
+    """Draw FreSh's targets for a radiance field: random training views on black.
+
+    The views do not repeat, and black is what the authors' code composites onto.
+    """
     views = torch.randperm(len(dataset), generator=torch.Generator().manual_seed(0))
     black = torch.zeros(3)
     return [
@@ -40,9 +43,11 @@ def fresh_view(
     dataset: inro.nerf.BlenderDataset,
     device: torch.device,
 ) -> torch.Tensor:
-    """FreSh's render of an untrained field (Kania et al., ICLR 2025): a random
-    training view whose rays are each sampled once, at the cameras' mean
-    distance from the origin, and coloured without their view direction."""
+    """Render FreSh's view of an untrained radiance field (Kania et al., ICLR 2025).
+
+    A random training view whose rays are each sampled once, at the cameras' mean
+    distance from the origin, and colored without their view direction.
+    """
     view = dataset[int(torch.randint(len(dataset), ()))]
     points = (view["rays_o"] + dataset.radius * view["rays_d"]).to(device)
     field = field.to(device)
@@ -56,6 +61,7 @@ def fresh_view(
 def fit(
     config: dict, model: dict, path: Path, out: Path, device: torch.device
 ) -> dict[str, Any]:
+    """Fit one model to one scene, scored on every test view."""
     splits = config["data"]
     downsample = splits["downsample"]
     train_dataset = inro.nerf.BlenderDataset(
@@ -101,9 +107,8 @@ def fit(
         **{**config["train"], **model["train"]},
     )
 
-    # Each test view renders in one pass of all its rays, so that its time is
-    # the field's and the renderer's, not the overhead of 79 passes of the
-    # renderer's default 512 rays.
+    # One pass of all a view's rays, so that its time is the radiance field's and the
+    # renderer's, not the overhead of 79 passes of the renderer's default 512 rays.
     rays = test_dataset.height * test_dataset.width
     test = inro.nerf.evaluate(
         field, renderer, test_dataset, chunk_size=rays, return_images=True

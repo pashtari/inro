@@ -1,29 +1,31 @@
 """FUTON's error bound against trained FUTONs, on Kodak images and occupancy volumes.
 
 Usage:
+
     python scripts/futon_bound.py                  # every signal and check
     python scripts/futon_bound.py --tasks image --signals kodim19 kodim01
-    python scripts/report_paper.py --tasks bound   # then the figures and tables
 
-For every signal, spectral resolution K = (kappa N_1, ..., kappa N_C) and CP
-rank R, the script bounds the best grid error of the paper's FUTON, a cosine
-basis, a CP combiner and a linear decoder without bias (``inro.futon_bound``);
-evaluates the certified FUTON, which attains the upper bound and is built
-from the bound's factors without training, in its ALS form, the default, and
-times its SVD form, the same terms before alternating least squares refines
-them; and trains the same FUTON with Adam from a random start, as the
-benchmark trains every model. A check completes the study: on every signal
-at K = N/2 and the benchmark's rank, Adam for the benchmark's steps and for
-longer, and alternating least squares on the whole grid, to see whether
-training rather than the bound is the limit. Errors are mean squared errors
-on the whole grid, and PSNR is taken for signals in [-1, 1]. The theorem
-behind the bound is in docs/concepts/error-bound.md, and
-scripts/report_paper.py turns the records into figures and tables that
-report each dataset, its signals averaged.
+For every signal, spectral resolution ``K = (kappa N_1, ..., kappa N_C)`` and CP
+rank ``R``, the script:
+
+- bounds the best grid error of the paper's FUTON, a cosine basis, a CP combiner
+  and a linear decoder without bias (``inro.futon_bound``);
+- evaluates the certified FUTON, built from the bound's factors without training,
+  which attains the upper bound, and times its SVD form, the same terms before
+  alternating least squares refines them;
+- trains the same FUTON with Adam from a random start, as the benchmark trains
+  every model.
+
+A check on every signal, at ``K = N/2`` and the benchmark's rank, shows whether
+training rather than the bound is the limit: Adam for the benchmark's steps and
+for longer, and alternating least squares on the whole grid. Errors are mean
+squared errors on the whole grid, and PSNR is taken for signals in ``[-1, 1]``.
+The theorem behind the bound is in docs/concepts/error-bound.md.
 
 Writes:
+
     logs/bound/<task>/<signal>.json  one record per (kappa, R), resumable
-    logs/bound/<task>_checks.json  the optimizer checks, one row per signal
+    logs/bound/<task>_checks.json    the optimizer checks, one row per signal
 """
 
 import argparse
@@ -31,7 +33,7 @@ import json
 import os
 import time
 
-# inro.train's progress bar, off when the study runs, but not where it is imported
+# Silence inro.train's progress bar in the study, but not where this is imported.
 if __name__ == "__main__":
     os.environ.setdefault("TQDM_DISABLE", "1")
 
@@ -61,26 +63,25 @@ TASKS = {
         "lr": 3e-2,  # FUTON's rate in configs/occupancy.yaml
     },
 }
-# The paper's basis. Records carry it, so that settings of another basis, which
-# earlier studies ran, are never mistaken for its own.
+# The paper's basis. Records carry it, so that settings of another basis are never
+# mistaken for its own.
 BASIS = "cosine"
-# The benchmark's 1000 steps at its batches, at each task's "lr" above, the
-# benchmark's rate for FUTON (cosine).
+# The benchmark's steps, at its batches and each task's "lr" above.
 STEPS = 1000
-# The optimizer checks at K = N/2 and the benchmark's rank: Adam for the steps
-# and for LONGER times them, and alternating least squares on the whole grid,
-# read after each number of SWEEPS.
+# The optimizer checks at K = N/2 and the benchmark's rank: Adam for STEPS and for
+# LONGER times them, and alternating least squares on the whole grid, read after
+# each number of SWEEPS.
 LONGER, SWEEPS = 5, (500, 2000)
 LOGS = ROOT / "logs" / "bound"
 
 
 def psnr(mse: float | np.ndarray) -> float | np.ndarray:
-    """PSNR of a mean squared error, for signals in [-1, 1]."""
+    """Return the PSNR of a mean squared error, for signals in ``[-1, 1]``."""
     return 10 * np.log10(4 / np.asarray(mse))
 
 
 def dataset(task: str, name: str, **data):
-    """The signal, whole or, with ``data``, as each training step draws it."""
+    """Load a signal, whole or, with ``data``, as each training step draws it."""
     if task == "image":
         return inro.ImageCoordinateDataset(ROOT / f"data/Kodak/{name}.png", **data)
     path = ROOT / f"data/occupancy/{name}.ply"
@@ -88,8 +89,7 @@ def dataset(task: str, name: str, **data):
 
 
 def benchmark_rank(task: str, sizes: list[int], channels: int) -> int:
-    """The CP rank of the benchmark's FUTON (cosine) on a signal of ``sizes``,
-    as configs/<task>.yaml sets it."""
+    """Return the CP rank of the benchmark's FUTON (cosine) on a signal of ``sizes``."""
     config = yaml.safe_load((ROOT / "configs" / f"{task}.yaml").read_text())
     names = "DHW"[-len(sizes) :]
     entry = resolve(config["models"]["FUTON-cosine"], **dict(zip(names, sizes)))
@@ -97,8 +97,7 @@ def benchmark_rank(task: str, sizes: list[int], channels: int) -> int:
 
 
 def futon(sizes: list[int], channels: int, kappa: float, rank: int) -> inro.FUTON:
-    """The paper's FUTON: the cosine basis, a CP combiner and a linear decoder,
-    no bias."""
+    """Build the paper's FUTON: cosine basis, CP combiner, linear decoder, no bias."""
     components = [max(2, int(kappa * size)) for size in sizes]
     basis = (BASIS, {"num_components": components, "grid_size": sizes})
     return inro.FUTON(len(sizes), channels, basis, ("cp", {"rank": rank}),
@@ -106,7 +105,7 @@ def futon(sizes: list[int], channels: int, kappa: float, rank: int) -> inro.FUTO
 
 
 def features_of(model: inro.FUTON, sizes: list[int], device) -> list[torch.Tensor]:
-    """The model's basis on each axis's grid, as ``inro.futon_bound`` takes it."""
+    """Return the basis on each axis's grid, as ``inro.futon_bound`` takes it."""
     return [
         model.encoding.basis.axis_features(torch.linspace(-1, 1, n), c).to(device)
         for c, n in enumerate(sizes)
@@ -114,7 +113,7 @@ def features_of(model: inro.FUTON, sizes: list[int], device) -> list[torch.Tenso
 
 
 def evaluate(model: inro.FUTON, data, device) -> tuple[float, float | None]:
-    """Grid MSE, and IoU (%) at the zero level for occupancy."""
+    """Return the grid MSE, and the IoU (%) at the zero level for occupancy."""
     output = inro.chunked_inference(model, data.input, chunk_size=2**20, device=device)
     target = data.target.to(device)
     mse = float((output.double() - target.double()).square().mean())
@@ -126,7 +125,7 @@ def evaluate(model: inro.FUTON, data, device) -> tuple[float, float | None]:
 
 def train(model: inro.FUTON, data, device, lr: float, steps: int = STEPS,
           seed: int = 0) -> float:  # fmt: skip
-    """Train in place with Adam as the benchmark does; returns the seconds taken."""
+    """Train in place with Adam as the benchmark does, and return the seconds taken."""
     torch.manual_seed(seed)
     model.encoding.combiner.reset_parameters()
     model.decoder.reset_parameters()
@@ -137,8 +136,10 @@ def train(model: inro.FUTON, data, device, lr: float, steps: int = STEPS,
 
 
 def warm_up(task: str, device: torch.device) -> None:
-    """A bound and a short Adam run on the task's first signal, untimed, so
-    that no timed one pays for setting up kernels and libraries."""
+    """Bound and briefly train on a task's first signal, untimed.
+
+    No timed run then pays for setting up kernels and libraries.
+    """
     name = TASKS[task]["signals"][0]
     full = dataset(task, name)
     sizes, channels = list(full.target.shape[:-1]), full.target.shape[-1]
@@ -155,16 +156,17 @@ def warm_up(task: str, device: torch.device) -> None:
 
 
 def of_basis(rows: list[dict]) -> list[dict]:
-    """The records' rows of the study's basis; a row without one is sinc's, the
-    basis of an earlier study."""
+    """Return the rows of the study's basis; a row that names none is sinc's."""
     return [row for row in rows if row.get("basis", "sinc") == BASIS]
 
 
 def run(task: str, name: str, device: torch.device) -> None:
     """Bound, certify and train every setting of one signal not yet recorded.
-    A K is bounded at all its ranks in one call, whose time the cost reports,
-    so a K with a rank yet to bound is bounded again at every rank; a setting
-    whose Adam run is recorded keeps it."""
+
+    A ``K`` is bounded at all its ranks in one call, whose time the cost reports,
+    so a ``K`` with a rank yet to bound is bounded again at every rank; a setting
+    whose Adam run is recorded keeps it.
+    """
     settings = TASKS[task]
     path = LOGS / task / f"{name}.json"
     record = json.loads(path.read_text()) if path.exists() else {"configs": []}
@@ -233,10 +235,12 @@ def run(task: str, name: str, device: torch.device) -> None:
 
 
 def checks(task: str, device: torch.device) -> None:
-    """Whether training, not the bound, is the limit, on every signal at
-    K = N/2 and the benchmark's rank: Adam for the benchmark's steps and for
-    LONGER times them, and alternating least squares on the whole grid from a
-    random start (``inro.LeastSquares`` without momentum), against the bound."""
+    """Check on every signal whether training, rather than the bound, is the limit.
+
+    At ``K = N/2`` and the benchmark's rank: Adam for the benchmark's steps and for
+    ``LONGER`` times them, and alternating least squares on the whole grid from a
+    random start (``inro.LeastSquares`` without momentum), against the bound.
+    """
     path = LOGS / f"{task}_checks.json"
     rows = json.loads(path.read_text()) if path.exists() else []
     for name in TASKS[task]["signals"]:

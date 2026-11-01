@@ -23,7 +23,7 @@ DEVICES = ["cpu", pytest.param("cuda", marks=CUDA)]
 
 
 def reference_lanczos(x, num_components, radius):
-    """Direct evaluation from the definition, over every center."""
+    """Evaluate the kernel from its definition, over every center."""
     K, a = num_components, radius
     centers = torch.linspace(-1.0, 1.0, K, dtype=x.dtype, device=x.device)
     w = 2.0 / (K - 1)
@@ -33,6 +33,8 @@ def reference_lanczos(x, num_components, radius):
 
 
 class TestKernel:
+    """Lanczos kernel: its definition, taps, support and limits."""
+
     @pytest.mark.parametrize("radius", [1, 2, 3, 4])
     @pytest.mark.parametrize("K", [16, 33])
     def test_matches_definition(self, radius, K):
@@ -51,7 +53,6 @@ class TestKernel:
         ],
     )
     def test_stores_two_taps_per_radius(self, basis, taps):
-        """Each point has 2 * radius taps."""
         assert basis.radius * 2 == taps
         feats = basis((torch.rand(16) * 2 - 1).unsqueeze(-1))[0]
         assert feats.values.shape[1] == taps
@@ -62,20 +63,17 @@ class TestKernel:
         dense = basis((torch.rand(200) * 2 - 1).unsqueeze(-1))[0]
         nz = dense != 0
         assert int(nz.sum(-1).max()) <= 2 * radius
-        # every nonzero run is contiguous
         first = torch.argmax(nz.int(), dim=-1)
         last = nz.shape[-1] - 1 - torch.argmax(nz.int().flip(-1), dim=-1)
         assert bool((last - first < 2 * radius).all())
 
     def test_cardinal_at_grid_points(self):
-        """Un-normalized kernels are 1 at their own center, 0 at the others."""
         K = 16
         basis = LanczosBasis(1, K, radius=2, normalize=False, sparse=False)
         dense = basis(torch.linspace(-1, 1, K).unsqueeze(-1))[0]
         assert torch.allclose(dense, torch.eye(K), atol=1e-6)
 
     def test_approaches_sinc_for_large_radius(self):
-        """SincBasis is the radius -> infinity limit."""
         K = 64
         x = (torch.rand(100) * 2 - 1).unsqueeze(-1)
         sinc = SincBasis(1, K, normalize=False)(x)[0]
@@ -90,14 +88,14 @@ class TestKernel:
         assert errors[-1] < 0.05
 
     def test_partition_of_unity_of_interpolant(self):
-        """Lanczos reconstruction of a constant signal is near-constant."""
+        """Stay within 2 % of a constant, as Lanczos is only nearly a partition."""
         basis = LanczosBasis(1, 64, radius=3, normalize=False, sparse=False)
         x = (torch.rand(500) * 1.8 - 0.9).unsqueeze(-1)
         assert (basis(x)[0].sum(-1) - 1.0).abs().max() < 0.02
 
 
 def reference_polynomials(x, count, legendre):
-    """The three-term recurrences, degree by degree."""
+    """Evaluate the three-term recurrences, degree by degree."""
     x = x.unsqueeze(-1)
     polynomials = [torch.ones_like(x), x]
     for k in range(2, count):
@@ -110,9 +108,10 @@ def reference_polynomials(x, count, legendre):
 
 
 class TestPolynomials:
+    """Chebyshev and Legendre bases against their three-term recurrences."""
+
     @pytest.mark.parametrize("count", [2, 8, 64, 256])
     def test_chebyshev_matches_the_recurrence(self, count):
-        """The closed form agrees with the recurrence to double precision."""
         basis = ChebyshevBasis(2, [count, max(count // 2, 2)], normalize=False).double()
         x = torch.rand(500, 2, dtype=torch.float64) * 2 - 1
         for axis, feature in enumerate(basis(x)):
@@ -123,7 +122,7 @@ class TestPolynomials:
 
     @pytest.mark.parametrize("count", [2, 8, 64, 256])
     def test_legendre_matches_the_recurrence(self, count):
-        """The Chebyshev map agrees with Bonnet's recurrence to double precision."""
+        """Compare the Chebyshev map with Bonnet's recurrence."""
         basis = LegendreBasis(2, [count, max(count // 2, 2)], normalize=False).double()
         x = torch.rand(500, 2, dtype=torch.float64) * 2 - 1
         for axis, feature in enumerate(basis(x)):
@@ -139,7 +138,7 @@ class TestPolynomials:
 
 
 def reference_tent(x, num_components):
-    """The tent formula as originally written, in coordinate units."""
+    """Evaluate the tent formula in coordinate units."""
     K = num_components
     centers = torch.linspace(-1.0, 1.0, K, dtype=x.dtype, device=x.device)
     width = 2.0 / (K - 1)
@@ -147,16 +146,11 @@ def reference_tent(x, num_components):
 
 
 class TestTriangle:
+    """Triangle basis: tent values, sparse taps and linear interpolation."""
+
     @pytest.mark.parametrize("K", [2, 8, 33, 64, 512])
     def test_matches_original_formula(self, K):
-        """Refactoring to grid-index units must not change the values.
-
-        Checked in float64: in float32 both this form and the original sit
-        ~1e-5 from the exact value once K is large (cancellation in the
-        ``x - mu_c`` subtraction), so a float32 comparison of the two would
-        only be measuring rounding noise. See
-        :meth:`test_float32_accuracy_matches_original`.
-        """
+        """Compare in float64, since float32 would only measure rounding noise."""
         basis = TriangleBasis(1, K, normalize=False, sparse=False)
         x = torch.rand(500, dtype=torch.float64) * 2 - 1
         got = basis(x.unsqueeze(-1))[0]
@@ -164,7 +158,7 @@ class TestTriangle:
 
     @pytest.mark.parametrize("K", [64, 512])
     def test_float32_accuracy_matches_original(self, K):
-        """In float32 the new form is no less accurate than the original."""
+        """Stay below ``1e-4`` and within four times the coordinate-unit error."""
         x = torch.rand(2000) * 2 - 1
         truth = reference_tent(x.double(), K)
         new = TriangleBasis(1, K, normalize=False, sparse=False)(x.unsqueeze(-1))[0]
@@ -204,7 +198,7 @@ class TestTriangle:
         assert torch.allclose(got, torch.eye(K), atol=1e-6)
 
     def test_grid_sample_equivalence(self):
-        """Un-normalized tents + a linear map == linear interpolation on a grid."""
+        """Match linear interpolation with un-normalized tents and a linear map."""
         K, R = 16, 3
         grid = torch.randn(K, R)
         x = torch.rand(200) * 2 - 1
@@ -235,6 +229,8 @@ class TestTriangle:
 
 
 class TestSparseEqualsDense:
+    """Lanczos features in their sparse and dense forms."""
+
     @pytest.mark.parametrize("device", DEVICES)
     @pytest.mark.parametrize("radius", [1, 2, 4])
     @pytest.mark.parametrize("normalize", [True, False])
@@ -250,7 +246,7 @@ class TestSparseEqualsDense:
 
     @pytest.mark.parametrize("device", DEVICES)
     def test_boundaries_and_grid_points(self, device):
-        """Clamped windows at the domain edges stay exact."""
+        """Keep the clamped windows at the domain's edges exact."""
         K = 32
         x = torch.cat(
             [
@@ -275,6 +271,8 @@ class TestSparseEqualsDense:
 
 
 class TestCombiners:
+    """Combiners on sparse and dense features."""
+
     @pytest.mark.parametrize("device", DEVICES)
     @pytest.mark.parametrize("combiner_cls", [CPCombiner, TRCombiner, TuckerCombiner])
     def test_matches_dense_path(self, device, combiner_cls):
@@ -327,6 +325,8 @@ class TestCombiners:
 
 
 class TestFuton:
+    """Whole models: shapes, flattening and a training step."""
+
     @pytest.mark.parametrize("device", DEVICES)
     @pytest.mark.parametrize("batch_shape", [(), (7,), (4, 5), (2, 8, 8)])
     def test_shapes_and_equivalence(self, device, batch_shape):
@@ -349,7 +349,7 @@ class TestFuton:
 
     @pytest.mark.parametrize("device", DEVICES)
     def test_other_bases_unaffected(self, device):
-        """Flattening in FUTON.forward must not change existing bases."""
+        """Give a shaped batch the output of its flattened points."""
         torch.manual_seed(0)
         x = torch.rand(3, 6, 2, device=device) * 2 - 1
         for name in ("cosine", "sinc", "triangle", "chebyshev"):
@@ -386,8 +386,11 @@ class TestFuton:
 
 
 def grid_points(sizes, count=None, dtype=torch.float64):
-    """The points of ``linspace(-1, 1, size)`` per axis, as a coordinate dataset
-    has them, or ``count`` of them at random, as a training batch draws them."""
+    """Return the points of ``linspace(-1, 1, size)`` per axis.
+
+    Shaped as a coordinate dataset has them, or ``count`` of them at random, flattened
+    as a training batch draws them.
+    """
     axes = [torch.linspace(-1.0, 1.0, size, dtype=dtype) for size in sizes]
     points = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=-1)
     if count is None:
@@ -397,7 +400,7 @@ def grid_points(sizes, count=None, dtype=torch.float64):
 
 
 def per_point(model, x):
-    """FUTON with each point's dense features of its own, shared with no other."""
+    """Evaluate FUTON with each point's own dense features, shared with no other."""
     points = x.reshape(-1, model.in_features)
     basis, combiner = model.encoding.basis, model.encoding.combiner
     features = [basis.axis_features(xc, c) for c, xc in enumerate(points.unbind(-1))]
@@ -406,14 +409,13 @@ def per_point(model, x):
 
 
 def shares_rows(model, x):
-    """Whether the basis gives the points of ``x`` shared rows of a table."""
+    """Return whether the basis gives the points of ``x`` shared rows of a table."""
     features = model.encoding.basis(x.reshape(-1, model.in_features))
     return all(isinstance(f, SharedRows) for f in features)
 
 
 class TestGridEvaluation:
-    """On a grid, a basis evaluates each distinct coordinate once, or each
-    coordinate of the grid that ``grid_size`` declares."""
+    """Evaluation on a grid, of each distinct or each declared coordinate once."""
 
     @staticmethod
     def model(sizes, basis, combiner, device, declared=False, **basis_kwargs):
@@ -552,6 +554,8 @@ class TestGridEvaluation:
     "name", ["cosine", "sinc", "legendre", "chebyshev", "triangle", "lanczos"]
 )
 class TestNumComponents:
+    """Shared and per-axis sizes of every basis."""
+
     def test_int_and_per_axis(self, name):
         from inro.models.futon import BASES
 
@@ -586,6 +590,8 @@ class TestNumComponents:
 
 
 class TestValidation:
+    """Rejected arguments and the basis registry."""
+
     @pytest.mark.parametrize("radius", [0, -2])
     def test_radius_must_be_positive(self, radius):
         with pytest.raises(ValueError):
@@ -611,8 +617,10 @@ class TestValidation:
 
 @CUDA
 class TestSparseIsFaster:
+    """Speed of the sparse path on a GPU."""
+
     def test_forward_beats_dense(self):
-        """The compact path should win where K >> L (its whole purpose)."""
+        """Beat the dense path where ``K >> L``, the sparse path's purpose."""
         torch.manual_seed(0)
         K, C, M = 512, 2, 200_000
         x = torch.rand(M, C, device="cuda") * 2 - 1
@@ -641,7 +649,7 @@ class TestSparseIsFaster:
 
 @CUDA
 def test_compiled_taps_match_eager():
-    """Compiled, local taps gather windows of the factor; eager, embedding_bag."""
+    """Compare the compiled gather of factor windows with eager ``embedding_bag``."""
     torch.manual_seed(0)
     model = FUTON(
         3, 2, ("lanczos", {"num_components": 16}), ("cp", {"rank": 8}), "linear"
@@ -661,9 +669,7 @@ def test_compiled_taps_match_eager():
 
 @pytest.mark.parametrize("grid", [None, "found", "declared"], ids=str)
 def test_compiled_taps_gather_windows(grid):
-    """Compiled, the taps' product is the fused window gather, not eager's
-    embedding_bag, for the taps of points and of a grid's tables alike, although
-    the taps reach it across the graph break of the search for shared rows."""
+    """Gather windows when compiled, even across the row search's graph break."""
     from functorch.compile import make_boxed_func
     from torch._dynamo.backends.common import aot_autograd
 
@@ -689,8 +695,7 @@ def test_compiled_taps_gather_windows(grid):
 
 @CUDA
 def test_declared_grid_compiles_to_one_graph():
-    """On a declared grid, rows are rounded rather than searched for, so the
-    whole forward pass is one graph, which matches eager evaluation."""
+    """Round rows instead of searching, so that one graph matches eager evaluation."""
     sizes = (40, 50)
     model = FUTON(
         2,
@@ -714,10 +719,7 @@ def test_declared_grid_compiles_to_one_graph():
 
 @CUDA
 def test_declared_grid_keeps_the_memory_of_a_step():
-    """Compiled, a declared grid saves no more for the backward pass than the
-    search does: Lanczos in 3D, whose long kernel, when its tables were
-    computed in the graph after the rows, made the compiler save two gathered
-    projections instead of recomputing them."""
+    """Save no more for backward than the search, on Lanczos's long kernel in 3D."""
     sizes = (40, 50, 30)
     x = grid_points(sizes, count=20000, dtype=torch.float32).cuda()
     peaks = {}

@@ -10,7 +10,16 @@ __all__ = ["MLP", "ReLULayer"]
 
 
 class ReLULayer(nn.Module):
-    """Linear projection followed by ReLU: ``(..., in_features) -> (..., out_features)``."""
+    """Linear projection followed by ReLU.
+
+    Args:
+        in_features: Input width.
+        out_features: Output width.
+
+    Shape:
+        - Input: ``(..., in_features)``.
+        - Output: ``(..., out_features)``.
+    """
 
     def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
@@ -24,23 +33,36 @@ class ReLULayer(nn.Module):
 class MLP(nn.Module):
     """MLP with standard or custom hidden layers and a linear output layer.
 
-    Maps ``(..., in_features)`` to ``(..., out_features)``.
-    By default, hidden layers are linear projections followed by ReLU.
-    Subclasses apply custom initialization after ``super().__init__``.
+    A standard hidden layer is a linear projection followed by ``activation``; a custom
+    one is an instance of ``layer_class``. Subclasses apply custom initialization after
+    ``super().__init__``.
 
     Args:
         in_features: Input width.
         out_features: Output width.
-        hidden_features: Hidden width; ``None`` defaults to ``in_features``.
-        hidden_layers: Number of hidden layers; at least one.
-        activation: Callable applied after each standard hidden linear layer;
-            ``None`` selects ReLU. Module instances are shared across hidden
-            layers. Cannot be combined with ``layer_class``.
-        layer_class: Complete hidden-layer class receiving input/output widths
-            and ``**layer_kwargs``. No additional activation is applied.
-        output_activation: Callable applied after the linear output layer;
-            ``None`` leaves the output unchanged.
-        **layer_kwargs: Constructor arguments for the hidden layers only.
+        hidden_features: Hidden width; ``None`` uses ``in_features``.
+        hidden_layers: Number of hidden layers.
+        activation: Callable applied after each standard hidden layer; ``None`` uses
+            ReLU. A module instance is shared across the layers.
+        layer_class: Class of the custom hidden layers, built as
+            ``layer_class(in_width, out_width, **layer_kwargs)``. No other activation
+            is applied.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+        **layer_kwargs: Constructor arguments of the hidden layers only.
+
+    Raises:
+        ValueError: If ``hidden_layers < 1``, or if ``activation`` and ``layer_class``
+            are both given.
+
+    Shape:
+        - Input: ``(..., in_features)``.
+        - Output: ``(..., out_features)``.
+
+    Examples:
+        >>> from inro import SineLayer
+        >>> model = MLP(2, 3, hidden_features=64, layer_class=SineLayer, omega=30.0)
+        >>> model(torch.rand(8, 2)).shape
+        torch.Size([8, 3])
     """
 
     def __init__(

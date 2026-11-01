@@ -1,4 +1,4 @@
-"""PEMLP: ReLU MLP with a NeRF-style positional encoding."""
+"""PE-MLP: ReLU MLP with a NeRF-style positional encoding."""
 
 from collections.abc import Callable
 
@@ -11,16 +11,19 @@ __all__ = ["PositionalEncoding", "PEMLP"]
 
 
 class PositionalEncoding(nn.Module):
-    """Positional encoding ``[x, sin(2**k * x), cos(2**k * x)]``.
+    r"""Positional encoding ``[x, sin(2**k * x), cos(2**k * x)]`` of :class:`PEMLP`.
 
-    Uses ``num_frequencies`` bands, with ``k`` starting at zero, without the
-    π factor in NeRF Eq. (4). The input is followed by all sines, then all
-    cosines; within each block, bands vary faster than coordinates.
-    The output width is ``in_features * (2 * num_frequencies + 1)`` and
-    leading input dimensions are preserved. Bands are stored in ``freqs``.
+    The bands are ``k = 0, ..., num_frequencies - 1``, without the :math:`\pi` of NeRF's
+    Eq. (4), and the buffer ``freqs`` holds ``2**k``. The input comes first, then all
+    sines, then all cosines; within each block, bands vary faster than coordinates.
 
-    See Mildenhall et al., "NeRF: Representing Scenes as Neural Radiance
-    Fields for View Synthesis", ECCV 2020.
+    Args:
+        in_features: Number of coordinate axes ``C``.
+        num_frequencies: Number of frequency bands.
+
+    Shape:
+        - Input: ``(..., C)``.
+        - Output: ``(..., C * (2 * num_frequencies + 1))``.
     """
 
     def __init__(self, in_features: int, num_frequencies: int = 10) -> None:
@@ -41,15 +44,21 @@ class PositionalEncoding(nn.Module):
 class PEMLP(nn.Module):
     """ReLU MLP with a NeRF-style positional encoding.
 
-    Maps ``(..., in_features)`` to ``(..., out_features)``.
-
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
         hidden_features: Hidden width.
-        hidden_layers: Number of ReLU layers; must be at least one.
-        num_frequencies: Number of bands in :class:`PositionalEncoding`.
-        output_activation: Optional callable applied to the output.
+        hidden_layers: Number of hidden layers.
+        num_frequencies: Number of frequency bands.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Mildenhall et al., "NeRF: Representing Scenes as Neural Radiance Fields for View
+        Synthesis", ECCV 2020.
     """
 
     def __init__(

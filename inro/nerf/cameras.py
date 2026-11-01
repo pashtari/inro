@@ -1,9 +1,8 @@
 """Camera utilities for novel view synthesis.
 
-Follows the Blender / OpenGL camera convention used by the NeRF synthetic
-dataset: in the camera frame, ``x`` points right, ``y`` up, and the camera
-looks along ``-z``. Camera-to-world poses are ``(4, 4)`` matrices whose upper
-``(3, 4)`` block is ``[R | t]``.
+Follows the Blender and OpenGL convention of the NeRF synthetic dataset: in the camera
+frame, ``x`` points right, ``y`` up, and the camera looks along ``-z``. A
+camera-to-world pose is a ``(4, 4)`` matrix whose upper ``(3, 4)`` block is ``[R | t]``.
 """
 
 import math
@@ -21,12 +20,12 @@ __all__ = [
 
 
 def focal_from_fov(fov: float, size: int) -> float:
-    """Convert a full field of view in radians to a focal length in pixels.
+    """Convert a full field of view to a focal length in pixels.
 
     Args:
-        fov: Full field of view in radians (``camera_angle_x`` in the Blender
-            transforms files, paired with the image width).
-        size: Image size in pixels along the same axis as ``fov``.
+        fov: Full field of view in radians, such as ``camera_angle_x`` of the Blender
+            transforms files, which pairs with the image width.
+        size: Image size in pixels along the axis of ``fov``.
     """
     return 0.5 * size / math.tan(0.5 * fov)
 
@@ -41,19 +40,19 @@ def generate_ray_directions(
     device: str | torch.device | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Tensor:
-    """Generate camera-frame directions of shape ``(height, width, 3)``.
+    """Generate camera-frame ray directions ``(H, W, 3)`` through the pixel centers.
 
-    Directions use pixel centers (offset ``+0.5``) and have ``z = -1``.
-    They are left unnormalized for reuse with poses sharing the same intrinsics.
+    Directions have ``z = -1``. They stay unnormalized, so that poses with the same
+    intrinsics can share them.
 
     Args:
-        height: Image height in pixels.
-        width: Image width in pixels.
+        height: Image height ``H`` in pixels.
+        width: Image width ``W`` in pixels.
         focal: Focal length in pixels.
-        cx: Principal point x in pixels. ``None`` uses ``width / 2``.
-        cy: Principal point y in pixels. ``None`` uses ``height / 2``.
-        device: Output device; ``None`` uses the PyTorch default.
-        dtype: Output floating-point dtype.
+        cx: Principal point x in pixels; ``None`` uses ``width / 2``.
+        cy: Principal point y in pixels; ``None`` uses ``height / 2``.
+        device: Device to run on; ``None`` uses the default device.
+        dtype: Floating-point dtype of the directions.
     """
     cx = 0.5 * width if cx is None else cx
     cy = 0.5 * height if cy is None else cy
@@ -71,21 +70,19 @@ def generate_ray_directions(
 def generate_rays(
     c2w: Tensor, directions: Tensor, normalize: bool = True
 ) -> tuple[Tensor, Tensor]:
-    """Generate world-space rays from camera-frame directions and poses.
+    """Generate world-space rays from camera poses and camera-frame directions.
 
     Args:
-        c2w: Camera-to-world pose(s) of shape ``(*, 4, 4)`` or ``(*, 3, 4)``.
-        directions: Camera-frame directions ``(*, 3)`` (see
-            :func:`generate_ray_directions`). Batch shapes must broadcast: e.g.
-            one pose ``(4, 4)`` with a direction grid ``(H, W, 3)``, or per-ray
-            poses ``(N, 4, 4)`` with directions ``(N, 3)``.
-        normalize: Normalize world-space directions so distances along each
-            ray are measured in world units.
+        c2w: Camera-to-world poses ``(..., 4, 4)`` or ``(..., 3, 4)``.
+        directions: Camera-frame directions ``(..., 3)``, whose leading dimensions
+            broadcast with those of ``c2w``: one pose ``(4, 4)`` with a grid
+            ``(H, W, 3)``, or poses ``(N, 4, 4)`` with directions ``(N, 3)``.
+        normalize: Whether to normalize the directions, so that distances along a ray
+            are in world units.
 
     Returns:
-        ``(rays_o, rays_d)``: ray origins and directions, each of shape
-        ``(*, 3)`` with broadcast leading dimensions. Origins are an expanded
-        view of the pose translation and share memory across rays.
+        Ray origins and directions, each ``(..., 3)``. The origins are an expanded view
+            of the translations of ``c2w``.
     """
     rotation = c2w[..., :3, :3]
     translation = c2w[..., :3, 3]
@@ -98,23 +95,20 @@ def generate_rays(
 
 
 def pose_spherical(theta: float, phi: float, radius: float) -> Tensor:
-    """Compute a camera-to-world pose on a sphere looking at the origin.
+    """Compute a camera-to-world pose on a sphere, looking at the origin.
 
-    Uses the original NeRF convention (Blender frame, world ``+z`` up).
-    At ``theta = phi = 0`` the camera sits at ``(0, radius, 0)``.
+    Uses the original NeRF convention, with world ``+z`` up. At ``theta = phi = 0`` the
+    camera sits at ``(0, radius, 0)``.
 
     Args:
-        theta: Azimuth in degrees, measured from ``+y`` and turning clockwise
-            about ``+z`` seen from above (``theta = 90`` places the camera on
-            ``+x``).
-        phi: Pitch in degrees. Negative values place the camera above the
-            ``xy`` plane looking down at the origin; the original NeRF render
-            path uses ``-30``.
+        theta: Azimuth in degrees from ``+y``, clockwise about ``+z`` seen from above:
+            ``90`` places the camera on ``+x``.
+        phi: Pitch in degrees. Negative values place the camera above the ``xy`` plane;
+            the original NeRF render path uses ``-30``.
         radius: Distance from the origin.
 
     Returns:
-        Camera-to-world pose of shape ``(4, 4)`` with the default dtype and
-        device (float32 on the CPU unless changed).
+        Pose ``(4, 4)`` on the default device, with the default dtype.
     """
     c2w = torch.eye(4)
     c2w[2, 3] = radius

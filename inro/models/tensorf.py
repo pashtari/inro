@@ -1,4 +1,4 @@
-"""TensoRF tensor factorizations expressed as GA-Planes grid encodings."""
+"""TensoRF: tensor factorizations expressed as GA-Planes grid encodings."""
 
 from collections.abc import Callable
 from typing import Literal
@@ -11,25 +11,28 @@ __all__ = ["TensoRF"]
 
 
 class TensoRF(GAPlanes):
-    """Tensor-factorized grid INR (Chen et al., ECCV 2022).
+    """Tensor-factorized grid INR with a ReLU MLP decoder.
 
-    A :class:`GAPlanes` model with uniform grid resolution and feature count.
-    CP multiplies line grids to produce ``rank`` features. VM concatenates
-    three line-plane products to produce ``3 * rank`` features; in 2D it
-    falls back to CP. A ReLU MLP decodes the features.
-
-    Maps coordinates ``(..., in_features)`` in ``[-1, 1]`` to
-    ``(..., out_features)``.
+    A :class:`GAPlanes` model with one resolution and one feature count for all grids.
+    CP multiplies line grids into ``rank`` features; VM concatenates three line-plane
+    products into ``3 * rank`` features.
 
     Args:
-        in_features: Number of input coordinates (2 or 3).
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``, ``2`` or ``3``.
+        out_features: Number of output channels ``D``.
         rank: Feature channels per grid.
         resolution: Resolution per axis of each grid.
-        mode: ``"cp"`` or ``"vm"``; ``"vm"`` becomes ``"cp"`` in 2D.
-        hidden_features: Decoder hidden width.
-        hidden_layers: Number of decoder hidden layers; at least one.
-        output_activation: Optional callable applied to the output.
+        mode: Factorization, ``"cp"`` or ``"vm"``; ``"vm"`` becomes ``"cp"`` in 2D.
+        hidden_features: Hidden width.
+        hidden_layers: Number of hidden layers.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Chen et al., "TensoRF: Tensorial Radiance Fields", ECCV 2022.
     """
 
     _MODE_EXPR: dict[tuple[int, str], str] = {
@@ -52,7 +55,7 @@ class TensoRF(GAPlanes):
         if mode not in ("cp", "vm"):
             raise ValueError(f"mode must be 'cp' or 'vm', got {mode!r}")
         if in_features == 2:
-            mode = "cp"  # VM reduces to CP in 2D
+            mode = "cp"  # VM needs a third axis
 
         super().__init__(
             in_features=in_features,

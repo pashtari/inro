@@ -1,8 +1,9 @@
 """Image representation benchmark: fit each model in configs/image.yaml to Kodak images.
 
 Usage:
+
     python scripts/train_image.py
-    python scripts/train_image.py --data data/Kodak/kodim19.png --models SIREN FINER --device cuda:1
+    python scripts/train_image.py --data data/Kodak/kodim19.png --models SIREN FINER
 """
 
 from pathlib import Path
@@ -18,7 +19,7 @@ DATA = sorted((ROOT / "data" / "Kodak").glob("kodim*.png"))
 
 
 def prepare(model: dict, path: Path) -> dict[str, Any]:
-    """Fill in the image height H and width W of the model's settings."""
+    """Fill in the image height ``H`` and width ``W`` of the model's settings."""
     width, height = Image.open(path).size
     return resolve(model, H=height, W=width)
 
@@ -26,6 +27,7 @@ def prepare(model: dict, path: Path) -> dict[str, Any]:
 def fit(
     config: dict, model: dict, path: Path, out: Path, device: torch.device
 ) -> dict[str, Any]:
+    """Fit one model to one image, scored on the whole image."""
     model_class, kwargs = build(model)
     image = inro.ImageCoordinateDataset(path)
     search = fresh(

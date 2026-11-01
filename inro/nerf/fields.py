@@ -1,9 +1,8 @@
-"""Radiance fields assembled from spatial, color, and direction modules.
+"""Radiance fields assembled from spatial, color and direction modules.
 
-Following Instant-NGP, the spatial network predicts density logits and
-geometry features. A color network combines those features with an encoded
-view direction. Holding the color network and renderer fixed lets experiments
-compare spatial representations directly.
+As in Instant-NGP, a spatial network predicts density logits and geometry features, and
+a color network combines those features with an encoded view direction. Holding the
+color network and the renderer fixed compares spatial representations directly.
 """
 
 from collections.abc import Callable, Sequence
@@ -24,7 +23,7 @@ __all__ = [
 
 
 class _TruncExp(torch.autograd.Function):
-    """Exponential with the backward input clamped to avoid large gradients."""
+    """Exponential whose backward pass clamps its input, avoiding large gradients."""
 
     @staticmethod
     def forward(ctx: Any, x: Tensor) -> Tensor:
@@ -38,29 +37,29 @@ class _TruncExp(torch.autograd.Function):
 
 
 def trunc_exp(x: Tensor) -> Tensor:
-    """Compute ``exp(x)`` with its backward input clamped to ``[-15, 15]``.
+    """Compute ``exp(x)``, clamping the input of its gradient to ``[-15, 15]``.
 
-    The forward pass is unchanged; clamping limits large density gradients
-    during early training.
+    The clamp limits large density gradients early in training.
+
+    Args:
+        x: Input of any shape.
     """
     return _TruncExp.apply(x)
 
 
 class SphericalHarmonicsEncoding(nn.Module):
-    r"""Real spherical-harmonics encoding of unit directions.
+    """Real spherical-harmonics encoding of unit directions.
 
-    Evaluates the real SH basis for the bands ``l = 0, ..., degree - 1``,
-    producing ``degree**2`` features. ``degree`` follows the tiny-cuda-nn
-    convention of counting bands, so the highest spherical-harmonic degree is
-    ``degree - 1``. ``degree=4`` (16 features) matches the view-direction
-    encoding of Instant-NGP.
+    Evaluates the bands ``l = 0, ..., degree - 1``, so ``degree`` counts bands, as in
+    tiny-cuda-nn, and gives ``degree**2`` features. ``degree=4`` matches the
+    view-direction encoding of Instant-NGP.
 
     Args:
-        degree: Number of SH bands, an integer between 1 and 4.
+        degree: Number of bands, an integer from 1 to 4.
 
     Shape:
-        - Input: :math:`(*, 3)` unit-norm directions.
-        - Output: :math:`(*, \text{degree}^2)`.
+        - Input: ``(..., 3)`` unit directions.
+        - Output: ``(..., degree**2)``.
     """
 
     def __init__(self, degree: int = 4) -> None:
@@ -107,9 +106,11 @@ class SphericalHarmonicsEncoding(nn.Module):
 
 
 class IdentityEncoding(nn.Module):
-    """Pass unit directions through unchanged, as in FINER's NeRF network.
+    """Identity encoding of unit directions, as in FINER's NeRF network.
 
-    Input and output have shape ``(*, 3)``; ``out_features`` is always ``3``.
+    Shape:
+        - Input: ``(..., 3)`` unit directions.
+        - Output: ``(..., 3)``.
     """
 
     out_features: int = 3
@@ -127,45 +128,45 @@ COLOR_NETS: dict[str, type[nn.Module]] = {"linear": nn.Linear, "mlp": MLP}
 
 
 class RadianceField(nn.Module):
-    """A radiance field with separate density, color, and direction modules.
+    """Radiance field with separate density, color and direction modules.
 
-    The density network produces one density logit followed by geometry
-    features. The color network combines geometry and direction features to
-    produce RGB logits. This field applies the density activation and RGB
-    sigmoid, so both networks should have no output activation.
+    The density network maps points to one density logit followed by geometry features,
+    and the color network maps geometry and direction features to RGB logits. This class
+    applies the density activation and the RGB sigmoid, so neither network should have
+    an output activation. Each module is a :data:`~inro.utils.ModuleSpec`: an instance,
+    a registry key, a class or a ``(key_or_class, kwargs)`` pair.
 
     Args:
-        density_net: :data:`~inro.utils.ModuleSpec` for a spatial network.
-            Classes and ``(class, params)`` pairs receive ``in_features=3`` and
-            ``out_features=1 + geometry_features``. Instances are used as is;
-            string registry keys are unsupported. Inputs lie in ``[-1, 1]^3``.
-        color_net: Module spec mapping geometry and direction features to three
-            RGB logits. Classes receive the input and output widths; instances
-            are used as is. Registry keys: ``"linear"`` and ``"mlp"``.
-            A zero-input probe checks the output width at construction.
-        geometry_features: Number of features passed to the color network,
-            excluding density; must be at least 1.
-        direction_encoding: Module spec exposing ``out_features``. Registry
-            keys: ``"sh"`` (degree-4 spherical harmonics, as in Instant-NGP)
-            and ``"identity"`` (raw directions, as in FINER).
-        aabb: Scene box ``(xmin, ymin, zmin, xmax, ymax, zmax)``. World points
-            map affinely to ``[-1, 1]^3`` and clamp at the box boundary.
-            Stored as a persistent float32 buffer in checkpoints.
-        density_activation: Map density logits to nonnegative densities.
-        density_bias: Offset added to density logits before activation.
+        density_net: Spatial network spec, without registry keys. A class receives
+            ``in_features=3`` and ``out_features=1 + geometry_features``. Its inputs are
+            coordinates in ``[-1, 1]``.
+        color_net: Color network spec, with registry keys ``"linear"`` and ``"mlp"``,
+            returning three RGB logits. A class receives the input width and
+            ``out_features=3``.
+        geometry_features: Number of features passed to the color network, excluding
+            density; at least 1.
+        direction_encoding: Direction encoding spec, exposing ``out_features``, with
+            registry keys ``"sh"``, degree-4 spherical harmonics as in Instant-NGP, and
+            ``"identity"``, raw directions as in FINER.
+        aabb: Scene box ``(xmin, ymin, zmin, xmax, ymax, zmax)``, kept in the state
+            dict. World points map affinely to ``[-1, 1]`` and clamp at its boundary.
+        density_activation: Callable from density logits to nonnegative densities.
+        density_bias: Offset added to the density logits before the activation.
 
     Shape:
         - Input: ``x`` and unit ``directions``, each ``(N, 3)``.
-        - Output: ``(rgb, sigma)``, with RGB ``(N, 3)`` in ``[0, 1]`` and
-          density ``(N,)``. Empty batches are supported.
+        - Output: ``(rgb, sigma)``, RGB ``(N, 3)`` in ``[0, 1]`` and density ``(N,)``.
 
-    Example::
-
-        field = RadianceField(
-            (inro.InstantNGP, {"log2_hashmap_size": 14}),
-            ("mlp", {"hidden_features": 64, "hidden_layers": 2}),
-        )
-        rgb, sigma = field(points, directions)
+    Examples:
+        >>> import inro
+        >>> field = RadianceField(
+        ...     (inro.InstantNGP, {"log2_hashmap_size": 14}),
+        ...     ("mlp", {"hidden_features": 64, "hidden_layers": 2}),
+        ... )
+        >>> directions = torch.tensor([0.0, 0.0, 1.0]).expand(8, 3)
+        >>> rgb, sigma = field(torch.rand(8, 3), directions)
+        >>> rgb.shape, sigma.shape
+        (torch.Size([8, 3]), torch.Size([8]))
     """
 
     def __init__(
@@ -212,30 +213,37 @@ class RadianceField(nn.Module):
             )
 
     def normalize_coordinates(self, x: Tensor) -> Tensor:
-        """Map world coordinates ``(*, 3)`` from :attr:`aabb` to ``[-1, 1]^3``.
+        """Map world coordinates from :attr:`aabb` to ``[-1, 1]``, clamping outliers.
 
-        Points outside the box are clamped to its boundary.
+        Args:
+            x: World coordinates ``(..., 3)``.
         """
         box_min, box_max = self.aabb[:3], self.aabb[3:]
         return (2.0 * (x - box_min) / (box_max - box_min) - 1.0).clamp(-1.0, 1.0)
 
     def _density_and_features(self, x: Tensor) -> tuple[Tensor, Tensor]:
-        """Return densities and geometry features at world coordinates ``x``."""
+        """Return the densities and geometry features at world coordinates."""
         output = self.density_net(self.normalize_coordinates(x))
         sigma = self.density_activation(output[..., 0] + self.density_bias)
         return sigma, output[..., 1:]
 
     def query_density(self, x: Tensor) -> Tensor:
-        """Return densities ``(N,)`` at world coordinates ``(N, 3)``.
+        """Return densities ``(N,)``, skipping the color network for occupancy updates.
 
-        Skips the color network for occupancy updates. Empty batches are allowed.
+        Args:
+            x: World coordinates ``(N, 3)``; the batch may be empty.
         """
         if x.shape[0] == 0:
             return x.new_zeros((0,))
         return self._density_and_features(x)[0]
 
     def forward(self, x: Tensor, directions: Tensor) -> tuple[Tensor, Tensor]:
-        """Return RGB and density at world points for the given unit directions."""
+        """Return RGB and density at world points seen along unit directions.
+
+        Args:
+            x: World coordinates ``(N, 3)``; the batch may be empty.
+            directions: Unit view directions ``(N, 3)``.
+        """
         if x.shape[0] == 0:
             return x.new_zeros((0, 3)), x.new_zeros((0,))
         sigma, features = self._density_and_features(x)

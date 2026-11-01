@@ -1,14 +1,14 @@
-"""Single-item datasets for fitting neural fields to images, volumes and MRI.
+"""Image, volume and MRI datasets for implicit neural representations (INRs).
 
-Coordinate inputs lie in ``[-1, 1]``. Each item contains ``id``, ``input``,
-``target`` and ``_original``; the latter holds the reference signal for
-metrics. All datasets have length one and ignore the item index.
+A dataset has length one and ignores the item index. Its item is a dictionary with
+``id``, ``input``, ``target`` and ``_original``, the reference signal for metrics.
+Coordinate inputs lie in ``[-1, 1]``.
 
-Dataset methods follow ``load(path, ...)``, ``save(x, path, ...)``,
-``preprocess(x)`` (raw signal to target), and ``postprocess(x)`` (model output
-to reconstruction). DIP uses a fixed noise input instead of coordinates.
-Super-resolution observes the image through a separable linear degradation,
-written out by :func:`resize_matrix` and applied by :func:`downsample`.
+Dataset methods follow ``load(path, ...)``, ``save(x, path, ...)``, ``preprocess(x)``
+(raw signal to target) and ``postprocess(x)`` (model output to reconstruction). Deep
+Image Prior uses a fixed noise input instead of coordinates. Super-resolution observes
+the image through a separable linear degradation, written out by :func:`resize_matrix`
+and applied by :func:`downsample`.
 """
 
 import math
@@ -46,8 +46,16 @@ def create_coordinates(
 ) -> Tensor:
     """Return an evenly spaced coordinate grid of shape ``(*size, len(size))``.
 
-    Each axis spans ``domain``, including both endpoints, with ``indexing="ij"``.
-    Extra keyword arguments (e.g. ``dtype`` and ``device``) go to ``torch.linspace``.
+    Coordinate ``c`` varies along axis ``c``, as with ``indexing="ij"``.
+
+    Args:
+        size: Number of points on each axis.
+        domain: Endpoints of every axis, both included.
+        **kwargs: Passed to ``torch.linspace``, such as ``dtype`` and ``device``.
+
+    Examples:
+        >>> create_coordinates((2, 3)).shape
+        torch.Size([2, 3, 2])
     """
     axes = [torch.linspace(*domain, length, **kwargs) for length in size]
     return torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=-1)
@@ -58,10 +66,10 @@ def _load_image(
     mode: str,
     item_id: str | None,
 ) -> tuple[Tensor, str]:
-    """Return a ``(C, H, W)`` tensor and item ID from a path, PIL image or tensor.
+    """Return a ``(channels, H, W)`` tensor and ID from a path, PIL image or tensor.
 
-    Paths and PIL images are converted to ``mode``; tensors are used as is.
-    The ID defaults to the path stem, or an empty string for in-memory images.
+    Paths and PIL images are converted to ``mode``; tensors are used as is. The ID
+    defaults to the path stem, or an empty string for in-memory images.
     """
     if isinstance(image, (str, os.PathLike)):
         with Image.open(image) as pil_image:
@@ -77,16 +85,16 @@ def _load_image(
 
 
 def _random_subset(n: int, k: int, device: torch.device) -> Tensor:
-    """Indices of a uniformly random ``k``-subset of ``range(n)``, in no order.
+    """Return indices of a uniformly random ``k``-subset of ``range(n)``, in no order.
 
-    The ``k`` largest of ``n`` uniform keys, as ``randperm(n)[:k]`` draws but
-    without sorting all ``n``: sixteen times faster on a 3.8M-voxel volume.
+    Takes the ``k`` largest of ``n`` uniform keys, distributed as ``randperm(n)[:k]``
+    but without sorting all ``n``: sixteen times faster on a 3.8M-voxel volume.
     """
     return torch.rand(n, device=device).topk(k, sorted=False).indices
 
 
 def _save_png(image: Tensor, path: str | os.PathLike[str]) -> None:
-    """Save a ``(C, H, W)`` image as PNG, appending ``.png`` if needed."""
+    """Save a ``(channels, H, W)`` image as PNG, appending ``.png`` if needed."""
     path = str(path)
     if not path.lower().endswith(".png"):
         path += ".png"
@@ -94,24 +102,34 @@ def _save_png(image: Tensor, path: str | os.PathLike[str]) -> None:
 
 
 class ImageCoordinateDataset(Dataset):
-    """An image as coordinate/pixel pairs, with optional random subsampling.
+    """Image as coordinate-pixel pairs, with optional random subsampling.
 
-    Inputs have shape ``(H, W, 2)`` and targets ``(H, W, C)``, both in ``[-1, 1]``.
-    ``_original`` is a uint8 image of shape ``(C, H, W)``. Subsampling flattens
-    input and target to ``(N, 2)`` and ``(N, C)`` with shared random indices,
-    a new uniformly random subset of the pixels on each access.
+    Subsampling flattens ``input`` and ``target`` to ``(N, 2)`` and ``(N, channels)``
+    with shared indices, a new uniformly random subset of the pixels on each access.
 
     Args:
-        image: Path, PIL image, or uint8 tensor of shape ``(C, H, W)``.
-        grid_size: Input grid size; ``None`` uses the image size. A different
-            size supports super-resolution evaluation, but not subsampling.
-        mode: PIL conversion mode for path and PIL inputs; ignored for tensors.
-        max_samples: Optional cap on the number of sampled coordinates.
-        subsample: Fraction in ``(0, 1]`` drawn on each access. The sample count
-            is ``min(int(H * W * subsample), max_samples)`` when a cap is set.
-        item_id: Item identifier; defaults to the path stem or an empty string.
-        seed: Reseeds Python's global RNG. Subsampling uses the global PyTorch
-            RNG and is unaffected by this seed.
+        image: Path, PIL image, or uint8 tensor ``(channels, H, W)``.
+        grid_size: Size of the coordinate grid; ``None`` uses the signal's size. Any
+            other size serves evaluation at that resolution, without subsampling.
+        mode: PIL conversion mode of paths and PIL images; ignored for tensors.
+        max_samples: Cap on the coordinates drawn on each access; ``None`` sets no cap.
+        subsample: Fraction of the coordinates drawn on each access, in ``(0, 1]``.
+        item_id: Item identifier; ``None`` uses the path stem, or an empty string
+            without a path.
+        seed: Seed of Python's global RNG; sampling uses PyTorch's and ignores it.
+
+    Shape:
+        - ``input``: ``(H, W, 2)``, coordinates in ``[-1, 1]``.
+        - ``target``: ``(H, W, channels)``, pixels in ``[-1, 1]``.
+        - ``_original``: ``(channels, H, W)``, uint8 image.
+
+    Examples:
+        >>> image = torch.zeros(3, 4, 6, dtype=torch.uint8)
+        >>> item = ImageCoordinateDataset(image)[0]
+        >>> item["input"].shape, item["target"].shape
+        (torch.Size([4, 6, 2]), torch.Size([4, 6, 3]))
+        >>> ImageCoordinateDataset(image, subsample=0.5)[0]["input"].shape
+        torch.Size([12, 2])
     """
 
     def __init__(
@@ -138,14 +156,16 @@ class ImageCoordinateDataset(Dataset):
         self.seed = seed
         random.seed(self.seed)
 
-    # Tensors moved by ``to``; ``original`` intentionally stays on the CPU.
+    # Tensors moved by ``to``; ``original`` stays on the CPU.
     _device_attrs: tuple[str, ...] = ("input", "target", "side", "mask", "boundary")
 
     def to(self, device: str | torch.device) -> Self:
-        """Move training tensors to ``device`` in place and return this dataset.
+        """Move the training tensors to ``device`` in place and return self.
 
-        Includes side images, masks and boundaries when present, so subsampling
-        runs on the training device. The reference ``original`` stays on CPU.
+        The reference ``original`` stays on the CPU.
+
+        Args:
+            device: Device to move them to.
         """
         for name in self._device_attrs:
             value = getattr(self, name, None)
@@ -176,37 +196,56 @@ class ImageCoordinateDataset(Dataset):
 
     @staticmethod
     def load(path: str | os.PathLike[str], **kwargs: Any) -> Tensor:
-        """Load an image as a ``(C, H, W)`` tensor.
+        """Load an image as a tensor, uint8 for eight-bit modes.
 
-        Keyword arguments go to PIL's ``convert`` (e.g. ``mode="RGB"``).
-        Eight-bit modes produce uint8 tensors.
+        Args:
+            path: Image file.
+            **kwargs: Passed to PIL's ``convert``, such as ``mode="RGB"``.
+
+        Returns:
+            Image ``(channels, H, W)``.
         """
         with Image.open(path) as image:
             return FT.pil_to_tensor(image.convert(**kwargs))
 
     @staticmethod
     def save(x: Tensor, path: str | os.PathLike[str]) -> None:
-        """Save a ``(C, H, W)`` image as PNG, appending ``.png`` if needed."""
+        """Save an image as PNG.
+
+        Args:
+            x: Image ``(channels, H, W)``.
+            path: Output path; ``.png`` is appended if needed.
+        """
         _save_png(x, path)
 
     def create_input(self) -> Tensor:
-        """Return coordinates in ``[-1, 1]`` with shape ``(*grid_size, len(grid_size))``."""
+        """Return the coordinates ``(*grid_size, len(grid_size))`` in ``[-1, 1]``."""
         return create_coordinates(self.grid_size, (-1.0, 1.0))
 
     @staticmethod
     def preprocess(x: Tensor) -> Tensor:
-        """Map uint8 ``(C, H, W)`` pixels to float ``(H, W, C)`` values in ``[-1, 1]``."""
+        """Map uint8 pixels to float values in ``[-1, 1]``, channels last.
+
+        Args:
+            x: Image ``(channels, H, W)``.
+
+        Returns:
+            Target ``(H, W, channels)``.
+        """
         x = x.float() * 2 / 255 - 1
-        # In the layout a loader's batches have, so that a graph compiled on an
-        # item serves them; the moved view keeps the channel stride.
+        # Contiguous, as a loader's batches are, so that a graph compiled on an item
+        # serves them; the moved view keeps the channel stride.
         return x.movedim(0, -1).clone(memory_format=torch.contiguous_format)
 
     @staticmethod
     def postprocess(x: Tensor) -> Tensor:
-        """Map float ``(H, W, C)`` predictions to uint8 ``(C, H, W)`` pixels.
+        """Map float predictions to uint8 pixels, clamping them to ``[-1, 1]`` first.
 
-        Predictions are clipped to ``[-1, 1]`` first, so out-of-range values
-        saturate instead of wrapping around in the uint8 cast.
+        Args:
+            x: Predictions ``(H, W, channels)``.
+
+        Returns:
+            Image ``(channels, H, W)``.
         """
         x = x.movedim(-1, 0).clamp(-1, 1)
         return ((x + 1) * 255 / 2).round().to(torch.uint8)
@@ -217,16 +256,22 @@ def mask_to_boundary(
     kernel_size: int = 3,
     mode: Literal["inner", "outer", "thick"] = "thick",
 ) -> Tensor:
-    """Extract a binary mask boundary using dilation and erosion.
+    """Extract the boundary of a binary mask by dilation and erosion.
 
     Args:
-        mask: Binary tensor of shape ``(H, W)``, ``(B, H, W)`` or ``(B, 1, H, W)``.
-        kernel_size: Odd side length of the pooling neighborhood.
-        mode: ``"inner"`` (mask minus erosion), ``"outer"`` (dilation minus mask),
-            or ``"thick"`` (dilation minus erosion).
+        mask: Binary tensor ``(H, W)``, ``(B, H, W)`` or ``(B, 1, H, W)``.
+        kernel_size: Odd side of the pooling neighborhood.
+        mode: ``"inner"`` (mask minus erosion), ``"outer"`` (dilation minus mask) or
+            ``"thick"`` (dilation minus erosion).
 
     Returns:
-        Binary boundary with the same shape, dtype and device as ``mask``.
+        Binary boundary with the shape, dtype and device of ``mask``.
+
+    Examples:
+        >>> mask = torch.zeros(5, 5, dtype=torch.bool)
+        >>> mask[1:4, 1:4] = True
+        >>> mask_to_boundary(mask, mode="inner").sum().item()
+        8
     """
     original_ndim = mask.ndim
     if mask.ndim == 2:
@@ -267,27 +312,36 @@ def mask_to_boundary(
 
 
 class MaskedImageCoordinateDataset(ImageCoordinateDataset):
-    """Coordinate/pixel pairs with an optional guide image and binary mask.
+    """Image as coordinate-pixel pairs, with an optional guide image and binary mask.
 
-    The preprocessed guide is appended to coordinates as extra input channels.
-    The mask and its thick boundary are returned for use by a custom loss.
-    Inputs always use the image resolution.
+    The preprocessed guide extends the coordinates as extra input channels, and a custom
+    loss can use the mask and its thick boundary. Inputs always use the image
+    resolution. Subsampling flattens every tensor but ``_original`` with shared indices.
 
     Args:
-        image: Path, PIL image (converted to RGB), or uint8 ``(C, H, W)`` tensor.
-        side: Optional guide: path, PIL image (converted to grayscale), or
-            uint8 ``(C_s, H, W)`` tensor.
-        mask: Optional mask: path, PIL image (converted to grayscale), or
-            ``(1, H, W)`` / ``(H, W)`` tensor. Nonzero values are true.
-        subsample: Fraction in ``(0, 1]`` drawn on each access.
-        item_id: Item identifier; defaults to the path stem or an empty string.
-        seed: Reseeds Python's global RNG, not the PyTorch RNG used for sampling.
+        image: Path, PIL image (converted to RGB), or uint8 tensor ``(channels, H, W)``.
+        side: Guide image as a path, PIL image (converted to grayscale), or uint8 tensor
+            ``(side_channels, H, W)``; ``None`` uses no guide.
+        mask: Binary mask as a path, PIL image (converted to grayscale), or tensor
+            ``(1, H, W)`` or ``(H, W)``, nonzero values being true; ``None`` uses no
+            mask.
+        subsample: Fraction of the coordinates drawn on each access, in ``(0, 1]``.
+        item_id: Item identifier; ``None`` uses the path stem, or an empty string
+            without a path.
+        seed: Seed of Python's global RNG; sampling uses PyTorch's and ignores it.
 
-    Items follow :class:`ImageCoordinateDataset`, with input shape
-    ``(H, W, 2 + C_s)`` when a guide is present. Additional keys are ``side``
-    (float ``(H, W, C_s)`` in ``[-1, 1]``), ``mask`` and ``boundary`` (bool
-    ``(H, W)``), when provided. Subsampling flattens all training tensors
-    using the same indices; ``_original`` remains the full image.
+    Shape:
+        - ``input``: ``(H, W, 2)``, or ``(H, W, 2 + side_channels)`` with a guide.
+        - ``target``: ``(H, W, channels)``, pixels in ``[-1, 1]``.
+        - ``side``: ``(H, W, side_channels)``, guide in ``[-1, 1]``, with a guide only.
+        - ``mask``, ``boundary``: ``(H, W)``, bool, with a mask only.
+        - ``_original``: ``(channels, H, W)``, uint8 image.
+
+    Examples:
+        >>> image = torch.zeros(3, 4, 6, dtype=torch.uint8)
+        >>> item = MaskedImageCoordinateDataset(image, mask=torch.ones(4, 6))[0]
+        >>> item["input"].shape, item["mask"].shape, item["boundary"].dtype
+        (torch.Size([4, 6, 2]), torch.Size([4, 6]), torch.bool)
     """
 
     def __init__(
@@ -320,9 +374,13 @@ class MaskedImageCoordinateDataset(ImageCoordinateDataset):
     ) -> tuple[Tensor, Tensor | None, Tensor | None, Tensor | None]:
         """Return ``(input, side, mask, boundary)`` at the image resolution.
 
-        ``side`` is a uint8 ``(C_s, H, W)`` image; ``mask`` has shape ``(1, H, W)``
-        or ``(H, W)``. The guide is preprocessed and appended to coordinates.
-        Mask and boundary become bool; absent auxiliary inputs return ``None``.
+        Args:
+            side: Uint8 guide ``(side_channels, H, W)``, or ``None``.
+            mask: Mask ``(1, H, W)`` or ``(H, W)``, or ``None``.
+
+        Returns:
+            Coordinates with the preprocessed guide appended, that guide, the bool mask
+                and its thick boundary; an absent guide or mask gives ``None``.
         """
         coords = create_coordinates(self.grid_size, (-1.0, 1.0))
 
@@ -355,7 +413,7 @@ class MaskedImageCoordinateDataset(ImageCoordinateDataset):
             num_coords = self.input.shape[0] * self.input.shape[1]
             num_samples = int(num_coords * self.subsample)
             indices = _random_subset(num_coords, num_samples, self.input.device)
-            # All fields share the (H, W) pixel grid in their leading dimensions.
+            # All share the (H, W) pixel grid in their leading dimensions.
             fields = {
                 key: value.flatten(0, 1)[indices] for key, value in fields.items()
             }
@@ -365,59 +423,88 @@ class MaskedImageCoordinateDataset(ImageCoordinateDataset):
 def resize_matrix(
     size_in: int, size_out: int, device: str | torch.device | None = None
 ) -> Tensor:
-    """The ``(size_out, size_in)`` matrix of antialiased bicubic resizing on one axis.
+    """Return the matrix of antialiased bicubic resizing on one axis.
 
-    The operator of ``F.interpolate(..., mode="bicubic", antialias=True)``,
-    whose kernel is that of MATLAB's ``imresize`` and PIL's bicubic filter,
-    with which super-resolution benchmarks such as DIV2K make their
-    low-resolution images. Resizing the rows of an identity image while
-    keeping its columns writes the matrix out, borders included. At 4x, a row
-    holds at most 16 nonzero taps, the footprint of one low-resolution pixel.
+    It is the operator of ``F.interpolate(..., mode="bicubic", antialias=True)``, whose
+    kernel is that of MATLAB's ``imresize`` and PIL's bicubic filter, with which
+    super-resolution benchmarks such as DIV2K make their low-resolution images.
+
+    Args:
+        size_in: Size of the input axis.
+        size_out: Size of the output axis.
+        device: Device of the matrix; ``None`` uses the default device.
+
+    Returns:
+        Matrix ``(size_out, size_in)``.
+
+    Examples:
+        >>> kernel = resize_matrix(64, 16)
+        >>> kernel.shape
+        torch.Size([16, 64])
+        >>> (kernel != 0).sum(1).max().item()  # taps of one low-resolution pixel
+        16
     """
+    # Resizing the rows of an identity image writes the matrix out, borders included.
     identity = torch.eye(size_in, device=device)[None, None]
     size = (size_out, size_in)
     return F.interpolate(identity, size=size, mode="bicubic", antialias=True)[0, 0]
 
 
 def downsample(image: Tensor, kernels: Sequence[Tensor]) -> Tensor:
-    """Apply one kernel per axis: ``(..., H, W, C)`` to ``(..., h, w, C)``.
+    """Apply one kernel per axis to an image.
 
-    The kernels are the ``(h, H)`` and ``(w, W)`` matrices of
-    :func:`resize_matrix`, or batches of their rows, ``(..., h, H)`` and
-    ``(..., w, W)``, such as each block of :class:`SuperResolutionDataset`
-    carries.
+    Args:
+        image: Image ``(..., H, W, channels)``.
+        kernels: Matrices ``(..., h, H)`` and ``(..., w, W)``: those of
+            :func:`resize_matrix`, or batches of their rows, such as each block of
+            :class:`SuperResolutionDataset` carries.
+
+    Returns:
+        Image ``(..., h, w, channels)``.
+
+    Examples:
+        >>> kernels = resize_matrix(8, 4), resize_matrix(16, 4)
+        >>> downsample(torch.ones(8, 16, 3), kernels).shape
+        torch.Size([4, 4, 3])
     """
     return torch.einsum("...il,...lmc,...jm->...ijc", kernels[0], image, kernels[1])
 
 
 class SuperResolutionDataset(ImageCoordinateDataset):
-    """A low-resolution image as blocks of pixels and the coordinates under them.
+    """Low-resolution image as blocks of pixels and the coordinates under them.
 
-    A field is fitted to the low-resolution (LR) image through its degradation
-    from high resolution (HR), one matrix per axis such as
-    :func:`resize_matrix`'s, and an LR pixel needs the field only under its
-    kernel. Each access draws ``num_blocks`` (B) random square blocks of
-    ``block_size`` (S) LR pixels a side over the whole LR image, as many
-    whatever its size. Neighbouring LR pixels share most of their footprint,
-    so a block needs far fewer field evaluations per pixel than single pixels
-    do: at 4x, 30 in an 8 x 8 block against 256 alone. With footprints of L HR
-    pixels a side, items hold ``input``, the HR coordinates of each block's
-    footprint, of shape ``(B, L, L, 2)``; ``weight_y`` and ``weight_x``, the
-    kernel rows of each block on its footprint, of shape ``(B, S, L)``; and
-    ``target``, the LR pixels in ``[-1, 1]``, of shape ``(B, S, S, C)``,
-    besides ``id`` and the uint8 LR image as ``_original``.
-    :func:`~inro.super_resolution_loss` renders the footprints,
-    downsamples them with the weights and matches the targets. The blocks are
-    drawn with the global PyTorch RNG.
+    An INR is fitted to the low-resolution (LR) image through its degradation from high
+    resolution (HR), one matrix per axis. Each access draws ``B`` random square blocks
+    of ``S`` LR pixels a side, with the global PyTorch RNG, and
+    :func:`~inro.super_resolution_loss` renders their footprints of ``L`` HR pixels a
+    side. Neighboring pixels share most of their footprint: at 4x, an 8 x 8 block takes
+    30 INR evaluations per pixel against 256 for a single pixel.
 
     Args:
-        image: The LR image: path, PIL image (converted to RGB), or uint8
-            ``(C, h, w)`` tensor.
-        kernels: The ``(h, H)`` and ``(w, W)`` matrices of the degradation;
-            they set the HR grid, and every tensor lives on their device.
-        num_blocks: Blocks drawn per access.
-        block_size: LR pixels on a side of a block.
-        item_id: Item identifier; defaults to the path stem or an empty string.
+        image: LR image as a path, PIL image (converted to RGB), or uint8 tensor
+            ``(channels, h, w)``.
+        kernels: Degradation matrices ``(h, H)`` and ``(w, W)``, such as those of
+            :func:`resize_matrix`. They set the HR grid and the device of the training
+            tensors.
+        num_blocks: Blocks ``B`` drawn on each access.
+        block_size: LR pixels ``S`` on a side of a block.
+        item_id: Item identifier; ``None`` uses the path stem, or an empty string
+            without a path.
+
+    Shape:
+        - ``input``: ``(B, L, L, 2)``, HR coordinates of each block's footprint.
+        - ``weight_y``, ``weight_x``: ``(B, S, L)``, kernel rows of each block on its
+          footprint.
+        - ``target``: ``(B, S, S, channels)``, LR pixels in ``[-1, 1]``.
+        - ``_original``: ``(channels, h, w)``, uint8 LR image.
+
+    Examples:
+        >>> image = torch.zeros(3, 8, 8, dtype=torch.uint8)
+        >>> kernels = resize_matrix(32, 8), resize_matrix(32, 8)
+        >>> dataset = SuperResolutionDataset(image, kernels, num_blocks=2, block_size=2)
+        >>> item = dataset[0]
+        >>> item["input"].shape, item["weight_y"].shape, item["target"].shape
+        (torch.Size([2, 20, 20, 2]), torch.Size([2, 2, 20]), torch.Size([2, 2, 2, 3]))
     """
 
     def __init__(
@@ -429,7 +516,7 @@ class SuperResolutionDataset(ImageCoordinateDataset):
         item_id: str | None = None,
     ) -> None:
         device = kernels[0].device
-        self.original, self.id = _load_image(image, "RGB", item_id)  # (C, h, w)
+        self.original, self.id = _load_image(image, "RGB", item_id)  # (channels, h, w)
         size = tuple(self.original.shape[1:])
         if tuple(kernel.shape[0] for kernel in kernels) != size:
             raise ValueError(
@@ -444,11 +531,11 @@ class SuperResolutionDataset(ImageCoordinateDataset):
         self.num_blocks, self.block_size = num_blocks, block_size
         self.grid_size = tuple(kernel.shape[1] for kernel in kernels)  # (H, W)
         self.input = self.create_input().to(device)  # HR coordinates, (H, W, 2)
-        self.target = self.preprocess(self.original).to(device)  # (h, w, C)
+        self.target = self.preprocess(self.original).to(device)  # (h, w, channels)
 
-        # The first tap of each kernel row, one past its last, and the side L
-        # of a block's footprint: the widest row's span, zeros inside it
-        # included, as at 3x and 5x, and scale more per further row.
+        # Each kernel row's first tap and one past its last. A block's footprint L is
+        # the widest row's span, zeros inside included as at 3x and 5x, plus scale per
+        # further row.
         self.first = [(kernel != 0).int().argmax(1) for kernel in kernels]
         ends = [k.shape[1] - (k != 0).flip(1).int().argmax(1) for k in kernels]
         taps = max(int((end - first).max()) for end, first in zip(ends, self.first))
@@ -461,9 +548,12 @@ class SuperResolutionDataset(ImageCoordinateDataset):
             )
 
     def to(self, device: str | torch.device) -> Self:
-        """Move training tensors and kernels to ``device`` and return this dataset.
+        """Move the training tensors and kernels to ``device`` in place and return self.
 
         The reference ``original`` stays on the CPU.
+
+        Args:
+            device: Device to move them to.
         """
         super().to(device)
         self.kernels = [kernel.to(device) for kernel in self.kernels]
@@ -500,28 +590,39 @@ class SuperResolutionDataset(ImageCoordinateDataset):
 
 
 class OccupancyCoordinateDataset(ImageCoordinateDataset):
-    """A voxelized shape as coordinate/occupancy pairs.
+    """Voxelized shape as coordinate-occupancy pairs.
 
-    Normalization and voxelization follow FINER/BACON. Items follow
-    :class:`ImageCoordinateDataset`: inputs are ``(D, H, W, 3)`` coordinates,
-    targets are ``(D, H, W, 1)`` floats in ``{-1, 1}``, and ``_original`` is a
-    ``(1, D, H, W)`` float occupancy grid in ``{0, 1}``.
+    Normalization and voxelization follow FINER and BACON. The volume is cropped to its
+    occupied bounds and cached beside the source in ``.cache/<stem>_<resolution>.pt``,
+    which is reused even if the source changes. Subsampling flattens ``input`` and
+    ``target`` to ``(N, 3)`` and ``(N, 1)`` with shared indices.
 
     Args:
-        path: ``.xyz`` point cloud (columns ``x y z nx ny nz``) or a mesh
-            readable by trimesh. Volumes are cached beside the source in
-            ``.cache/<stem>_<resolution>.pt`` and reused even if the source changes.
+        path: ``.xyz`` point cloud (columns ``x y z nx ny nz``) or a mesh readable by
+            trimesh.
         resolution: Samples per unit length after normalization into
-            ``[-0.45, 0.45]^3``. Volumes are cropped to occupied bounds.
-        grid_size: Coordinate grid size; ``None`` uses the volume size.
-        max_samples: Optional cap on coordinates sampled per access.
-        subsample: Fraction in ``(0, 1]`` drawn on each access.
-        item_id: Item identifier; defaults to the path stem.
-        seed: Reseeds Python's global RNG, not the PyTorch RNG used for sampling.
+            ``[-0.45, 0.45]^3``.
+        grid_size: Size of the coordinate grid; ``None`` uses the signal's size. Any
+            other size serves evaluation at that resolution, without subsampling.
+        max_samples: Cap on the coordinates drawn on each access; ``None`` sets no cap.
+        subsample: Fraction of the coordinates drawn on each access, in ``(0, 1]``.
+        item_id: Item identifier; ``None`` uses the path stem, or an empty string
+            without a path.
+        seed: Seed of Python's global RNG; sampling uses PyTorch's and ignores it.
+
+    Shape:
+        - ``input``: ``(depth, H, W, 3)``, coordinates in ``[-1, 1]``.
+        - ``target``: ``(depth, H, W, 1)``, floats in ``{-1, 1}``.
+        - ``_original``: ``(1, depth, H, W)``, float occupancy in ``{0, 1}``.
+
+    Examples:
+        >>> dataset = OccupancyCoordinateDataset("lucy.ply")  # doctest: +SKIP
 
     References:
-        Liu et al., "FINER", CVPR 2024.
-        Lindell et al., "BACON", CVPR 2022.
+        Liu et al., "FINER: Flexible Spectral-bias Tuning in Implicit NEural
+        Representation by Variable-periodic Activation Functions", CVPR 2024.
+        Lindell et al., "BACON: Band-limited Coordinate Networks for Multiscale Scene
+        Representation", CVPR 2022.
     """
 
     def __init__(
@@ -544,11 +645,18 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
         )
 
     def load(self, path: str | os.PathLike[str], resolution: int) -> Tensor:
-        """Load or cache a float occupancy volume of shape ``(1, D, H, W)``.
+        """Load, or build and cache, a float occupancy volume.
 
-        Point clouds use a KD-tree SDF; meshes use trimesh (``3d`` extra).
-        The volume is cropped to occupied bounds. See the class documentation
-        for normalization and cache naming.
+        Point clouds use a KD-tree SDF and meshes trimesh (``3d`` extra).
+
+        Args:
+            path: ``.xyz`` point cloud (columns ``x y z nx ny nz``) or a mesh readable
+                by trimesh.
+            resolution: Samples per unit length after normalization into
+                ``[-0.45, 0.45]^3``.
+
+        Returns:
+            Occupancy ``(1, depth, H, W)``, cropped to its occupied bounds.
         """
         path = Path(path)
         cache_path = path.parent / ".cache" / f"{path.stem}_{resolution}.pt"
@@ -576,9 +684,9 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
     def _voxelize_pointcloud(path: Path, resolution: int) -> Tensor:
         """Approximate occupancy from ``x y z nx ny nz`` points using a KD-tree SDF.
 
-        Center and globally scale points into ``[-0.45, 0.45]^3``. Each query
-        uses the nearest point's offset projected onto the mean normal of its
-        three nearest neighbors. Negative SDF values are occupied.
+        Points are centered and globally scaled into ``[-0.45, 0.45]^3``. A query's SDF
+        is its offset from the nearest point, projected onto the mean normal of its
+        three nearest neighbors; negative values are occupied.
         """
         from scipy.spatial import cKDTree
 
@@ -642,17 +750,21 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
         up: int = 1,
         mesh: bool = True,
     ) -> None:
-        """Export occupancy as a ``.dae`` mesh and ``.png`` render (requires ``3d``).
+        """Export occupancy as a ``.dae`` mesh and a ``.png`` render (``3d`` extra).
 
-        ``x`` has shape ``(1, D, H, W)`` or ``(D, H, W)``; output suffixes replace
-        that of ``path``. ``smooth=True`` applies Gaussian smoothing (sigma 1)
-        before marching cubes at iso-level zero. The ``size`` by ``size`` render
-        draws axis ``up`` upwards and looks down the shortest of the other two,
-        which shows the widest silhouette, from a camera fitted to the grid
-        rather than to the mesh, so that the reconstructions of one shape are
-        framed alike and can be compared. It needs no display, and where the
-        renderer cannot start only the mesh is written. ``mesh=False`` keeps
-        the render alone, without the ``.dae``.
+        The render needs no display; where the renderer cannot start, a warning replaces
+        the ``.png``. Its camera is fitted to the grid rather than the mesh, so that
+        reconstructions of one shape are framed alike.
+
+        Args:
+            x: Occupancy ``(1, depth, H, W)`` or ``(depth, H, W)``.
+            path: Output path, whose suffix ``.dae`` and ``.png`` replace.
+            smooth: Whether to apply Gaussian smoothing (sigma 1) before marching cubes
+                at iso-level zero.
+            size: Side of the square render, in pixels.
+            up: Grid axis drawn upwards; the view looks down the shortest of the other
+                two, which shows the widest silhouette.
+            mesh: Whether to write the ``.dae``.
         """
         import mcubes
 
@@ -689,7 +801,7 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
         renderer.scene.add_geometry("mesh", geometry, material)
         renderer.scene.set_background([1.0, 1.0, 1.0, 1.0])
         renderer.scene.show_skybox(False)
-        # Tone mapping would grey the white background and flatten the shading.
+        # Tone mapping would gray the white background and flatten the shading.
         renderer.scene.view.set_post_processing(False)
         extent = np.array(volume.shape, dtype=float)
         center = (extent - 1) / 2
@@ -700,34 +812,60 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
 
     @staticmethod
     def preprocess(x: Tensor) -> Tensor:
-        """Map ``(C, D, H, W)`` occupancy to channels-last float targets in ``[-1, 1]``."""
+        """Map occupancy in ``{0, 1}`` to float targets in ``{-1, 1}``, channels last.
+
+        Args:
+            x: Occupancy ``(1, depth, H, W)``.
+
+        Returns:
+            Target ``(depth, H, W, 1)``.
+        """
         x = x.float() * 2 - 1
         # As in ImageCoordinateDataset.preprocess.
         return x.movedim(0, -1).clone(memory_format=torch.contiguous_format)
 
     @staticmethod
     def postprocess(x: Tensor) -> Tensor:
-        """Threshold channels-last predictions at zero into ``(C, D, H, W)`` occupancy."""
+        """Threshold predictions at zero into a float occupancy in ``{0, 1}``.
+
+        Args:
+            x: Predictions ``(depth, H, W, 1)``.
+
+        Returns:
+            Occupancy ``(1, depth, H, W)``.
+        """
         x = x.movedim(-1, 0)
         return (x > 0).float()
 
 
 class DIPImageDataset(Dataset):
-    """An image paired with fixed noise for Deep Image Prior (Ulyanov et al., 2018).
+    """Image paired with fixed noise for Deep Image Prior.
 
-    Items contain ``id``, noise ``input``, float ``target`` in ``[0, 1]`` and
-    uint8 ``_original``. Target and original both have shape ``(C, H, W)``; the
-    input may be larger than the target, e.g. for super-resolution.
+    The noise is ``0.1 * randn(noise_shape)``, and each access perturbs it anew.
 
     Args:
-        image: Path, PIL image (converted to RGB), or uint8 ``(C, H, W)`` tensor.
-        noise_shape: Input shape; ``None`` uses ``(noise_channels, H, W)``.
-        noise_channels: Input channels when ``noise_shape`` is omitted.
-        reg_noise_std: Gaussian noise added on each access using the global
-            PyTorch RNG. Set to zero for evaluation.
-        item_id: Item identifier; defaults to the path stem or an empty string.
-        seed: Seed of a dedicated generator for fixed noise, drawn as
-            ``0.1 * randn(noise_shape)``. Global RNGs are unaffected.
+        image: Path, PIL image (converted to RGB), or uint8 tensor ``(channels, H, W)``.
+        noise_shape: Shape of the noise; ``None`` uses ``(noise_channels, H, W)``.
+        noise_channels: Channels of the noise when ``noise_shape`` is ``None``.
+        reg_noise_std: Standard deviation of the Gaussian perturbation, drawn with the
+            global PyTorch RNG; zero disables it, as for evaluation.
+        item_id: Item identifier; ``None`` uses the path stem, or an empty string
+            without a path.
+        seed: Seed of the noise's own generator; the global RNGs are untouched.
+
+    Shape:
+        - ``input``: ``(noise_channels, H, W)`` or ``noise_shape``, which may exceed the
+          image, as for super-resolution.
+        - ``target``: ``(channels, H, W)``, floats in ``[0, 1]``.
+        - ``_original``: ``(channels, H, W)``, uint8 image.
+
+    Examples:
+        >>> item = DIPImageDataset(torch.zeros(3, 4, 6, dtype=torch.uint8))[0]
+        >>> item["input"].shape, item["target"].shape
+        (torch.Size([16, 4, 6]), torch.Size([3, 4, 6]))
+
+    References:
+        Ulyanov et al., "Deep Image Prior", CVPR 2018.
     """
 
     def __init__(
@@ -749,10 +887,12 @@ class DIPImageDataset(Dataset):
         self.reg_noise_std = reg_noise_std
 
     def to(self, device: str | torch.device) -> Self:
-        """Move input and target to ``device`` in place and return this dataset.
+        """Move the training tensors to ``device`` in place and return self.
 
-        The regularizing noise is then drawn on ``device`` as well. The
-        reference ``original`` stays on the CPU.
+        The reference ``original`` stays on the CPU.
+
+        Args:
+            device: Device to move them to.
         """
         self.input, self.target = self.input.to(device), self.target.to(device)
         return self
@@ -773,52 +913,72 @@ class DIPImageDataset(Dataset):
 
     @staticmethod
     def save(x: Tensor, path: str | os.PathLike[str]) -> None:
-        """Save a ``(C, H, W)`` image as PNG, appending ``.png`` if needed."""
+        """Save an image as PNG.
+
+        Args:
+            x: Image ``(channels, H, W)``.
+            path: Output path; ``.png`` is appended if needed.
+        """
         _save_png(x, path)
 
     @staticmethod
     def preprocess(x: Tensor) -> Tensor:
-        """Convert a uint8 image to float ``[0, 1]``, keeping its shape."""
+        """Map uint8 pixels to float values in ``[0, 1]``, keeping the shape.
+
+        Args:
+            x: Image ``(channels, H, W)``.
+        """
         return x.float() / 255.0
 
     @staticmethod
     def postprocess(x: Tensor) -> Tensor:
-        """Clamp to ``[0, 1]``, scale and round to uint8, keeping the image shape."""
+        """Map float predictions to uint8 pixels, clamping them to ``[0, 1]`` first.
+
+        Args:
+            x: Predictions ``(channels, H, W)``.
+        """
         return (x.clamp(0, 1) * 255).round().to(torch.uint8)
 
 
 class MRICoordinateDataset(Dataset):
     """Undersampled multi-coil MRI k-space for coordinate-based reconstruction.
 
-    The network predicts interleaved real/imaginary coil images with
-    ``num_coils * 2`` channels. A custom loss pads these to the k-space size,
-    Fourier-transforms them and compares acquired lines against ``target``.
+    The model predicts interleaved real and imaginary coil images with ``num_coils * 2``
+    channels. A custom loss pads these to the k-space size, Fourier-transforms them and
+    compares acquired lines against ``target``.
 
     Args:
-        kspace: Complex ``(num_coils, H, W)`` tensor or fastMRI HDF5 path.
-            File inputs also load ``reconstruction_rss`` when available.
-        crop_size: Reconstruction field of view ``(crop_H, crop_W)``; defaults
-            to the reference RSS image size. Required for tensor inputs.
-        mask: Optional mask with ``W`` elements, reshaped to bool ``(1, 1, W)``.
-        acceleration: Target acceleration when generating a mask.
-        pattern: ``"uniform"`` or ``"random"`` mask generation.
-        center_fraction: Fraction of center lines retained for calibration.
-        slice_index: HDF5 slice to load; ``None`` selects the middle slice.
-        item_id: Item identifier; defaults to the path stem or an empty string.
-        seed: Mask generator seed.
+        kspace: Complex tensor ``(num_coils, H, W)`` or fastMRI HDF5 path; a file also
+            provides ``reconstruction_rss`` when it has one.
+        crop_size: Reconstruction field of view ``(crop_H, crop_W)``; ``None`` uses the
+            size of the reference RSS image. Required for tensor inputs.
+        mask: Mask of ``W`` elements, reshaped to bool ``(1, 1, W)``; ``None`` generates
+            one.
+        acceleration: Target acceleration of the generated mask.
+        pattern: Line pattern of the generated mask, ``"random"`` or ``"uniform"``.
+        center_fraction: Fraction of lines the generated mask keeps at the center.
+        slice_index: Slice of the file to load; ``None`` uses the middle one.
+        item_id: Item identifier; ``None`` uses the path stem, or an empty string
+            without a path.
+        seed: Seed of the mask's own generator.
 
-    Item keys:
-        ``id``: Item identifier.
-        ``input``: ``(crop_H, crop_W, 2)`` coordinates in ``[-1, 1]``.
-        ``target``: Complex ``(num_coils, H, W)`` masked, normalized k-space.
-        ``mask``: Bool ``(1, 1, W)`` sampling mask.
-        ``scale_factor``: Scalar normalization factor from :meth:`preprocess`.
-        ``zero_filled``: ``(crop_H, crop_W)`` RSS reconstruction in original units.
-        ``_original``: Reference RSS image of that shape, when one is loaded.
+    Shape:
+        - ``input``: ``(crop_H, crop_W, 2)``, coordinates in ``[-1, 1]``.
+        - ``target``: ``(num_coils, H, W)``, complex masked, normalized k-space.
+        - ``mask``: ``(1, 1, W)``, bool sampling mask.
+        - ``scale_factor``: Scalar normalization factor from :meth:`preprocess`.
+        - ``zero_filled``: ``(crop_H, crop_W)``, RSS reconstruction in original units.
+        - ``_original``: ``(crop_H, crop_W)``, reference RSS image, when one is loaded.
+
+    Examples:
+        >>> kspace = torch.randn(2, 8, 8, dtype=torch.complex64)
+        >>> item = MRICoordinateDataset(kspace, crop_size=(4, 4))[0]
+        >>> item["input"].shape, item["target"].shape, item["mask"].shape
+        (torch.Size([4, 4, 2]), torch.Size([2, 8, 8]), torch.Size([1, 1, 8]))
 
     References:
-        Zbontar et al., "fastMRI: An Open Dataset and Benchmarks for Accelerated
-        MRI", arXiv 2018.
+        Zbontar et al., "fastMRI: An Open Dataset and Benchmarks for Accelerated MRI",
+        arXiv 2018.
     """
 
     def __init__(
@@ -865,7 +1025,7 @@ class MRICoordinateDataset(Dataset):
                 center_fraction=center_fraction,
                 seed=seed,
             )
-        # (1, 1, W), broadcasts against (num_coils, H, W) k-space
+        # Shape (1, 1, W), which broadcasts against k-space (num_coils, H, W).
         self.mask = mask.reshape(1, 1, -1).bool()
 
         kspace_normalized, self.scale_factor = self.preprocess(
@@ -900,11 +1060,15 @@ class MRICoordinateDataset(Dataset):
     def load(
         path: str | os.PathLike[str], slice_index: int | None = None
     ) -> tuple[Tensor, Tensor | None]:
-        """Load one fastMRI slice as ``(kspace, rss)`` (requires h5py).
+        """Load one fastMRI slice (requires ``h5py``).
 
-        K-space has shape ``(num_coils, H, W)``; the reference RSS image has shape
-        ``(crop_H, crop_W)`` or is ``None`` if absent. ``slice_index=None`` selects
-        the middle slice.
+        Args:
+            path: fastMRI HDF5 file.
+            slice_index: Slice of the file to load; ``None`` uses the middle one.
+
+        Returns:
+            K-space ``(num_coils, H, W)`` and the reference RSS image
+                ``(crop_H, crop_W)``, ``None`` when the file has none.
         """
         import h5py
 
@@ -922,7 +1086,12 @@ class MRICoordinateDataset(Dataset):
 
     @staticmethod
     def save(x: Tensor, path: str | os.PathLike[str]) -> None:
-        """Min-max normalize a ``(H, W)`` magnitude image and save an 8-bit PNG."""
+        """Min-max normalize a magnitude image and save it as an 8-bit PNG.
+
+        Args:
+            x: Magnitude image ``(H, W)``.
+            path: Output path; ``.png`` is appended if needed.
+        """
         image = x.detach().cpu().float()
         image = (image - image.min()) / (image.max() - image.min() + 1e-8)
         _save_png((image * 255).round().to(torch.uint8).unsqueeze(0), path)
@@ -937,11 +1106,17 @@ class MRICoordinateDataset(Dataset):
     ) -> Tensor:
         """Return a bool Cartesian sampling mask of shape ``(num_cols,)``.
 
-        Always keeps ``round(num_cols * center_fraction)`` center lines.
-        ``"random"`` adds lines to reach ``round(num_cols / acceleration)`` total,
-        unless the center alone exceeds this budget. ``"uniform"`` adds every
-        ``round(acceleration)``-th line from a random offset, without subtracting
-        center lines from the budget. A dedicated generator uses ``seed``.
+        Center lines are always kept. ``"random"`` adds lines up to
+        ``round(num_cols / acceleration)`` in total, unless the center alone exceeds it.
+        ``"uniform"`` adds every ``round(acceleration)``-th line from a random offset,
+        on top of the center.
+
+        Args:
+            num_cols: Number of lines.
+            acceleration: Target acceleration of the generated mask.
+            pattern: Line pattern of the generated mask, ``"random"`` or ``"uniform"``.
+            center_fraction: Fraction of lines the generated mask keeps at the center.
+            seed: Seed of the mask's own generator.
         """
         generator = torch.Generator().manual_seed(seed)
 
@@ -973,10 +1148,14 @@ class MRICoordinateDataset(Dataset):
     ) -> Tensor:
         """Return the RSS magnitude of masked k-space, optionally center-cropped.
 
-        ``kspace`` is complex ``(num_coils, H, W)`` and ``mask`` must broadcast to
-        it. The orthonormal inverse FFT is centred: ``ifftshift`` before it and
+        The orthonormal inverse FFT is centered: ``ifftshift`` before it and
         ``fftshift`` after, which differ for odd sizes.
-        Returns ``(crop_H, crop_W)`` with ``crop_size``, otherwise ``(H, W)``.
+
+        Args:
+            kspace: Complex k-space ``(num_coils, H, W)``.
+            mask: Mask that broadcasts to ``kspace``.
+            crop_size: Reconstruction field of view ``(crop_H, crop_W)``; ``None`` keeps
+                ``(H, W)``.
         """
         kspace_masked = kspace * mask
 
@@ -1003,9 +1182,14 @@ class MRICoordinateDataset(Dataset):
     ) -> tuple[Tensor, Tensor]:
         """Return normalized k-space and its scalar scale factor.
 
-        Divides complex ``(num_coils, H, W)`` k-space by the maximum of its
-        masked, cropped zero-filled RSS image, clamped to ``eps``. Linearity
-        of the FFT makes the same scale apply in both domains.
+        Divides k-space by the maximum of its masked, cropped zero-filled RSS image. By
+        linearity of the FFT, the same scale applies in both domains.
+
+        Args:
+            x: Complex k-space ``(num_coils, H, W)``.
+            mask: Mask that broadcasts to ``x``.
+            crop_size: Reconstruction field of view ``(crop_H, crop_W)``.
+            eps: Lower bound of the scale factor.
         """
         zero_filled = self.zero_filled_reconstruction(x, mask, crop_size)
         scale_factor = torch.clamp(zero_filled.max(), min=eps)
@@ -1014,8 +1198,13 @@ class MRICoordinateDataset(Dataset):
     def postprocess(self, x: Tensor) -> Tensor:
         """Convert interleaved coil predictions to RSS magnitude in original units.
 
-        ``x`` has shape ``(crop_H, crop_W, num_coils * 2)``. Its norm over the
-        last dimension gives RSS directly, without constructing complex tensors.
-        The magnitude is clamped to ``[0, 1]`` then multiplied by ``scale_factor``.
+        The norm over the last dimension gives the RSS without complex tensors. It is
+        clamped to ``[0, 1]``, then multiplied by ``scale_factor``.
+
+        Args:
+            x: Predictions ``(crop_H, crop_W, num_coils * 2)``.
+
+        Returns:
+            Magnitude ``(crop_H, crop_W)``.
         """
         return torch.clamp(torch.norm(x, dim=-1), min=0.0, max=1.0) * self.scale_factor

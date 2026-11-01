@@ -1,20 +1,20 @@
-"""Inro: neural fields in PyTorch.
+"""Inro: implicit neural representations in PyTorch.
 
-Models, datasets, training, evaluation and utilities are available directly
-as ``inro.FUTON``, ``inro.train``, etc. Compression and novel view synthesis live
-in ``inro.compression`` and ``inro.nerf``.
+Models, datasets, training, evaluation and utilities are available directly, as
+``inro.FUTON`` and ``inro.train``. Compression and novel view synthesis live in
+``inro.compression`` and ``inro.nerf``.
 
-Example::
-
-    import inro
-
-    model = inro.FUTON(
-        in_features=2,
-        out_features=3,
-        basis=("cosine", {"num_components": 64}),
-        combiner=("cp", {"rank": 32}),
-        decoder="linear",
-    )
+Examples:
+    >>> import inro
+    >>> model = inro.FUTON(
+    ...     in_features=2,
+    ...     out_features=3,
+    ...     basis=("cosine", {"num_components": 64}),
+    ...     combiner=("cp", {"rank": 32}),
+    ...     decoder="linear",
+    ... )
+    >>> model(inro.create_coordinates((16, 16))).shape
+    torch.Size([16, 16, 3])
 """
 
 __version__ = "0.1.0"

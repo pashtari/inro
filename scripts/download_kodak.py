@@ -1,4 +1,4 @@
-"""Download the Kodak Lossless True Color Image Suite.
+"""Downloader for the Kodak Lossless True Color Image Suite.
 
 The 24 images (768x512, kodim01.png ... kodim24.png) used by SIREN, FINER,
 and most image-representation benchmarks, fetched from Rich Franzen's mirror:
@@ -6,6 +6,7 @@ and most image-representation benchmarks, fetched from Rich Franzen's mirror:
     https://r0k.us/graphics/kodak/
 
 Usage:
+
     python scripts/download_kodak.py
     python scripts/download_kodak.py --images 1 19
 """

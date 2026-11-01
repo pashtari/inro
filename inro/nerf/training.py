@@ -1,10 +1,9 @@
 """Per-scene NeRF training with random ray batches and mean squared error.
 
-Adam keeps PyTorch's defaults, as :func:`inro.train` does, so the
-learning rate is the one setting to tune. As in torch-ngp, the learning rate
-decays exponentially to ``0.1 * lr`` and each step composites onto a fresh
-per-pixel random background. The dataset background is used for evaluation.
-Results and logging follow the package-level :func:`inro.train` API.
+Adam keeps PyTorch's defaults, as in :func:`inro.train`, so the learning rate is the one
+setting to tune. As in torch-ngp, it decays exponentially to ``0.1 * lr`` and each step
+composites onto a fresh random background, while evaluation uses the dataset's. Results
+and logging follow :func:`inro.train`.
 """
 
 import math
@@ -50,58 +49,53 @@ def train(
     log_dir: str | os.PathLike[str] | None = None,
     seed: int = 0,
 ) -> dict[str, Any]:
-    """Fit a radiance field to one scene using random ray batches.
+    """Fit a radiance field to one scene with random ray batches.
 
-    Each step updates occupancy, renders ``num_rays`` training rays, and
-    minimizes their RGB mean squared error with Adam. Batches without occupied
-    samples skip the optimizer update and count towards ``skipped_steps``.
+    Each step updates the occupancy grid, renders ``num_rays`` rays and minimizes their
+    RGB mean squared error with Adam. A batch without occupied samples skips the
+    optimizer update and counts towards ``skipped_steps``.
 
     Args:
         field: Radiance field, moved to ``device``.
         renderer: Volume renderer, moved to ``device``.
-        train_dataset: Posed images, moved to ``device`` in place for sampling.
+        train_dataset: Posed images, moved to ``device`` in place.
         eval_dataset: Held-out views; ``None`` disables evaluation.
         num_steps: Number of training steps.
         num_rays: Rays sampled per step.
-        max_samples_per_ray: Cap on occupied samples per ray, front to back;
-            ``None`` disables it. Overrides the renderer's constructor setting.
-        lr: Initial learning rate, decayed exponentially to ``0.1 * lr``.
-        color_lr: Initial learning rate of the field's ``color_net``, decayed
-            alike, so that a color network shared by several density networks
-            can keep its own; ``None`` uses ``lr``.
-        weight_decay: Adam weight decay.
-        adam_betas: Adam moment decay rates.
-        adam_eps: Adam epsilon.
-        random_background: Composite predictions and targets onto a fresh
-            random color per pixel each step. This discourages white haze in
-            empty space; evaluation always uses the dataset background.
-        metrics: Evaluation metrics passed to :func:`evaluate`; ``None``
-            selects PSNR, SSIM, and LPIPS.
-        eval_interval: Evaluate every this many steps and at the final step.
-            ``None`` evaluates only at the end; non-positive values disable it.
-        eval_indices: Evaluation view indices; ``None`` selects all views.
-        log_interval: Steps between history entries, each also a line on the
-            console and in the text log, with the evaluation's metrics when
-            the step evaluates. Final and evaluation steps are always
-            recorded; non-positive values record only those.
-        device: Compute device; ``None`` selects CUDA if available, else CPU.
-        log_dir: Directory for ``log.txt``, with a line per history entry,
-            ``log.json``, the field's final ``checkpoint.pt``, and
-            ``renderer.pt``, the renderer's state with its occupancy grid.
-            ``None`` keeps no files; the console shows a progress bar, the
-            entries and a summary either way.
-        seed: Seed passed to ``torch.manual_seed`` before training, after the
-            supplied field and renderer have already been constructed.
+        max_samples_per_ray: Most occupied samples per ray, front to back; ``None``
+            removes the cap. Overrides the renderer's setting.
+        lr: Initial learning rate of Adam, decayed exponentially to ``0.1 * lr``.
+        color_lr: Initial learning rate of ``field.color_net``, decayed alike; ``None``
+            uses ``lr``.
+        weight_decay: Weight decay of Adam.
+        adam_betas: Moment decay rates of Adam.
+        adam_eps: Epsilon of Adam.
+        random_background: Whether to composite predictions and targets onto a fresh
+            random color per ray, which discourages white haze in empty space.
+            Otherwise, and always in evaluation, they use the dataset's background.
+        metrics: Metrics passed to :func:`evaluate`; ``None`` uses PSNR, SSIM and LPIPS.
+        eval_interval: Steps between evaluations, the final step always included;
+            ``None`` evaluates only there and non-positive values never.
+        eval_indices: View indices to evaluate; ``None`` evaluates all views.
+        log_interval: Steps between history records; final and evaluation steps are
+            always recorded, and non-positive values record only those.
+        device: Device to run on; ``None`` uses CUDA when available, else the CPU.
+        log_dir: Directory for ``log.txt`` (truncated first), ``log.json`` (appended),
+            the final ``checkpoint.pt`` of ``field`` and ``renderer.pt``, the renderer's
+            state with its occupancy grid; ``None`` writes no files.
+        seed: Seed of the global PyTorch RNG, set after ``field`` and ``renderer`` are
+            built, so it does not control their initialization.
 
     Returns:
-        Dict with ``"config"``, ``"model_dict"`` (the field's final state dict),
-        and ``"history"``. Configuration records model, optimizer, dataset,
-        renderer, and seed settings, plus ``skipped_steps`` and ``peak_memory``,
-        the most bytes a training step allocated beyond the data, field and
-        occupancy grid already on the device (zero off CUDA). Each history entry
-        contains ``step``, training-only ``elapsed`` seconds, ``loss``, training
-        ``psnr``, and ``num_samples``; evaluation steps also contain mean held-out
-        metrics under ``eval``.
+        Dictionary with these keys.
+
+        - ``config``: Settings of the run, with ``skipped_steps`` and ``peak_memory``,
+          the most bytes a training step allocated beyond what the device already held
+          (zero off CUDA).
+        - ``model_dict``: Final state dict of ``field``.
+        - ``history``: One record per logged step, with ``step``, ``elapsed`` (seconds
+          spent training so far), ``loss``, ``psnr``, ``num_samples`` and, if the step
+          evaluated, the mean held-out metrics under ``eval``.
     """
     logger, json_logger = setup_experiment_loggers(log_dir, __name__)
     torch.manual_seed(seed)
@@ -175,10 +169,10 @@ def train(
 
     start_time = time.perf_counter()
     for step in progress:
-        if cuda:  # each step's own peak, so that evaluations are left out
+        if cuda:  # each step's own peak, without evaluations
             torch.cuda.reset_peak_memory_stats(device)
 
-        # Step zero initializes nerfacc's initially empty occupancy grid.
+        # Step zero fills nerfacc's initially empty occupancy grid.
         renderer.update_occupancy(field, step - 1)
 
         batch = train_dataset.sample_rays(num_rays)
@@ -195,7 +189,7 @@ def train(
         loss = F.mse_loss(result["rgb"], target)
 
         optimizer.zero_grad()
-        # Pure-background batches do not depend on the field's parameters.
+        # Pure-background batches do not depend on the parameters.
         if loss.requires_grad:
             loss.backward()
             optimizer.step()
@@ -262,8 +256,8 @@ def train(
     if log_dir:
         checkpoint_path = os.path.join(log_dir, "checkpoint.pt")
         torch.save(field.state_dict(), checkpoint_path)
-        # The grid decides which samples a render queries, so a render of the
-        # saved field needs the grid the run was scored with.
+        # The grid decides which samples a render queries, so rendering the saved
+        # radiance field needs the grid the run was scored with.
         torch.save(renderer.state_dict(), os.path.join(log_dir, "renderer.pt"))
         logger.info("Saved checkpoint to %s", checkpoint_path)
 

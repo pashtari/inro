@@ -1,9 +1,8 @@
-"""Pure-PyTorch multiresolution hash encoding and Instant-NGP INR.
+"""Instant-NGP: a multiresolution hash encoding and an MLP, in pure PyTorch.
 
-The encoding reproduces tiny-cuda-nn's ``HashGrid``: level scales, the
-half-cell offset that staggers levels, table sizes, and the hash function all
-match the reference, so a PyTorch model sees the same features for the same
-table contents. Only the storage layout of the concatenated table differs.
+The encoding reproduces tiny-cuda-nn's ``HashGrid``: level scales, half-cell offsets,
+table sizes and the hash function match the reference, so equal table contents give
+equal features. Only the storage layout of the concatenated table differs.
 """
 
 import math
@@ -18,18 +17,18 @@ from .mlp import MLP
 
 __all__ = ["HashEncoding", "InstantNGP"]
 
-# tiny-cuda-nn's coherent prime hash factors. The first coordinate is left
-# unscaled (factor 1) for cache coherence.
+# tiny-cuda-nn's coherent prime hash factors; the first coordinate stays unscaled for
+# cache coherence.
 _PRIMES = (1, 2654435761, 805459861)
 
 
 def _level_scales(
     num_levels: int, base_resolution: int, max_resolution: int
 ) -> list[float]:
-    """Per-level grid scales, computed in float32 like instant-ngp/tiny-cuda-nn.
+    """Return the per-level grid scales, computed in float32 like tiny-cuda-nn.
 
-    The ceiling of a scale sets the level's resolution, so matching the
-    reference's float32 rounding keeps table sizes identical.
+    The ceiling of a scale sets the level's resolution, so matching the reference's
+    float32 rounding keeps table sizes identical.
     """
     f32 = np.float32
     ratio = f32(max_resolution) / f32(base_resolution)
@@ -42,38 +41,32 @@ def _level_scales(
 
 
 class HashEncoding(nn.Module):
-    """Multiresolution hash encoding (Müller et al., SIGGRAPH 2022).
+    """Multiresolution hash encoding of :class:`InstantNGP`.
 
     Level ``l`` scales unit-cube positions by ``N_min * b**l - 1``, with growth
-    ``b = (N_max / N_min) ** (1 / (L - 1))``, and adds a half-cell offset so
-    levels are staggered (paper, Appendix A). Its grid has
-    ``ceil(scale) + 1`` vertices per axis. Grids whose vertices fit in the
-    table are indexed densely; finer grids are hashed. Features of the
-    ``2**C`` surrounding vertices are interpolated multilinearly and
-    concatenated across levels.
+    ``b = (N_max / N_min) ** (1 / (L - 1))``, and adds a half-cell offset that staggers
+    the levels (Appendix A of the paper). Its grid has ``ceil(scale) + 1`` vertices per
+    axis, indexed densely when they fit in the table and hashed otherwise. The features
+    of the ``2**C`` surrounding vertices are interpolated multilinearly and concatenated
+    across levels.
 
     Args:
-        in_features: Number of input coordinates ``C`` (1, 2, or 3).
+        in_features: Number of coordinate axes ``C``, from ``1`` to ``3``.
         num_levels: Number of resolution levels ``L``.
         features_per_level: Feature channels ``F`` per table entry.
-        log2_hashmap_size: Base-2 logarithm of the maximum entries ``T`` per level.
+        log2_hashmap_size: Base-2 logarithm of the maximum table entries per level.
         base_resolution: Coarsest resolution ``N_min``.
-        max_resolution: Finest resolution ``N_max`` over the ``[-1, 1]`` domain;
-            the reference uses 2048 for NeRF and SDFs, ``max(H, W) / 2`` for
-            images, and the voxel resolution for volumes.
+        max_resolution: Finest resolution ``N_max`` over ``[-1, 1]``; the reference uses
+            ``2048`` for NeRF and SDFs, ``max(H, W) / 2`` for images and the voxel
+            resolution for volumes.
+
+    Attributes:
+        embeddings: Learnable tables of all levels, concatenated, that start uniformly
+            in ``[-1e-4, 1e-4]``.
 
     Shape:
-        - Input: :math:`(*, C)` in ``[-1, 1]``.
-        - Output: :math:`(*, L F)`.
-
-    The learnable ``embeddings`` concatenate all levels and start uniformly
-    in ``[-1e-4, 1e-4]``.
-
-    The forward pass handles every level at once, as one batched tensor
-    operation per step rather than a loop over levels: the arithmetic is the
-    same, so the features are identical, but a pass costs a few dozen kernel
-    launches instead of a few hundred, which is what sets the encoding's time
-    on the small batches a ray marcher or a training step feeds it.
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., L * F)``.
     """
 
     def __init__(
@@ -101,9 +94,8 @@ class HashEncoding(nn.Module):
         self.offsets = [0]
         for size in self.table_sizes[:-1]:
             self.offsets.append(self.offsets[-1] + size)
-        # The per-level constants as tensors, for the batched forward pass. A
-        # level whose vertices outnumber its table is hashed, the others are
-        # indexed densely.
+        # The per-level constants as tensors, for the batched forward pass. A level
+        # whose vertices outnumber its table is hashed, the others are indexed densely.
         levels = {
             "level_scales": torch.tensor(self.scales, dtype=torch.float32),
             "level_resolutions": torch.tensor(self.resolutions, dtype=torch.long),
@@ -142,14 +134,15 @@ class HashEncoding(nn.Module):
         batch_shape = x.shape[:-1]
         unit_x = (x.reshape(-1, self.in_features) + 1) / 2
 
-        # Every level at once: (N, L, C) positions, (N, L, 2^C, C) vertices.
+        # Every level at once, for a few dozen kernel launches rather than a few
+        # hundred: (N, L, C) positions, (N, L, 2^C, C) vertices.
         position = unit_x.unsqueeze(1) * self.level_scales.view(1, -1, 1) + 0.5
         grid = position.floor()
         fraction = (position - grid).unsqueeze(2)
         vertices = grid.long().unsqueeze(2) + self.corners
 
-        # Spatial hash; the reference's uint32 wraparound only affects bits
-        # above log2(table_size), so int64 arithmetic gives the same index.
+        # Spatial hash; the reference's uint32 wraparound only affects bits above
+        # log2(table_size), so int64 arithmetic gives the same index.
         hashed = vertices * self.primes
         hash_index = hashed[..., 0]
         for dim in range(1, self.in_features):
@@ -169,31 +162,37 @@ class HashEncoding(nn.Module):
 
 
 class InstantNGP(nn.Module):
-    r"""Instant neural graphics primitive: hash encoding and a bias-free ReLU MLP.
+    """Instant neural graphics primitive: a hash encoding and a bias-free ReLU MLP.
 
-    Mirrors tiny-cuda-nn's ``HashGrid`` followed by ``FullyFusedMLP``, which
-    has no biases. The reference uses one 64-wide hidden layer for the NeRF
-    density network and two for images and SDFs. See :class:`HashEncoding`
-    for the encoding parameters.
+    Mirrors tiny-cuda-nn's ``HashGrid`` followed by ``FullyFusedMLP``, which has no
+    biases. The reference uses one 64-wide hidden layer for the NeRF density network and
+    two for images and SDFs.
 
     Args:
-        in_features: Number of input coordinates (1, 2, or 3).
-        out_features: Number of output channels.
-        num_levels: Number of encoding levels.
-        features_per_level: Feature channels per table entry.
-        log2_hashmap_size: Base-2 logarithm of the maximum entries per level.
-        base_resolution: Coarsest grid resolution.
-        max_resolution: Finest grid resolution.
-        hidden_features: Decoder hidden width.
-        hidden_layers: Number of decoder hidden layers; at least one.
-        output_activation: Optional callable applied to the output.
+        in_features: Number of coordinate axes ``C``, from ``1`` to ``3``.
+        out_features: Number of output channels ``D``.
+        num_levels: Number of resolution levels ``L``.
+        features_per_level: Feature channels ``F`` per table entry.
+        log2_hashmap_size: Base-2 logarithm of the maximum table entries per level.
+        base_resolution: Coarsest resolution ``N_min``.
+        max_resolution: Finest resolution ``N_max`` over ``[-1, 1]``; the reference uses
+            ``2048`` for NeRF and SDFs, ``max(H, W) / 2`` for images and the voxel
+            resolution for volumes.
+        hidden_features: Hidden width.
+        hidden_layers: Number of hidden layers.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
 
     Shape:
-        - Input: :math:`(*, \text{in\_features})` in ``[-1, 1]``.
-        - Output: :math:`(*, \text{out\_features})`.
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
 
-    Train with Adam ``betas=(0.9, 0.99)`` and ``eps=1e-15`` as in the reference;
-    the tiny epsilon matters for rarely updated table entries.
+    Note:
+        The reference trains with Adam, ``betas=(0.9, 0.99)`` and ``eps=1e-15``; the
+        tiny epsilon matters for rarely updated table entries.
+
+    References:
+        Müller et al., "Instant Neural Graphics Primitives with a Multiresolution Hash
+        Encoding", SIGGRAPH 2022.
     """
 
     def __init__(

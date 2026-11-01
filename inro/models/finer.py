@@ -12,11 +12,19 @@ __all__ = ["FinerLayer", "FINER"]
 
 
 class FinerLayer(nn.Module):
-    """Variable-periodic sine layer ``sin(omega * (abs(z) + 1) * z)``.
+    """Variable-periodic sine layer ``sin(omega * (abs(z) + 1) * z)`` of :class:`FINER`.
 
-    Here ``z = linear(x)``. The input-dependent scale ``abs(z) + 1`` is
-    detached to keep its derivative out of the gradient. Maps
-    ``(..., in_features)`` to ``(..., out_features)``.
+    Here ``z = linear(x)``. The scale ``abs(z) + 1`` is detached, which keeps its
+    derivative out of the gradient.
+
+    Args:
+        in_features: Input width.
+        out_features: Output width.
+        omega: Frequency multiplier.
+
+    Shape:
+        - Input: ``(..., in_features)``.
+        - Output: ``(..., out_features)``.
     """
 
     def __init__(
@@ -36,19 +44,27 @@ class FinerLayer(nn.Module):
 
 
 class FINER(MLP):
-    """Variable-periodic coordinate MLP (Liu et al., CVPR 2024).
+    """Variable-periodic coordinate MLP.
 
-    Uses :class:`FinerLayer` hidden layers and SIREN weight initialization.
-    Biases keep PyTorch's defaults; the paper's enlarged first-layer bias
-    range is not exposed here.
+    An :class:`MLP` with :class:`FinerLayer` hidden layers, a linear output layer and
+    SIREN weight initialization. Biases keep PyTorch's defaults; the paper's enlarged
+    first-layer bias range is not exposed.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
         hidden_features: Hidden width.
-        hidden_layers: Number of variable-periodic layers; must be at least one.
-        omega: Base frequency multiplier in every hidden layer.
-        output_activation: Optional callable applied to the output.
+        hidden_layers: Number of hidden layers.
+        omega: Frequency multiplier.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Liu et al., "FINER: Flexible Spectral-bias Tuning in Implicit NEural
+        Representation by Variable-periodic Activation Functions", CVPR 2024.
     """
 
     def __init__(

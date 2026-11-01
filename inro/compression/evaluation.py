@@ -20,29 +20,31 @@ def evaluate_compression(
     return_reconstruction: bool = False,
     **kwargs: Any,
 ) -> dict[str, float | Tensor]:
-    """Measure an image codec's PSNR, bit rate, and encode/decode time.
+    """Measure an image codec's PSNR, bit rate, and encoding and decoding times.
 
-    PSNR uses ``data_range=255`` and is infinite for lossless codecs.
-    Wall-clock timings use ``perf_counter`` without CUDA synchronization.
+    PSNR uses ``data_range=255`` and is infinite for lossless codecs. Timings are
+    wall-clock, from ``perf_counter``, without CUDA synchronization.
 
     Args:
-        image: Original ``uint8`` image of shape ``(C, H, W)``.
-        encode_fn: Encoder called as ``encode_fn(image, **kwargs)``.
-        decode_fn: Decoder called as ``decode_fn(encoded)``; its result must
-            be on the same device as ``image``.
-        return_reconstruction: Include the decoded image in the result.
-        **kwargs: Forwarded to the encoder only.
+        image: Original ``uint8`` image ``(channels, H, W)``.
+        encode_fn: Encoder, called as ``encode_fn(image, **kwargs)``.
+        decode_fn: Decoder, called as ``decode_fn(encoded)``; its result must be on the
+            device of ``image``.
+        return_reconstruction: Whether to include the decoded image in the result.
+        **kwargs: Arguments of the encoder.
 
     Returns:
-        Float entries ``"PSNR (dB)"``, ``"bit rate (bpp)"``,
-        ``"encoding time (ms)"``, and ``"decoding time (ms)"``. If requested,
-        ``"reconstructed"`` contains the decoded tensor.
+        Dictionary with the floats ``"PSNR (dB)"``, ``"bit rate (bpp)"``,
+            ``"encoding time (ms)"`` and ``"decoding time (ms)"``, and, if requested,
+            the decoded tensor ``"reconstructed"``.
 
-    Example::
-
-        results = evaluate_compression(
-            image, encode_pil, decode_pil, format="JPEG", quality=75
-        )
+    Examples:
+        >>> import torch
+        >>> from inro.compression import decode_pil, encode_pil
+        >>> image = torch.randint(0, 256, (3, 32, 32), dtype=torch.uint8)
+        >>> results = evaluate_compression(image, encode_pil, decode_pil, format="PNG")
+        >>> results["PSNR (dB)"]
+        inf
     """
     start_time = time.perf_counter()
     encoded = encode_fn(image, **kwargs)

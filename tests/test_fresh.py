@@ -1,4 +1,4 @@
-"""FreSh: the spectrum it compares, its distance, its choice, and SIREN's first omega."""
+"""FreSh: its spectrum, distance and choice, and SIREN's first omega."""
 
 import math
 
@@ -9,13 +9,13 @@ import inro
 
 
 def cosine(frequency: float, side: int = 64) -> torch.Tensor:
-    """A cosine of ``frequency`` cycles along the first axis of a square grid."""
+    """Return a cosine of ``frequency`` cycles along the first axis of a square grid."""
     x = torch.arange(side) / side
     return torch.cos(2 * math.pi * frequency * x)[:, None, None].expand(side, side, 1)
 
 
 def test_a_cosine_is_one_shell():
-    """A cosine of k cycles puts its every amplitude in shell d = k."""
+    """Put every amplitude of a cosine of ``k`` cycles in shell ``d = k``."""
     spectrum = inro.fresh_spectrum(cosine(5), size=16)
     assert spectrum.shape == (16,) and float(spectrum.sum()) == pytest.approx(1.0)
     assert float(spectrum[4]) == pytest.approx(1.0, abs=1e-5)  # float32 leakage
@@ -23,7 +23,7 @@ def test_a_cosine_is_one_shell():
 
 @pytest.mark.parametrize("shape", [(32, 32, 3), (20, 20, 20, 1)])
 def test_shells_sum_nonnegative_frequencies(shape):
-    """Shell d holds the amplitudes of the frequencies with index sum d."""
+    """Hold in shell ``d`` the amplitudes of the frequencies with index sum ``d``."""
     torch.manual_seed(0)
     signal = torch.rand(shape)
     size = shape[0] // 2
@@ -56,7 +56,7 @@ def test_distance_is_the_one_dimensional_wasserstein_distance():
 
 
 def test_select_picks_the_matching_frequency_and_the_smaller_on_a_tie():
-    """A render whose cosine has omega / 10 cycles matches a 5-cycle target at 50."""
+    """Match a 5-cycle target at omega 50, with renders of ``omega / 10`` cycles."""
     omega, scores = inro.fresh_select(
         [cosine(5)], lambda omega: cosine(omega / 10), omegas=range(10, 101, 10),
         size=16, inits=2,

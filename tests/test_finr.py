@@ -17,8 +17,7 @@ def parameters(model: torch.nn.Module) -> int:
     [(2, 3, 140, 139, 3, "cp"), (3, 1, 15, 128, 3, "tt"), (3, 16, 6, 64, 2, "tt")],
 )
 def test_parameter_count(in_features, out_features, rank, width, layers, mode):
-    """Each axis network: a sine layer from one coordinate, layers - 1 more,
-    and a head of C R outputs, or C R^2 for the tensor train's core."""
+    """Count each axis's sine layers and head, with ``D R^2`` outputs for TT's core."""
     model = inro.FINR(in_features, out_features, rank, width, layers, mode)
     body = 2 * width + (layers - 1) * width * (width + 1)
     heads = [out_features * rank] * in_features
@@ -62,8 +61,7 @@ def test_combination_matches_its_formula(mode, inputs):
     ("mode", "inputs", "encoding"), [("cp", 2, 0), ("tt", 3, 0), ("cp", 2, 10)]
 )
 def test_grid_evaluation_matches_per_point(mode, inputs, encoding):
-    """On a grid each network runs once per distinct coordinate; the output
-    and the gradients are those of running it per point."""
+    """Run each network once per coordinate, with per-point outputs and gradients."""
     torch.manual_seed(0)
     model = inro.FINR(
         inputs, 3, rank=8, hidden_features=32, mode=mode, positional_encoding=encoding
@@ -86,8 +84,7 @@ def test_grid_evaluation_matches_per_point(mode, inputs, encoding):
 
 @pytest.mark.parametrize("size", [1, 2, 9, 10, 11])
 def test_positional_encoding_as_the_authors_compute_it(size):
-    """Their notebook_positional_encoding: sin then cos of x times 2^k, k from
-    int(-(n - 1) / 2) up to int((n + 1) / 2), so 10 gives nine bands."""
+    """Follow ``notebook_positional_encoding``, where a size of 10 gives nine bands."""
     model = inro.FINR(2, 3, rank=4, hidden_features=8, positional_encoding=size)
     bands = 2.0 ** torch.arange(int(-(size - 1) / 2), int((size + 1) / 2))
     torch.testing.assert_close(model.bands, bands)

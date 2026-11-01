@@ -1,8 +1,9 @@
 """Occupancy benchmark: fit each model in configs/occupancy.yaml to Stanford shapes.
 
 Usage:
+
     python scripts/train_occupancy.py
-    python scripts/train_occupancy.py --data data/occupancy/lucy.ply --models SIREN --device cuda:1
+    python scripts/train_occupancy.py --data data/occupancy/lucy.ply --models SIREN
 """
 
 from pathlib import Path
@@ -29,6 +30,7 @@ DATA = sorted((ROOT / "data" / "occupancy").glob("*.ply"))
 def fit(
     config: dict, model: dict, path: Path, out: Path, device: torch.device
 ) -> dict[str, Any]:
+    """Fit one model to one shape, scored on the whole volume."""
     data_kwargs = {**config["data"], "item_id": path.stem}
     # The whole volume, whatever share or cap of it each training step draws.
     whole = {**data_kwargs, "subsample": 1.0, "max_samples": None}
@@ -52,7 +54,7 @@ def fit(
         train_dataset,
         volume,
         metrics={"iou": inro.iou},
-        # Rendering a mesh needs a display, which compute nodes lack; recreate
+        # Rendering a mesh needs a display, which a headless machine lacks; recreate
         # reconstructions from checkpoint.pt instead.
         save_reconstruction=False,
         device=device,

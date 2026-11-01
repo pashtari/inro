@@ -1,13 +1,11 @@
 """Occupancy-grid volume rendering with PyTorch and nerfacc backends.
 
-:func:`create_renderer` selects nerfacc when its CUDA extension works, or
-PyTorch otherwise. Both use uniform marching and emission-absorption
-compositing. Ray directions must be unit vectors so near/far bounds, step
-size, and depth are measured in world-space distance.
+Both backends march rays uniformly and composite emission and absorption. Ray directions
+must be unit vectors, so that near and far bounds, step size and depth are world
+distances. Call ``update_occupancy(field, step)`` before each training step.
 
-Call ``update_occupancy(field, step)`` before each training step. Defaults
-follow torch-ngp's Blender recipe: a unit box, near plane 0.2, step size
-``sqrt(3) * extent / 1024``, and a 128-cubed density grid thresholded at
+Defaults follow torch-ngp's Blender recipe: the box ``[-1, 1]^3``, near plane ``0.2``, a
+step of ``sqrt(3) * extent / 1024``, and a ``128**3`` density grid thresholded at
 ``min(mean density, 10)``.
 """
 
@@ -34,10 +32,10 @@ except Exception:
 
 
 def is_nerfacc_available() -> bool:
-    """Check whether nerfacc imports and its CUDA intersection kernel works.
+    """Return whether nerfacc imports and its CUDA intersection kernel runs.
 
-    Some installations import successfully but lack usable CUDA kernels, so
-    availability is checked with a small ``ray_aabb_intersect`` call.
+    Some installations import but lack usable CUDA kernels, so this runs a small
+    ``ray_aabb_intersect``.
     """
     if nerfacc is None or not torch.cuda.is_available():
         return False
@@ -54,14 +52,13 @@ def is_nerfacc_available() -> bool:
 def create_renderer(
     backend: Literal["auto", "pytorch", "nerfacc"] = "auto", **kwargs: Any
 ) -> "VolumeRenderer":
-    """Create a renderer, selecting a working CUDA backend when available.
+    """Create a volume renderer, preferring a working nerfacc backend.
 
     Args:
-        backend: ``"nerfacc"`` (:class:`NerfAccRenderer`), ``"pytorch"``
-            (:class:`PyTorchRenderer`), or ``"auto"`` (nerfacc when
-            :func:`is_nerfacc_available`, else pure PyTorch).
-        **kwargs: Forwarded to the renderer constructor (``aabb``, ``near``,
-            ``far``, ``render_step_size``, ...; see :class:`VolumeRenderer`).
+        backend: ``"nerfacc"`` for :class:`NerfAccRenderer`, ``"pytorch"`` for
+            :class:`PyTorchRenderer`, or ``"auto"`` for nerfacc when
+            :func:`is_nerfacc_available` and PyTorch otherwise.
+        **kwargs: Arguments of :class:`VolumeRenderer`.
     """
     if backend == "auto":
         backend = "nerfacc" if is_nerfacc_available() else "pytorch"
@@ -75,33 +72,32 @@ def create_renderer(
 
 
 class VolumeRenderer(nn.Module):
-    """Shared configuration and interface for occupancy-grid volume renderers.
+    """Configuration and interface shared by occupancy-grid volume renderers.
 
-    Subclasses implement :meth:`update_occupancy` and :meth:`forward`.
-    Construct a concrete backend through :func:`create_renderer`.
+    Subclasses implement :meth:`update_occupancy` and :meth:`forward`. Build a backend
+    with :func:`create_renderer`.
 
     Args:
-        aabb: Scene box ``(xmin, ymin, zmin, xmax, ymax, zmax)``; samples lie
-            inside it. Stored as a non-persistent float32 buffer.
-        near: Near-plane floor. Marching starts at the box entry when further.
-        far: Far-plane cap; ``None`` uses the box exit and is stored as infinity.
-        render_step_size: Marching step. ``None`` uses
-            ``sqrt(3) * max_extent / 1024``.
-        max_samples_per_ray: Keep at most this many occupied samples per ray,
-            front to back; ``None`` removes the cap. Truncated tails become
-            background. This bounds field queries but does not reduce the
-            PyTorch backend's marching buffers.
+        aabb: Scene box ``(xmin, ymin, zmin, xmax, ymax, zmax)``, left out of the state
+            dict. Samples lie inside it.
+        near: Near-plane distance; marching starts at the box entry if that is farther.
+        far: Far-plane distance; ``None`` uses the box exit and stores infinity.
+        render_step_size: Marching step; ``None`` uses ``sqrt(3) * extent / 1024``, with
+            ``extent`` the longest side of the box.
+        max_samples_per_ray: Most occupied samples per ray, front to back; ``None``
+            removes the cap. Samples past it count as empty. It bounds the queries of a
+            radiance field, not the PyTorch backend's marching buffers.
         grid_resolution: Occupancy-grid cells per axis.
         update_interval: Training steps between occupancy updates.
         density_threshold: A cell is occupied when its density exceeds
             ``min(grid mean, density_threshold)``.
-        ema_decay: Decay in the per-cell update ``max(decay * density, sigma)``.
-        warmup_steps: Update every cell during warmup. Afterwards, sample
-            ``num_cells // 4`` uniform cells and up to that many occupied cells.
+        ema_decay: Decay in the cell update ``max(ema_decay * density, sigma)``.
+        warmup_steps: Steps during which an update covers every cell. Later updates
+            sample ``num_cells // 4`` uniform cells and up to that many occupied ones.
 
     Attributes:
-        num_marching_steps: ``ceil(box diagonal / render_step_size)``, at least 1.
-            With unit directions, this covers the longest possible box crossing.
+        num_marching_steps: Steps that cover the box diagonal, the longest crossing of a
+            ray: ``ceil(diagonal / render_step_size)``, at least 1.
     """
 
     def __init__(
@@ -139,16 +135,14 @@ class VolumeRenderer(nn.Module):
         self.warmup_steps = int(warmup_steps)
 
     def update_occupancy(self, field: nn.Module, step: int) -> None:
-        """Update the occupancy grid from the field's current density.
+        """Update the occupancy grid from ``field.query_density``.
 
         Call once per training step, before rendering.
 
         Args:
-            field: Radiance field exposing ``query_density(x)``, which maps
-                world coordinates ``(N, 3)`` to densities ``(N,)``.
-            step: 0-based training step. The grid is updated only when
-                ``step % update_interval == 0``; every cell is re-evaluated
-                while ``step < warmup_steps``.
+            field: Radiance field with the interface of :class:`RadianceField`.
+            step: Zero-based training step. The grid updates only when
+                ``step % update_interval == 0``, all of it if ``step < warmup_steps``.
         """
         raise NotImplementedError
 
@@ -162,42 +156,37 @@ class VolumeRenderer(nn.Module):
         """Render a batch of rays through a radiance field.
 
         Args:
-            field: Radiance field; ``field(x, directions)`` returns
-                ``(rgb, sigma)`` of shapes ``(N, 3)`` and ``(N,)`` for world
-                coordinates and view directions ``(N, 3)``, and
-                ``field.query_density(x)`` returns ``(N,)``.
-            rays_o: Ray origins ``(R, 3)``.
-            rays_d: Unit-norm ray directions ``(R, 3)``.
-            background: Background color composited behind each ray, either
-                shared ``(3,)`` or per ray ``(R, 3)``. ``None`` selects white.
+            field: Radiance field with the interface of :class:`RadianceField`.
+            rays_o: Ray origins ``(N, 3)``.
+            rays_d: Unit ray directions ``(N, 3)``.
+            background: Background color, shared ``(3,)`` or per ray ``(N, 3)``;
+                ``None`` uses white.
 
         Returns:
-            Dict with ``"rgb"`` ``(R, 3)``, ``"opacity"`` ``(R, 1)`` (summed
-            compositing weights), ``"depth"`` ``(R, 1)`` (expected termination
-            distance along the ray, conditioned on a hit) and
-            ``"num_samples"`` (``int``, the number of samples composited).
+            Dictionary with these keys.
+
+            - ``rgb``: Colors ``(N, 3)``.
+            - ``opacity``: Summed compositing weights ``(N, 1)``.
+            - ``depth``: Expected distance along the ray given a hit, ``(N, 1)``.
+            - ``num_samples``: Number of samples composited.
         """
         raise NotImplementedError
 
 
 class PyTorchRenderer(VolumeRenderer):
-    """Occupancy-grid volume renderer implemented entirely in PyTorch.
+    """Occupancy-grid volume renderer in pure PyTorch.
 
-    Marches each ray from box entry to exit at a fixed step, queries the field
-    at occupied samples, and composites emission-absorption weights. Skipped
-    samples are assigned zero density and leave transmittance unchanged.
-    The grid starts fully occupied until the first :meth:`update_occupancy`.
+    Marches each ray from box entry to exit at a fixed step and queries the radiance
+    field at occupied samples only; skipped samples have zero density. The grid starts
+    fully occupied, and it is in the state dict, as nerfacc's is, so a saved run renders
+    with the grid it was scored with.
 
-    Constructor arguments are documented in :class:`VolumeRenderer`.
+    Args:
+        **kwargs: Arguments of :class:`VolumeRenderer`.
 
     Attributes:
-        density_grid: ``(G, G, G)`` running cell densities, where
-            ``G = grid_resolution``.
-        binaries: Boolean occupancy mask of the same shape, named to match
-            nerfacc's estimator.
-
-    Both are buffers in the renderer's state dict, as nerfacc's are, so a
-    saved run renders with the grid it was scored with.
+        density_grid: Running cell densities ``(G, G, G)``, for ``G = grid_resolution``.
+        binaries: Boolean occupancy mask ``(G, G, G)``, named after nerfacc's estimator.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -212,12 +201,14 @@ class PyTorchRenderer(VolumeRenderer):
 
     @torch.no_grad()
     def update_occupancy(self, field: nn.Module, step: int) -> None:
-        """Update cell densities from one jittered point per selected cell.
+        """Update selected cells from one jittered point each and threshold the grid.
 
-        Queries run in chunks of ``2**16``. Selected cells are updated with
-        ``max(ema_decay * density, sigma)``, then the full grid is thresholded.
-        Runs in training or eval mode; see :meth:`VolumeRenderer.update_occupancy`
-        for intervals and warmup behavior.
+        Queries run in chunks of ``2**16``, in training or eval mode.
+
+        Args:
+            field: Radiance field with the interface of :class:`RadianceField`.
+            step: Zero-based training step. The grid updates only when
+                ``step % update_interval == 0``, all of it if ``step < warmup_steps``.
         """
         if step % self.update_interval != 0:
             return
@@ -263,7 +254,7 @@ class PyTorchRenderer(VolumeRenderer):
     def _ray_aabb_intersect(
         self, rays_o: Tensor, rays_d: Tensor
     ) -> tuple[Tensor, Tensor]:
-        """Return ``(R,)`` box-entry and exit distances, clipped to near/far.
+        """Return ``(N,)`` box-entry and exit distances, clipped to near and far.
 
         Uses the slab method. Rays that miss the box have an empty interval.
         """
@@ -287,10 +278,19 @@ class PyTorchRenderer(VolumeRenderer):
     ) -> dict[str, Tensor | int]:
         """Render a batch of rays through a radiance field.
 
-        Allocates ``(R, num_marching_steps)`` marching buffers; in training
-        mode each sample is jittered uniformly within its step, in eval mode
-        it sits at the step midpoint. See :meth:`VolumeRenderer.forward` for
-        the arguments and the returned dict.
+        Allocates ``(N, num_marching_steps)`` marching buffers. Each sample is jittered
+        within its step in training mode and sits at its midpoint in eval mode.
+
+        Args:
+            field: Radiance field with the interface of :class:`RadianceField`.
+            rays_o: Ray origins ``(N, 3)``.
+            rays_d: Unit ray directions ``(N, 3)``.
+            background: Background color, shared ``(3,)`` or per ray ``(N, 3)``;
+                ``None`` uses white.
+
+        Returns:
+            Dictionary with ``rgb``, ``opacity``, ``depth`` and ``num_samples``; see
+                :meth:`VolumeRenderer.forward`.
         """
         num_rays = rays_o.shape[0]
         device = rays_o.device
@@ -313,7 +313,7 @@ class PyTorchRenderer(VolumeRenderer):
 
         positions = rays_o[:, None, :] + distances[..., None] * rays_d[:, None, :]
         box_min, box_max = self.aabb[:3], self.aabb[3:]
-        # Fold one axis at a time to avoid an (R, S, 3) index buffer.
+        # Fold one axis at a time to avoid an (N, S, 3) index buffer.
         resolution = self.grid_resolution
         flat_indices = None
         for axis in range(3):
@@ -346,7 +346,7 @@ class PyTorchRenderer(VolumeRenderer):
         if num_samples > 0:
             points = positions[sample_mask]
             directions = rays_d[:, None, :].expand_as(positions)[sample_mask]
-            # Free the (R, S, 3) buffer before querying the field.
+            # Free the (N, S, 3) buffer before querying the radiance field.
             del positions
             colors, densities = field(points, directions)
             sample_densities[sample_mask] = densities
@@ -378,15 +378,15 @@ class PyTorchRenderer(VolumeRenderer):
 
 
 class NerfAccRenderer(VolumeRenderer):
-    """Volume renderer using ``nerfacc.OccGridEstimator`` and CUDA kernels.
+    """Occupancy-grid volume renderer on ``nerfacc.OccGridEstimator`` and CUDA kernels.
 
-    Requires a working nerfacc extension; see :func:`is_nerfacc_available`.
-    Constructor arguments are documented in :class:`VolumeRenderer`.
+    Requires a working nerfacc extension; see :func:`is_nerfacc_available`. Unlike
+    :class:`PyTorchRenderer`, it renders only background until :meth:`update_occupancy`
+    runs, and sampling queries density to stop rays at transmittance below ``1e-4``,
+    before the sample cap applies. The state dict holds the grid under ``estimator.``.
 
-    Unlike :class:`PyTorchRenderer`, the estimator starts empty and renders
-    only background until :meth:`update_occupancy` runs. Sampling also queries
-    density to stop rays at transmittance below ``1e-4`` before applying the
-    sample cap. Grid buffers persist in checkpoints under ``estimator.``.
+    Args:
+        **kwargs: Arguments of :class:`VolumeRenderer`.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -405,8 +405,12 @@ class NerfAccRenderer(VolumeRenderer):
     def update_occupancy(self, field: nn.Module, step: int) -> None:
         """Update the grid through ``OccGridEstimator.update_every_n_steps``.
 
-        Queries all selected cells in one batch. nerfacc requires training mode;
-        see :meth:`VolumeRenderer.update_occupancy` for intervals and warmup.
+        Queries all selected cells in one batch and requires training mode.
+
+        Args:
+            field: Radiance field with the interface of :class:`RadianceField`.
+            step: Zero-based training step. The grid updates only when
+                ``step % update_interval == 0``, all of it if ``step < warmup_steps``.
         """
         self.estimator.update_every_n_steps(
             step=step,
@@ -426,8 +430,18 @@ class NerfAccRenderer(VolumeRenderer):
     ) -> dict[str, Tensor | int]:
         """Render a batch of rays through a radiance field.
 
-        Samples are stratified in training mode. See :meth:`VolumeRenderer.forward`
-        for arguments and outputs.
+        Samples are stratified in training mode.
+
+        Args:
+            field: Radiance field with the interface of :class:`RadianceField`.
+            rays_o: Ray origins ``(N, 3)``.
+            rays_d: Unit ray directions ``(N, 3)``.
+            background: Background color, shared ``(3,)`` or per ray ``(N, 3)``;
+                ``None`` uses white.
+
+        Returns:
+            Dictionary with ``rgb``, ``opacity``, ``depth`` and ``num_samples``; see
+                :meth:`VolumeRenderer.forward`.
         """
         num_rays = rays_o.shape[0]
         if background is None:

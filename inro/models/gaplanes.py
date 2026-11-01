@@ -1,4 +1,4 @@
-"""GA-Planes: geometric algebra planes grid INR."""
+"""GA-Planes: geometric algebra planes, feature grids with an MLP decoder."""
 
 from collections.abc import Callable, Sequence
 
@@ -11,29 +11,32 @@ __all__ = ["GAPlanes"]
 
 
 class GAPlanes(nn.Module):
-    """Line, plane, and volume grid features with a ReLU MLP decoder.
+    """Line, plane and volume feature grids with a ReLU MLP decoder.
 
-    The default :class:`MultiVector` expression combines a low-rank term
-    with lower-resolution grids. In 2D it concatenates the product of two
-    line grids and a plane; in 3D it also includes line-plane products and a
-    volume. Maps coordinates ``(..., in_features)`` in ``[-1, 1]`` to
-    ``(..., out_features)``.
+    The default :class:`MultiVector` expression combines a low-rank term with
+    lower-resolution grids: in 2D it concatenates the product of two line grids and a
+    plane; in 3D it also includes line-plane products and a volume.
 
     Args:
-        in_features: Number of input coordinates (2 or 3).
-        out_features: Number of output channels.
-        expr: MultiVector expression; ``None`` selects all grids.
-        features: Feature dimension per grid: an int for all grids, or
-            ``(line, plane, volume)`` values; short sequences repeat their last
-            value. Operands of ``o`` and ``+`` must have equal channel counts.
-        resolution: Resolution per axis per grid, with the same int/sequence
-            rules as ``features``.
-        hidden_features: Decoder hidden width.
-        hidden_layers: Number of decoder hidden layers; at least one.
-        output_activation: Optional callable applied to the output.
+        in_features: Number of coordinate axes ``C``, ``2`` or ``3``.
+        out_features: Number of output channels ``D``.
+        expr: :class:`MultiVector` expression; ``None`` selects all grids.
+        features: Feature channels per grid: an int for all grids, or
+            ``(line, plane, volume)`` values, a short sequence repeating its last value.
+            Operands of ``o`` and ``+`` must have equal channel counts.
+        resolution: Resolution per axis per grid, given as ``features`` is. Planes are
+            square and volumes are cubic.
+        hidden_features: Hidden width.
+        hidden_layers: Number of hidden layers.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
 
-    See Sivgin et al., "Geometric Algebra Planes: Convex Implicit Neural
-    Volumes", arXiv 2024.
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Sivgin et al., "Geometric Algebra Planes: Convex Implicit Neural Volumes",
+        ICML 2025.
     """
 
     _DEFAULT_EXPR: dict[int, str] = {

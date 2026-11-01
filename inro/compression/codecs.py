@@ -1,8 +1,8 @@
 """Image codecs: PIL formats (JPEG, WebP, PNG, ...) and FUTON.
 
-Each codec is an encoder that maps an image to bytes and a decoder that maps
-the bytes back to an image tensor of shape :math:`(C, H, W)`, so any pair can be
-benchmarked with :func:`~inro.compression.evaluate_compression`.
+An encoder maps an image to bytes and a decoder maps the bytes back to an image tensor
+``(channels, H, W)``, so :func:`~inro.compression.evaluate_compression` can benchmark
+any pair.
 """
 
 import io
@@ -31,26 +31,19 @@ def encode_pil(
     """Encode an image with a PIL codec.
 
     Args:
-        image: Path or binary file object of an image file that PIL can open, or
-            an image tensor of shape :math:`(C, H, W)` (``uint8``, or floating
-            point in ``[0, 1]``), converted with
-            :func:`torchvision.transforms.functional.to_pil_image`.
-        **kwargs: Keyword arguments forwarded to :meth:`PIL.Image.Image.save`.
-            Must include ``format`` (e.g. ``"JPEG"``, ``"WEBP"`` or ``"PNG"``)
-            because PIL cannot infer it when saving to an in-memory buffer; may
-            include codec options such as ``quality``.
+        image: Path or binary file object of an image that PIL can open, or an image
+            tensor ``(channels, H, W)``, ``uint8`` or floating-point in ``[0, 1]``.
+        **kwargs: Arguments of :meth:`PIL.Image.Image.save`. Must include ``format``,
+            such as ``"JPEG"``, ``"WEBP"`` or ``"PNG"``, because PIL cannot infer it for
+            an in-memory buffer, and may include codec options such as ``quality``.
 
     Returns:
-        The encoded image file as bytes.
+        The encoded image file.
 
     Raises:
-        ValueError: If ``image`` is not a ``str``, :class:`os.PathLike`,
-            :class:`io.IOBase` or Tensor.
+        ValueError: If ``image`` is not a path, a binary file object or a tensor.
 
-    Examples::
-
-        >>> import torch
-        >>> from inro.compression import decode_pil, encode_pil
+    Examples:
         >>> image = torch.randint(0, 256, (3, 32, 32), dtype=torch.uint8)
         >>> encoded = encode_pil(image, format="JPEG", quality=50)
         >>> decode_pil(encoded).shape
@@ -69,20 +62,20 @@ def encode_pil(
 
 
 def decode_pil(encoded: bytes) -> Tensor:
-    """Decode an image file stored in memory, e.g. the output of :func:`encode_pil`.
+    """Decode an image file held in memory, such as the output of :func:`encode_pil`.
 
     Args:
         encoded: Bytes of an image file in any format PIL can read.
 
     Returns:
-        The decoded image as a tensor of shape :math:`(C, H, W)` with the channels
-        of the stored PIL mode (``uint8`` for 8-bit images).
+        Image ``(channels, H, W)``, with the channels of the stored PIL mode and
+            ``uint8`` values for 8-bit images.
     """
     return FT.pil_to_tensor(Image.open(io.BytesIO(encoded)))
 
 
 def _check_module_spec(name: str, spec: Any) -> None:
-    """Raise ``ValueError`` unless ``spec`` is a registry key or a (key, dict) pair."""
+    """Raise ``ValueError`` unless ``spec`` is a key or a ``(key, dict)`` pair."""
     is_key = isinstance(spec, str)
     is_pair = (
         isinstance(spec, (tuple, list))
@@ -112,49 +105,49 @@ def encode_futon(
     seed: int = 0,
     **kwargs: Any,
 ) -> bytes:
-    """Encode an image by fitting and serializing a quantized FUTON.
+    """Encode an image by fitting a FUTON and serializing its quantized parameters.
 
-    Training uses :func:`~inro.losses.rate_distortion_loss` with weight
-    ``alpha``. The bitstream contains quantized parameters, their scales, model
-    config, image ID and spatial shape, serialized with ``torch.save`` and gzip.
+    Training minimizes :func:`~inro.losses.rate_distortion_loss`.
 
     Args:
-        image: Path or PIL image (converted to RGB), or ``uint8`` tensor
-            of shape ``(C, H, W)``.
-        subsample: Fraction of pixels sampled each step, in ``(0, 1]``.
-        lr: Initial learning rate.
+        image: Path or PIL image, converted to RGB, or ``uint8`` tensor
+            ``(channels, H, W)``.
+        subsample: Fraction of pixels sampled at each step, in ``(0, 1]``.
+        lr: Initial learning rate of Adam.
         num_steps: Number of training steps.
         alpha: Weight of the parameters' Laplace entropy estimate in the loss.
-        quant_max: Largest quantization level. Each parameter tensor is scaled
-            by ``quant_max / max(abs(w))`` and rounded to integers.
-        quant_interval: If positive, round parameters to the quantization grid
-            in place every this many steps. Final quantization always runs.
-        log_interval: Steps between training records; see :func:`train`.
-        device: Training device; ``None`` selects CUDA if available, else CPU.
-        seed: Training seed, set after model construction. Controls pixel
-            sampling but not parameter initialization.
-        **kwargs: FUTON arguments, including required ``basis``, ``combiner``,
-            and ``decoder`` registry keys or ``(key, params_dict)`` pairs.
-            All config values must be plain Python or tensor types supported
-            by ``torch.load(weights_only=True)``; callable specs cannot be
-            decoded. Input/output widths default to 2 and the channel count.
+        quant_max: Largest integer level. Each parameter tensor is scaled by
+            ``quant_max / max(abs(w))`` and rounded.
+        quant_interval: Steps between fake quantizations of the model; non-positive
+            values disable them. The final quantization always runs.
+        log_interval: Steps between history records; see :func:`train`.
+        device: Device to run on; ``None`` uses CUDA when available, else the CPU.
+        seed: Seed of the global PyTorch RNG, set after the model is built, so it does
+            not control its initialization.
+        **kwargs: Arguments of :class:`FUTON`. ``basis``, ``combiner`` and ``decoder``
+            are required, each a registry key or a ``(key, dict)`` pair, and every value
+            must load with ``torch.load(weights_only=True)``. ``in_features`` and
+            ``out_features`` default to 2 and the channel count.
 
     Returns:
-        Compressed model and image metadata as bytes.
+        The integer codes, their scales, the model config, the image ID and the spatial
+            shape, serialized with ``torch.save`` and gzip.
 
     Raises:
-        ValueError: If ``basis``, ``combiner``, or ``decoder`` is missing or
-            is not a registry key or ``(key, dict)`` pair.
+        ValueError: If ``basis``, ``combiner`` or ``decoder`` is missing, or is neither
+            a registry key nor a ``(key, dict)`` pair.
 
-    Example::
-
-        encoded = encode_futon(
-            image,
-            basis=("cosine", {"num_components": 32}),
-            combiner=("cp", {"rank": 32}),
-            decoder="linear",
-        )
-        reconstruction = decode_futon(encoded)
+    Examples:
+        >>> image = torch.randint(0, 256, (3, 16, 16), dtype=torch.uint8)
+        >>> encoded = encode_futon(
+        ...     image,
+        ...     num_steps=2,
+        ...     basis=("cosine", {"num_components": 8}),
+        ...     combiner=("cp", {"rank": 8}),
+        ...     decoder="linear",
+        ... )
+        >>> decode_futon(encoded).shape
+        torch.Size([3, 16, 16])
     """
     for name in ("basis", "combiner", "decoder"):
         if name not in kwargs:
@@ -191,18 +184,18 @@ def encode_futon(
 
 
 def decode_futon(encoded: bytes, *, device: str | torch.device | None = None) -> Tensor:
-    """Reconstruct an image from :func:`encode_futon` bytes.
+    """Reconstruct an image from the bytes of :func:`encode_futon`.
 
-    Rebuilds the stored FUTON, dequantizes its parameters, and evaluates the
-    full coordinate grid in one pass. Clamps the output to ``[-1, 1]``, maps
-    it to ``[0, 255]``, rounds, and casts to ``uint8``.
+    Rebuilds the stored FUTON, dequantizes its parameters and evaluates the whole
+    coordinate grid in one pass. The output is clamped to ``[-1, 1]`` and mapped to
+    ``uint8``.
 
     Args:
-        encoded: Bitstream returned by :func:`encode_futon`.
-        device: Decoding device; ``None`` leaves tensors on the default device.
+        encoded: Bytes returned by :func:`encode_futon`.
+        device: Device to run on; ``None`` uses the default device.
 
     Returns:
-        Reconstructed ``uint8`` image of shape ``(C, H, W)`` on ``device``.
+        Reconstructed ``uint8`` image ``(channels, H, W)`` on ``device``.
     """
     metadata = decode_dict(encoded)
     model_config = metadata["model"]["config"]

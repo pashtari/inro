@@ -14,17 +14,15 @@ DOUBLE = torch.float64
 
 
 def signed(z):
-    """From [0, 1] to [-1, 1]: the affine output activation of a nonnegative model."""
+    """Map ``[0, 1]`` to ``[-1, 1]``, the output activation of a nonnegative model."""
     return 2 * z - 1
 
 
 def grid(sizes, out_features, seed=0):
-    """A whole grid: random coordinates per axis and a smooth nonnegative signal.
+    """Return a whole grid: random coordinates per axis and a smooth nonnegative signal.
 
-    The signal is a sum of a few random Gaussian bumps scaled into [0, 1] and
-    then into [-1, 1], with a quarter of its values at the bottom, since
-    zeros in the target are what drives multiplicative updates to the
-    boundary.
+    A sum of random Gaussian bumps in ``[-1, 1]``, a quarter of its values at the
+    bottom, since zeros in the target drive multiplicative updates to the boundary.
     """
     generator = torch.Generator().manual_seed(seed)
     axes = [torch.rand(n, dtype=DOUBLE, generator=generator) * 2 - 1 for n in sizes]
@@ -39,7 +37,7 @@ def grid(sizes, out_features, seed=0):
 
 
 def sample(batch, fraction, generator):
-    """A random share of a grid's points, flattened, as a subsampling dataset draws it."""
+    """Draw a random share of a grid's points, flattened, as a dataset subsamples."""
     x, y = (value.reshape(-1, value.shape[-1]) for value in batch.values())
     index = torch.randperm(len(x), generator=generator)[: int(fraction * len(x))]
     return {"input": x[index], "target": y[index]}
@@ -54,7 +52,7 @@ def futon(
     activation=None,
     **options,
 ):
-    """The paper's model, a CP combiner and a linear decoder without bias, in double precision."""
+    """Build the paper's model in double: CP and a linear decoder without bias."""
     return inro.FUTON(
         in_features,
         out_features,
@@ -71,7 +69,7 @@ def mse(model, batch):
 
 
 def recorded(solver, batch, sweeps):
-    """The batch's error before every block's update and after the last sweep."""
+    """Return the batch's error before every block's update and after the last sweep."""
     errors, solve = [], solver.solve
 
     def recording(*args, **kwargs):
@@ -86,7 +84,7 @@ def recorded(solver, batch, sweeps):
 
 
 def separable(basis):
-    """A model of rank one with chosen factors, and a grid it fits exactly."""
+    """Return a model of rank one with chosen factors, and a grid it fits exactly."""
     torch.manual_seed(0)
     truth = futon(
         2, 1, [8, 6], 1, basis, signed if basis == "triangle" else None, normalize=False
@@ -101,6 +99,8 @@ def separable(basis):
 
 
 class TestSolver:
+    """Behavior the solvers share: their model, state, batches and start."""
+
     def test_fits_the_papers_model_only(self):
         basis = ("sinc", {"num_components": 8})
         linear = ("linear", {"bias": False})
@@ -129,7 +129,7 @@ class TestSolver:
         assert all(entry["total"] == 0.5 for entry in state["state"].values())
 
     def test_takes_any_batch_of_points(self):
-        """A grid, its points in any order or a loader's batch of one: one sweep."""
+        """Sweep alike on a grid, its points in any order or a batch of one."""
         batch = grid((7, 9), 2)
         torch.manual_seed(0)
         model = futon(2, 2, 6, 3)
@@ -162,7 +162,7 @@ class TestSolver:
             assert torch.equal(p, q)
 
     def test_the_first_batch_counts_whole(self):
-        """The average is bias-corrected: its first batch has all the weight."""
+        """Give the first batch all the weight: the average is bias-corrected."""
         batch = grid((10, 12), 2)
         torch.manual_seed(0)
         model = futon(2, 2, 6, 3)
@@ -173,7 +173,7 @@ class TestSolver:
             assert torch.allclose(p, q)
 
     def test_factors_are_held_at_unit_scale(self):
-        """A sweep leaves every factor's components at unit mean square."""
+        """Leave every factor's components at unit mean square after a sweep."""
         batch = grid((10, 12), 2)
         torch.manual_seed(0)
         model = futon(2, 2, 6, 3)
@@ -192,8 +192,10 @@ class TestSolver:
 
 
 class TestLeastSquares:
+    """Alternating least squares, on whole grids and minibatches."""
+
     def test_block_updates_are_least_squares_solutions(self):
-        """On a whole grid, each block takes the solution of its own problem."""
+        """Give each block the solution of its own problem on a whole grid."""
         batch = grid((12, 10), 2)
         torch.manual_seed(1)
         model = futon(2, 2, [6, 5], 3)
@@ -250,7 +252,7 @@ class TestLeastSquares:
 
     @pytest.mark.parametrize("basis", ["sinc", "lanczos", "triangle", "cosine"])
     def test_every_update_descends(self, basis):
-        """On a whole grid a block's exact minimizer never raises the error."""
+        """Never raise the error on a whole grid, with each block's exact minimizer."""
         batch = grid((30, 20), 3)
         torch.manual_seed(2)
         model = futon(2, 3, 7, 5, basis)
@@ -267,7 +269,7 @@ class TestLeastSquares:
         assert errors[-1] < 0.5 * errors[0]
 
     def test_recovers_a_separable_signal(self):
-        """From the model's own draw, a product of two sinc bumps is fitted exactly."""
+        """Fit a product of two sinc bumps exactly, from the model's own draw."""
         truth, batch = separable("sinc")
         model = futon(2, 1, [8, 6], 1, "sinc", normalize=False)
         solver = LeastSquares(model, ridge=0.0, momentum=0.0, initialize=False)
@@ -277,7 +279,7 @@ class TestLeastSquares:
         assert mse(model, batch) < 1e-10 * start
 
     def test_activation_lowers_the_error(self):
-        """With the tanh, the Gauss-Newton sweeps keep lowering the error."""
+        """Keep lowering the error with the tanh, by Gauss-Newton sweeps."""
         batch = grid((30, 20), 3)
         torch.manual_seed(4)
         model = futon(2, 3, 7, 5, activation=torch.tanh)
@@ -287,8 +289,7 @@ class TestLeastSquares:
         assert losses[-1] <= losses[:10].min()
 
     def test_a_declared_grid_sweeps_as_the_found_one(self):
-        """With the grid declared, each axis's left-hand side is made once, and
-        the sweeps are those of the grid the batch's coordinates give."""
+        """Build each axis's left-hand side once, sweeping as on the found grid."""
         sizes = (24, 20)
         axes = [torch.linspace(-1, 1, n, dtype=DOUBLE) for n in sizes]
         x = torch.stack(torch.meshgrid(*axes, indexing="ij"), -1)
@@ -323,6 +324,8 @@ class TestLeastSquares:
 
 
 class TestMultiplicativeUpdate:
+    """Multiplicative updates of a nonnegative model."""
+
     def test_needs_a_nonnegative_model(self):
         batch = grid((20, 30), 2)
         for model in [
@@ -340,7 +343,7 @@ class TestMultiplicativeUpdate:
 
     @pytest.mark.parametrize("sizes", [(40,), (30, 20), (12, 10, 8)])
     def test_every_update_descends(self, sizes):
-        """On a whole grid the error never increases, after any block's update."""
+        """Never raise the error on a whole grid, after any block's update."""
         batch = grid(sizes, 3)
         torch.manual_seed(1)
         model = futon(len(sizes), 3, 7, 5, "triangle", signed, normalize=False)
@@ -350,13 +353,7 @@ class TestMultiplicativeUpdate:
         assert errors[-1] < 0.6 * errors[0]
 
     def test_every_update_is_the_gradient_ratio(self):
-        """Each block moves by the ratio of its gradient's two parts.
-
-        The negative part of the squared error's gradient is the gradient of
-        the inner product with the target, the positive part that of half the
-        squared norm of the output; autograd supplies both, at the state each
-        block is updated from.
-        """
+        """Move each block by the ratio of its gradient's two parts."""
         batch = grid((20, 15), 3)
         torch.manual_seed(3)
         model = futon(2, 3, 6, 4, "triangle", signed, normalize=False)
@@ -388,8 +385,7 @@ class TestMultiplicativeUpdate:
             assert torch.allclose(result, expected)
 
     def test_inner_updates_fit_each_block_further(self):
-        """Repeating a block's update within its sweep lowers the error further,
-        and every update still descends."""
+        """Lower the error further by repeating a block's update, and still descend."""
         batch = grid((30, 20), 3)
         errors = {}
         for inner in (1, 16):
@@ -415,7 +411,6 @@ class TestMultiplicativeUpdate:
         )
 
     def test_exact_solution_is_a_fixed_point(self):
-        """A separable target the model holds exactly is left as it is."""
         truth, batch = separable("triangle")
         before = truth(batch["input"]).detach()
         MultiplicativeUpdate(truth, initialize=False).step(batch)
@@ -423,7 +418,7 @@ class TestMultiplicativeUpdate:
         assert torch.allclose(truth(batch["input"]), before, atol=1e-12)
 
     def test_recovers_a_separable_signal(self):
-        """From a positive draw, a product of two hat functions is fitted to 40 dB."""
+        """Fit a product of two hats to 40 dB below the start, from a positive draw."""
         truth, batch = separable("triangle")
         model = futon(2, 1, [8, 6], 1, "triangle", signed, normalize=False)
         solver = MultiplicativeUpdate(model, momentum=0.0)
@@ -434,6 +429,8 @@ class TestMultiplicativeUpdate:
 
 
 class TestTraining:
+    """Solvers in place of Adam in ``inro.train``."""
+
     @pytest.mark.parametrize("solver", [LeastSquares, MultiplicativeUpdate])
     def test_train_takes_a_solver_in_place_of_adam(self, tmp_path, solver):
         torch.manual_seed(0)
@@ -473,8 +470,7 @@ class TestTraining:
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_compiled_sweeps_match_eager_ones():
-    """On a declared grid a sweep compiles to one graph with the eager result,
-    and compiling it on a batch leaves the model and the solver as they were."""
+    """Compile a sweep to one graph, leaving the model and the solver as they were."""
     sizes = (24, 20)
     axes = [torch.linspace(-1, 1, n, dtype=DOUBLE) for n in sizes]
     x = torch.stack(torch.meshgrid(*axes, indexing="ij"), -1).cuda()

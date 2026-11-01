@@ -12,15 +12,21 @@ __all__ = ["RFFEncoding", "RFF"]
 
 
 class RFFEncoding(nn.Module):
-    """Random Fourier encoding ``[sin(2πBx), cos(2πBx)]``.
+    r"""Random Fourier feature encoding of :class:`RFF`.
 
-    The fixed frequency buffer ``B`` has shape ``(num_frequencies,
-    in_features)`` and entries sampled from ``Normal(0, sigma**2)`` at
-    construction. All sines precede all cosines; the output width is
-    ``2 * num_frequencies`` and leading input dimensions are preserved.
+    Computes :math:`\sin(2\pi \boldsymbol{B}\boldsymbol{x})`, then
+    :math:`\cos(2\pi \boldsymbol{B}\boldsymbol{x})`. The fixed buffer ``B`` of shape
+    ``(num_frequencies, C)`` has its entries drawn from
+    :math:`\mathcal{N}(0, \sigma^2)` at construction.
 
-    See Tancik et al., "Fourier Features Let Networks Learn High Frequency
-    Functions in Low Dimensional Domains", NeurIPS 2020.
+    Args:
+        in_features: Number of coordinate axes ``C``.
+        num_frequencies: Number of random frequency vectors.
+        sigma: Standard deviation of the frequencies.
+
+    Shape:
+        - Input: ``(..., C)``.
+        - Output: ``(..., 2 * num_frequencies)``.
     """
 
     def __init__(
@@ -39,18 +45,24 @@ class RFFEncoding(nn.Module):
 
 
 class RFF(nn.Module):
-    """ReLU MLP with random Fourier features (Tancik et al., NeurIPS 2020).
-
-    Maps ``(..., in_features)`` to ``(..., out_features)``.
+    """ReLU MLP with random Fourier features.
 
     Args:
-        in_features: Number of input coordinates.
-        out_features: Number of output channels.
+        in_features: Number of coordinate axes ``C``.
+        out_features: Number of output channels ``D``.
         hidden_features: Hidden width.
-        hidden_layers: Number of ReLU layers; must be at least one.
-        num_frequencies: Number of random frequency vectors in :class:`RFFEncoding`.
-        sigma: Standard deviation of the frequency vectors.
-        output_activation: Optional callable applied to the output.
+        hidden_layers: Number of hidden layers.
+        num_frequencies: Number of random frequency vectors.
+        sigma: Standard deviation of the frequencies.
+        output_activation: Callable applied to the output; ``None`` uses the identity.
+
+    Shape:
+        - Input: ``(..., C)`` coordinates in ``[-1, 1]``.
+        - Output: ``(..., D)``.
+
+    References:
+        Tancik et al., "Fourier Features Let Networks Learn High Frequency Functions in
+        Low Dimensional Domains", NeurIPS 2020.
     """
 
     def __init__(

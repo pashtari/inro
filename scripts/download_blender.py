@@ -1,4 +1,4 @@
-"""Download the NeRF synthetic (Blender) scenes.
+"""Downloader for the NeRF synthetic (Blender) scenes.
 
 The 8 scenes from NeRF (ECCV 2020), each with 100 train / 100 val / 200 test
 800x800 RGBA views and transforms_{split}.json camera poses. The official
@@ -7,12 +7,13 @@ mirror instead:
 
     https://huggingface.co/datasets/pablovela5620/nerf-synthetic-mirror
 
-Test-view depth maps are skipped (BlenderDataset does not use them) unless
---depth is given. Existing files are kept, so an interrupted download resumes.
+Test-view depth maps are skipped (``BlenderDataset`` does not use them) unless
+``--depth`` is given. Existing files are kept, so an interrupted download resumes.
 
 Available scenes: chair, drums, ficus, hotdog, lego, materials, mic, ship.
 
 Usage:
+
     python scripts/download_blender.py
     python scripts/download_blender.py --scenes lego ship
 """
@@ -33,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def list_files(scene: str) -> list[str]:
-    """Paths of all files under ``scene`` in the mirror, following pagination."""
+    """List all files under ``scene`` in the mirror, following pagination."""
     url = f"{API}/tree/{REVISION}/{scene}?recursive=true"
     paths = []
     while url:

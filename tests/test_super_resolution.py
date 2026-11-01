@@ -1,5 +1,4 @@
-"""Super-resolution: the forward model, its minibatches, loss and metrics, and
-the benchmark script's FUTON rank."""
+"""Super-resolution: forward model, minibatches, loss, metrics and FUTON's rank."""
 
 import importlib.util
 import sys
@@ -18,7 +17,7 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 @pytest.fixture(scope="module")
 def task():
-    """The benchmark script as a module; it imports train_common from its folder."""
+    """Import the benchmark script, which needs train_common on the path."""
     sys.path.insert(0, str(SCRIPTS))
     spec = importlib.util.spec_from_file_location(
         "train_super_resolution", SCRIPTS / "train_super_resolution.py"
@@ -30,8 +29,7 @@ def task():
 
 @pytest.fixture
 def images():
-    """A random 32 x 48 image, its 4x downsampling rounded to uint8, and the
-    downsampling's kernels."""
+    """Return a random 32 x 48 image, its rounded 4x downsampling, and the kernels."""
     torch.manual_seed(0)
     image = torch.randint(256, (3, 32, 48), dtype=torch.uint8)
     kernels = [inro.resize_matrix(32, 8), inro.resize_matrix(48, 12)]
@@ -42,7 +40,7 @@ def images():
 
 @pytest.fixture
 def image_pair(task, images, tmp_path):
-    """The image and its downsampling as files, laid out as DIV2K is."""
+    """Save the image and its downsampling as files, laid out as DIV2K is."""
     image, low, kernels = images
     (tmp_path / "DIV2K_valid_HR").mkdir()
     (tmp_path / "DIV2K_valid_LR_bicubic" / "X4").mkdir(parents=True)
@@ -53,12 +51,17 @@ def image_pair(task, images, tmp_path):
 
 
 class Lookup(nn.Module):
-    """A field that returns the pixels of an image under the coordinates it is
-    given, plus a learnable offset, so that a loss has a gradient."""
+    """INR stub that returns the pixels under its coordinates, plus a learnable offset.
+
+    The offset gives a loss a gradient.
+
+    Args:
+        image: Image ``(3, H, W)`` whose pixels it returns.
+    """
 
     def __init__(self, image: torch.Tensor) -> None:
         super().__init__()
-        self.pixels = inro.ImageCoordinateDataset.preprocess(image)  # (H, W, C)
+        self.pixels = inro.ImageCoordinateDataset.preprocess(image)  # (H, W, 3)
         self.offset = nn.Parameter(torch.zeros(()))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -83,7 +86,7 @@ def test_blocks_downsample_to_the_low_resolution_pixels(images):
     dataset = inro.SuperResolutionDataset(low, kernels, num_blocks=12, block_size=2)
     torch.manual_seed(0)
     batch = dataset[0]
-    rendered = Lookup(image)(batch["input"])  # (B, L, L, C) in [-1, 1]
+    rendered = Lookup(image)(batch["input"])  # (B, L, L, 3) in [-1, 1]
     fitted = inro.downsample(rendered, (batch["weight_y"], batch["weight_x"]))
     assert batch["input"].shape == (12, dataset.footprint, dataset.footprint, 2)
     assert batch["weight_y"].shape == batch["weight_x"].shape == (12, 2, 16 + 4)
@@ -93,8 +96,7 @@ def test_blocks_downsample_to_the_low_resolution_pixels(images):
 
 
 def test_loss_matches_the_low_resolution_pixels_through_the_kernels(images):
-    """The true image leaves only the rounding of the LR pixels, and the loss
-    pulls an offset back towards it."""
+    """Leave the true image only the LR pixels' rounding, and pull an offset back."""
     image, low, kernels = images
     dataset = inro.SuperResolutionDataset(low, kernels, num_blocks=12, block_size=4)
     batch = torch.utils.data.default_collate([dataset[0]])  # as inro.train draws it
@@ -186,9 +188,9 @@ def test_prepare_fills_futon_rank_from_the_budget(task, image_pair):
     }
     model = task.prepare(entry, path)
     assert model["kwargs"]["basis"][1]["num_components"] == [8, 12]
-    # (20,000 - 64 - 64 * 3 - 3) // (8 + 12 + 64) = 235, a multiple of 5
+    # (20,000 - 64 - 64 * 3 - 3) // (8 + 12 + 64) = 235, a multiple of 5.
     assert model["kwargs"]["combiner"][1]["rank"] == 235
-    # a model without a budget, a baseline, passes through as it is
+    # A model without a budget, a baseline, passes through as it is.
     siren = {"class": "SIREN", "kwargs": {"hidden_features": "H // 2"}}
     assert task.prepare(siren, path) == {
         "class": "SIREN",
