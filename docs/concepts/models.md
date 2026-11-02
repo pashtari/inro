@@ -1,6 +1,43 @@
 # The model zoo
 
 Thirteen architectures share one interface: `Model(in_features, out_features, ...)` maps coordinates `(..., in_features)` in $[-1, 1]$ to `(..., out_features)`. They are re-implementations under one training loop, at settings taken from the authors' code, and the [benchmarks](../experiments/benchmarks.md) compare them at equal parameter counts.
+{ .inro-lead }
+
+<div class="grid cards" markdown>
+
+-   :material-sine-wave:{ .lg .middle } **[FUTON](#futon)**
+
+    ---
+
+    A fixed basis per axis, a low-rank combiner across axes, and a decoder.
+
+-   :material-graph-outline:{ .lg .middle } **[Coordinate networks](#coordinate-networks)**
+
+    ---
+
+    MLPs whose prior sits in the first layer or in the activation: RFF, PE-MLP, SIREN, Gauss, WIRE, FINER, MFN.
+
+-   :material-grid:{ .lg .middle } **[Grid and tensor models](#grid-and-tensor-models)**
+
+    ---
+
+    Learnable feature grids and factorizations: Instant-NGP, TensoRF, GA-Planes, F-INR, Grid INR.
+
+-   :material-image-filter-center-focus:{ .lg .middle } **[Deep Image Prior](#deep-image-prior)**
+
+    ---
+
+    Convolutional networks whose architecture is the prior.
+
+</div>
+
+## FUTON
+
+| Model | Class | Idea | Reference |
+| --- | --- | --- | --- |
+| FUTON | `FUTON` | A fixed basis per axis, a low-rank CP combiner across axes, and a linear or MLP decoder | Ashtari et al., arXiv 2026 |
+
+The benchmarks run it with the sinc basis and the cosine basis, FUTON (sinc) and FUTON (cosine) in the results and `FUTON-sinc` and `FUTON-cosine` in the configs; the ablations add the Lanczos basis and three more. The [FUTON page](futon.md) explains every part.
 
 ## Coordinate networks
 
@@ -10,15 +47,15 @@ MLPs whose prior sits in the first layer or in the activation.
 | --- | --- | --- | --- |
 | RFF | `RFF` | Random Fourier features $[\sin(2\pi \boldsymbol{B}\boldsymbol{x}), \cos(2\pi \boldsymbol{B}\boldsymbol{x})]$, $\boldsymbol{B} \sim \mathcal{N}(0, \sigma^2)$, then a ReLU MLP | Tancik et al., NeurIPS 2020 |
 | PE-MLP | `PEMLP` | NeRF's positional encoding $[\boldsymbol{x}, \sin(2^k \boldsymbol{x}), \cos(2^k \boldsymbol{x})]$, then a ReLU MLP | Mildenhall et al., ECCV 2020 |
-| SIREN | `SIREN` | Sine layers $\sin(\omega \, \boldsymbol{W}\boldsymbol{x} + \boldsymbol{b})$ with SIREN initialization | Sitzmann et al., NeurIPS 2020 |
-| Gauss | `Gauss` | Gaussian layers $\exp(-(s \, \boldsymbol{W}\boldsymbol{x} + \boldsymbol{b})^2)$ | Ramasinghe and Lucey, ECCV 2022 |
+| SIREN | `SIREN` | Sine layers $\sin(\omega (\boldsymbol{W}\boldsymbol{x} + \boldsymbol{b}))$ with SIREN initialization | Sitzmann et al., NeurIPS 2020 |
+| Gauss | `Gauss` | Gaussian layers $\exp(-(s (\boldsymbol{W}\boldsymbol{x} + \boldsymbol{b}))^2)$ | Ramasinghe and Lucey, ECCV 2022 |
 | WIRE | `WIRE`, `RealWIRE` | Complex, or real, Gabor wavelet layers $\cos(\omega z_1) \exp(-(s z_2)^2)$ | Saragadam et al., CVPR 2023 |
 | FINER | `FINER` | Variable-periodic sines $\sin(\omega (\lvert z \rvert + 1) z)$ | Liu et al., CVPR 2024 |
 | MFN | `MFN` | Multiplicative Gabor filter network: each stage multiplies a Gabor filter of the coordinates into the hidden state | Fathony et al., ICLR 2021 |
 
-FreSh (Kania et al., ICLR 2025) is not an architecture but a choice of SIREN's first-layer frequency: `inro.fresh_select` picks it per signal, before training, as the candidate whose untrained output has the spectrum nearest the signal's, and `inro.SIREN(first_omega=...)` takes it, its later layers keeping `omega`.
-
-`MLP` underlies most of them: a plain ReLU network by default, or a network of custom layers (`layer_class=inro.SineLayer`, `inro.GaussLayer`, `inro.FinerLayer`, `inro.RealGaborLayer`) with their own activations. `WIRE` is the complex-valued network of the paper; the experiments use `RealWIRE`, the real Gabor variant from the same paper and code, which trains about 1.5× faster at equal parameter count and has real weights, so it also quantizes.
+- **FreSh** (Kania et al., ICLR 2025) is not an architecture but a choice of SIREN's first-layer frequency: `inro.fresh_select` picks it per signal, before training, as the candidate whose untrained output has the spectrum nearest the signal's, and `inro.SIREN(first_omega=...)` takes it, its later layers keeping `omega`.
+- **`MLP`** underlies most of them: a plain ReLU network by default, or a network of custom layers (`layer_class=inro.SineLayer`, `inro.GaussLayer`, `inro.FinerLayer`, `inro.RealGaborLayer`) with their own activations.
+- **`WIRE`** is the complex-valued network of the paper. The experiments use `RealWIRE`, the real Gabor variant from the same paper and code, which trains about 1.5× faster at equal parameter count and has real weights, so it also quantizes.
 
 ## Grid and tensor models
 
@@ -34,25 +71,19 @@ Learnable feature grids, read by interpolation and decoded by a ReLU MLP, and a 
 
 `FeatureGrid` is the building block: a learnable grid of any dimension sampled with `align_corners=True` on $[-1, 1]$. `MultiVector` combines several with elementwise products, sums and concatenation, and `GAPlanes` and `TensoRF` add the decoder.
 
-## FUTON
-
-| Model | Class | Idea | Reference |
-| --- | --- | --- | --- |
-| FUTON | `FUTON` | A fixed basis per axis, a low-rank CP combiner across axes, and a linear or MLP decoder | Ashtari et al., arXiv 2026 |
-
-The benchmarks run it with the sinc basis and the cosine basis, FUTON (sinc) and FUTON (cosine) in the results and `FUTON-sinc` and `FUTON-cosine` in the configs; the ablations add the Lanczos basis and three more. The [FUTON page](futon.md) explains every part.
-
 ## Deep Image Prior
 
 | Model | Class | Idea | Reference |
 | --- | --- | --- | --- |
 | DIP | `DIPUNet`, `DIPSkip` | Convolutional networks that map a fixed noise image to the output; the architecture is the prior | Ulyanov et al., CVPR 2018 |
 
-These are image-to-image networks, `(B, C, H, W)` in and out, paired with `DIPImageDataset`, which supplies the fixed noise input and re-adds a little noise on each access.
+These are image-to-image networks, `(B, channels, H, W)` in and out, paired with `DIPImageDataset`, which supplies the fixed noise input and re-adds a little noise on each access.
 
 ## Shared conventions
 
-- **Widths and depths.** `hidden_features` is the hidden width and `hidden_layers` the number of hidden layers, so a network with `hidden_layers=h` has `h + 1` weight layers (MFN: `h` Gabor filters, `h - 1` hidden linear layers and one output layer). `WIRE` and `RealWIRE` divide the nominal width by $\sqrt{2}$ to keep the parameter count comparable to real networks.
-- **Output activations.** Every model takes `output_activation`, a callable applied last. The benchmarks use `torch.tanh` for targets in $[-1, 1]$ and none inside a `RadianceField`.
-- **Equal capacity.** `inro.count_parameters(model, trainable_only=False)` is how the configs were matched. The image models hold 197k to 209k parameters, the occupancy models about 132k, and the NeRF density networks about 68k (75k with the shared colour network).
-- **Learning rates.** Each model has its own, drawn from {3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4} each the best of the grid on two or three signals of the task, as each config's header says.
+| Topic | Rule |
+| --- | --- |
+| **Widths and depths** | `hidden_features` is the hidden width and `hidden_layers` the number of hidden layers, so `hidden_layers=h` means `h + 1` weight layers (MFN: `h` Gabor filters, `h - 1` hidden linear layers and one output layer). `WIRE` and `RealWIRE` divide the nominal width by $\sqrt{2}$ to keep the parameter count comparable to real networks |
+| **Output activations** | Every model takes `output_activation`, a callable applied last. The benchmarks use `torch.tanh` for targets in $[-1, 1]$ and none inside a `RadianceField` |
+| **Equal capacity** | `inro.count_parameters(model, trainable_only=False)` is how the configs were matched. The image models hold 197k to 209k parameters, the occupancy models about 132k, and the NeRF density networks about 68k (75k with the shared color network) |
+| **Learning rates** | Each model has its own, the best of {3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4} on two or three signals of the task, as each config's header says |

@@ -1,10 +1,21 @@
 # Custom components
 
 The library is built from small interfaces. This page shows the contract of each one with a minimal working example.
+{ .inro-lead }
+
+| Component | Built or called as | Must provide |
+| --- | --- | --- |
+| [Basis](#a-basis) | `basis(in_features, **kwargs)` | `num_components`, and one `(N, K_c)` feature tensor per axis |
+| [Combiner](#a-combiner-or-decoder) | `combiner(basis.num_components, **kwargs)` | `out_features`, and `(N, out_features)` from the features |
+| [Decoder](#a-combiner-or-decoder) | `decoder(combiner.out_features, out_features, **kwargs)` | Any module |
+| [Loss](#a-loss) | `loss_fn(batch, model)` | A scalar loss and a dictionary of metrics |
+| [Metric](#a-metric) | `fn(reconstruction, original)` | A float |
+| [Dataset](#a-dataset) | `dataset[i]` | Items with `id`, `input`, `target`, `_original`; `preprocess`, `postprocess`, `save` |
+| [Model](#a-model) | `model(coordinates)` | `(..., in_features)` to `(..., out_features)` |
 
 ## A basis
 
-`FUTON` builds the basis as `basis(in_features, **kwargs)` and only requires a module that exposes `num_components`, a list with one count per axis, and returns one `(N, K_c)` feature tensor per axis from `(N, C)` coordinates. A Gaussian bump basis in a dozen lines:
+A Gaussian bump basis in a dozen lines:
 
 ```python
 import torch
@@ -13,7 +24,7 @@ import inro
 
 
 class GaussianBasis(nn.Module):
-    """K Gaussian bumps per axis, centred on a uniform grid over [-1, 1]."""
+    """K Gaussian bumps per axis, centered on a uniform grid over [-1, 1]."""
 
     def __init__(self, in_features, num_components, width=0.05):
         super().__init__()
@@ -41,7 +52,7 @@ A class and a `(class, kwargs)` pair work anywhere a registry key does, as does 
 
 ## A combiner or decoder
 
-A combiner is built as `combiner(basis.num_components, **kwargs)`, takes the tuple of per-axis features, returns `(N, out_features)`, and exposes `out_features`. A decoder is any module built as `decoder(combiner.out_features, out_features, **kwargs)`, so `torch.nn.Linear`, `inro.MLP`, or a class of your own:
+A combiner takes the tuple of per-axis features. A decoder is any module, so `torch.nn.Linear`, `inro.MLP`, or a class of your own:
 
 ```python
 class GatedDecoder(nn.Module):
@@ -64,7 +75,9 @@ model = inro.FUTON(
 
 ## A loss
 
-`inro.train` calls `loss_fn(batch, model)` and expects a scalar loss and a dictionary of metrics for the log, as floats or as scalar tensors. Tensors are read only when a step is logged, so the training steps never wait for the GPU in between. `batch` is the dataset item with its tensors on the training device (keys with a leading underscore stay on the CPU). A loss that fits only the pixels a mask marks as known:
+`inro.train` calls `loss_fn(batch, model)` and expects a scalar loss and a dictionary of metrics for the log, as floats or as scalar tensors. Tensors are read only when a step is logged, so the training steps never wait for the GPU in between. `batch` is the dataset item with its tensors on the training device; keys with a leading underscore stay on the CPU.
+
+A loss that fits only the pixels a mask marks as known:
 
 ```python
 import torch.nn.functional as F
@@ -88,7 +101,7 @@ The indexing works before and after subsampling because the dataset flattens `in
 
 ## A metric
 
-Metrics are functions `fn(reconstruction, original) -> float` on whatever the dataset's `postprocess` returns and its `_original` holds: `uint8` `(C, H, W)` images or `{0, 1}` volumes. Rate metrics take `(encoded_bytes, original)`.
+Metrics are functions `fn(reconstruction, original) -> float` on whatever the dataset's `postprocess` returns and its `_original` holds: `uint8` `(channels, H, W)` images or `{0, 1}` volumes. Rate metrics take `(encoded_bytes, original)`.
 
 ```python
 def mae(pred, target):
@@ -106,7 +119,7 @@ A dataset is a `torch.utils.data.Dataset` whose items carry `id`, `input`, `targ
 
 ## A model
 
-Any module that maps `(..., in_features)` coordinates in $[-1, 1]$ to `(..., out_features)` is a neural field for the training loop, and, without an output activation, a density network for `inro.nerf.RadianceField`. `inro.MLP` accepts a custom `layer_class` when the novelty is in the layer:
+Any module that maps `(..., in_features)` coordinates in $[-1, 1]$ to `(..., out_features)` is an INR for the training loop, and, without an output activation, a density network for `inro.nerf.RadianceField`. `inro.MLP` accepts a custom `layer_class` when the novelty is in the layer:
 
 ```python
 class SoftplusLayer(nn.Module):
@@ -129,13 +142,7 @@ Extra keyword arguments go to the hidden layers; the output layer stays linear. 
 
 ## Registries
 
-`inro.build_module(spec, registry, *args, **kwargs)` is the resolver behind every spec: an instance is returned as is, a key is looked up in `registry`, a class is called, and a `(key_or_class, params)` pair (a two-element list works too, so specs can come from YAML or JSON) adds keyword arguments. Use it for your own components:
-
-```python
-LOSSES = {"mse": inro.rate_distortion_loss, "sdf": inro.sdf_loss}
-```
-
-is a plain dictionary, but for modules,
+`inro.build_module(spec, registry, *args, **kwargs)` is the resolver behind every spec: an instance is returned as is, a key is looked up in `registry`, a class is called, and a `(key_or_class, params)` pair adds keyword arguments. A two-element list works too, so specs can come from YAML or JSON. Use it for your own components:
 
 ```python
 DECODERS = {"linear": nn.Linear, "mlp": inro.MLP, "gated": GatedDecoder}

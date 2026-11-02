@@ -1,13 +1,12 @@
-"""Render the package's Sphinx-style docstring roles in mkdocstrings.
+"""Griffe extension rendering Sphinx-style docstring roles in mkdocstrings.
 
-The docstrings are written in Google style but use a few reStructuredText
-roles: ``:math:`` for LaTeX, and ``:class:``, ``:func:``, ``:meth:``,
-``:attr:``, ``:data:`` and ``:mod:`` for cross-references. This griffe
-extension rewrites them into the Markdown and MathJax syntax the site renders.
-A cross-reference becomes a link when its target is a documented object of the
-package (looked up from the docstring's own scope outwards, as Sphinx does),
-and plain code otherwise, so that external targets such as ``torch.save``
-never break a strict build.
+The docstrings are in Google style but use a few reStructuredText roles: ``:math:``
+for LaTeX, and ``:class:``, ``:func:``, ``:meth:``, ``:attr:``, ``:data:``, ``:mod:``
+and ``:obj:`` for cross-references. They become the Markdown and MathJax the site
+renders. A cross-reference becomes a link when its target is a documented object of
+the package, looked up from the docstring's own scope outward as Sphinx does, and
+plain code otherwise, so that targets such as ``torch.save`` never break a strict
+build.
 """
 
 import re
@@ -37,7 +36,7 @@ def _scopes(obj: Object) -> Iterator[Object]:
 
 
 def _lookup(pkg: Module, path: str) -> Object | None:
-    """The documented object at ``path``, with aliases followed, or ``None``."""
+    """Return the documented object at ``path``, with aliases followed, or ``None``."""
     prefix = pkg.name + "."
     if path == pkg.name:
         return pkg
@@ -69,6 +68,17 @@ def _resolve(pkg: Module, obj: Object, name: str) -> Object | None:
 
 
 def rewrite(text: str, pkg: Module, obj: Object) -> str:
+    """Rewrite the roles in a docstring into Markdown and MathJax.
+
+    Args:
+        text: Docstring of ``obj``.
+        pkg: Package whose documented objects can be linked.
+        obj: Owner of the docstring, the scope its cross-references resolve from.
+
+    Returns:
+        The rewritten docstring.
+    """
+
     def xref(match: re.Match) -> str:
         tilde, path = match.groups()
         path = path.strip()
@@ -91,5 +101,5 @@ class RSTRoles(Extension):
             if obj.docstring is not None:
                 obj.docstring.value = rewrite(obj.docstring.value, pkg, obj)
 
-    # griffe 1.x named this hook differently.
+    # Griffe 1.x named this hook differently.
     on_package_loaded = on_package

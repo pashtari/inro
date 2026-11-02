@@ -1,6 +1,12 @@
 # Fitting an image
 
-The image task fits a field $[-1, 1]^2 \to \mathbb{R}^3$ to one image and scores it on every pixel. This tutorial follows `configs/image.yaml` and `scripts/train_image.py`, so what you run here is what the [benchmark](../experiments/benchmarks.md#images) ran.
+The image task fits an INR $[-1, 1]^2 \to \mathbb{R}^3$ to one image and scores it on every pixel. This tutorial follows `configs/image.yaml` and `scripts/train_image.py`, so what you run here is what the [benchmark](../experiments/benchmarks.md#images) ran.
+{ .inro-lead }
+
+<figure markdown="span">
+  ![kodim19: two regions magnified for every featured model](../assets/qualitative_kodim19.png)
+  <figcaption>kodim19 at about 197k parameters: two regions magnified for every featured model, above each model's |error|, with its PSNR over the whole image.</figcaption>
+</figure>
 
 ## Data
 
@@ -14,43 +20,83 @@ eval_set = inro.ImageCoordinateDataset(path)
 H, W = eval_set.grid_size
 ```
 
-Each access is one training step; the benchmark trains on the whole image at every step, as the papers of the SIREN family do. `subsample` draws a fresh random share of the pixels instead, and `max_samples` caps the draw, for images too large for one step. `mode="L"` loads a grayscale image (`out_features=1`). A tensor or PIL image can be passed instead of a path, with `item_id` naming it in logs.
+Each access is one training step, and the benchmark trains on the whole image at every step, as the papers of the SIREN family do. Other options:
+
+| Option | Effect |
+| --- | --- |
+| `subsample` | Draws a fresh random share of the pixels instead |
+| `max_samples` | Caps the draw, for images too large for one step |
+| `mode="L"` | Loads a grayscale image (`out_features=1`) |
+| `item_id` | Names the signal in logs when you pass a tensor or PIL image instead of a path |
 
 ## Models at equal size
 
 Each benchmark model holds about 197k parameters. FUTON's basis size follows the image, half the sampling resolution per axis, and its `grid_size` declares the pixel grid, on which the basis is evaluated once and each point reads its row.
 
-```python
-futon = inro.FUTON(
-    2, 3,
-    basis=("sinc", {"num_components": [H // 2, W // 2], "grid_size": (H, W)}),
-    combiner=("cp", {"rank": 280}),
-    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
-    output_activation=torch.tanh,
-)
-futon_cosine = inro.FUTON(
-    2, 3,
-    basis=("cosine", {"num_components": [H // 2, W // 2], "grid_size": (H, W)}),
-    combiner=("cp", {"rank": 280}),
-    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
-    output_activation=torch.tanh,
-)
-siren = inro.SIREN(2, 3, hidden_features=256, hidden_layers=4, omega=30.0,
-                   output_activation=torch.tanh)
-finer = inro.FINER(2, 3, hidden_features=256, hidden_layers=4, omega=30.0,
-                   output_activation=torch.tanh)
-ngp = inro.InstantNGP(
-    2, 3,
-    num_levels=20, features_per_level=2, log2_hashmap_size=13,
-    base_resolution=16, max_resolution=max(H, W) // 2,
-    hidden_features=64, hidden_layers=2, output_activation=torch.tanh,
-)
-tensorf = inro.TensoRF(2, 3, rank=176, resolution=256, mode="cp",
-                       hidden_features=256, hidden_layers=2,
-                       output_activation=torch.tanh)
-```
+=== "FUTON (sinc)"
 
-`configs/image.yaml` lists all fourteen, with their learning rates and, where a setting departs from the authors' code, a comment saying why. The learning rate matters: FUTON trains at 3e-2 with the sinc basis and at 1e-1 with the cosine basis, SIREN and FINER at 1e-3 (3e-3 diverges for SIREN), Instant-NGP at 3e-2, every model with PyTorch's default Adam. Use `inro.count_parameters(model, trainable_only=False)` when you change a size.
+    ```python
+    futon = inro.FUTON(
+        2, 3,
+        basis=("sinc", {"num_components": [H // 2, W // 2], "grid_size": (H, W)}),
+        combiner=("cp", {"rank": 280}),
+        decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+        output_activation=torch.tanh,
+    )
+    ```
+
+=== "FUTON (cosine)"
+
+    ```python
+    futon_cosine = inro.FUTON(
+        2, 3,
+        basis=("cosine", {"num_components": [H // 2, W // 2], "grid_size": (H, W)}),
+        combiner=("cp", {"rank": 280}),
+        decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+        output_activation=torch.tanh,
+    )
+    ```
+
+=== "SIREN"
+
+    ```python
+    siren = inro.SIREN(2, 3, hidden_features=256, hidden_layers=4, omega=30.0,
+                       output_activation=torch.tanh)
+    ```
+
+=== "FINER"
+
+    ```python
+    finer = inro.FINER(2, 3, hidden_features=256, hidden_layers=4, omega=30.0,
+                       output_activation=torch.tanh)
+    ```
+
+=== "Instant-NGP"
+
+    ```python
+    ngp = inro.InstantNGP(
+        2, 3,
+        num_levels=20, features_per_level=2, log2_hashmap_size=13,
+        base_resolution=16, max_resolution=max(H, W) // 2,
+        hidden_features=64, hidden_layers=2, output_activation=torch.tanh,
+    )
+    ```
+
+=== "TensoRF"
+
+    ```python
+    tensorf = inro.TensoRF(2, 3, rank=176, resolution=256, mode="cp",
+                           hidden_features=256, hidden_layers=2,
+                           output_activation=torch.tanh)
+    ```
+
+The learning rate matters. Every model trains with PyTorch's default Adam, at these rates:
+
+| Model | FUTON (sinc) | FUTON (cosine) | SIREN | FINER | Instant-NGP | TensoRF |
+| --- | --- | --- | --- | --- | --- | --- |
+| Learning rate | 3e-2 | 1e-1 | 1e-3 | 1e-3 | 3e-2 | 3e-2 |
+
+`configs/image.yaml` lists all fourteen models with their rates and, where a setting departs from the authors' code, a comment saying why. Use `inro.count_parameters(model, trainable_only=False)` when you change a size.
 
 ## Training
 
@@ -68,7 +114,11 @@ result = inro.train(
 )
 ```
 
-The metrics run on the `uint8` reconstruction against the original every 50 steps. LPIPS is the slow one (it runs a VGG network each time); leave it out of `metrics` while iterating and compute it once at the end with `inro.evaluate`.
+The metrics run on the `uint8` reconstruction against the original every 50 steps.
+
+!!! tip
+
+    LPIPS is the slow one, since it runs a VGG network each time. Leave it out of `metrics` while iterating, and compute it once at the end with `inro.evaluate`.
 
 ## Learning curves
 
@@ -83,6 +133,11 @@ curve = pd.DataFrame(
 )
 curve.plot(x="time", y="psnr")
 ```
+
+<figure markdown="span">
+  ![PSNR against training time on Kodak](../assets/panels/image_convergence.svg){ width="420" }
+  <figcaption>The same curve over the 24 Kodak images, for FUTON and the strongest model of each family.</figcaption>
+</figure>
 
 `inro.LinePlot` wraps seaborn for the multi-model case: collect one record per model and step and call `LinePlot(records).plot(x="time", y="psnr", hue="model")`. The notebook `notebooks/image_representation.ipynb` collects such records for seven models and draws them with seaborn itself.
 

@@ -1,0 +1,30 @@
+{% extends "main.html" %}
+
+{% block tabs %}
+  <section class="inro-hero" aria-label="Inro">
+    <div class="md-grid inro-hero__grid">
+      <div class="inro-hero__text">
+        <p class="inro-hero__eyebrow">Inro for PyTorch</p>
+        <h1>Implicit neural representations, <span>in one framework</span></h1>
+        <p class="inro-hero__lead">
+          Implement, train and evaluate INRs through one interface, with the official
+          implementation of <strong>FUTON</strong>, the Fourier Tensor Network that leads
+          every baseline on the average of each benchmark at equal size.
+        </p>
+        <div class="inro-hero__actions">
+          <a class="inro-button inro-button--primary" href="{{ 'getting-started/' | url }}">Get started</a>
+          <a class="inro-button" href="{{ 'experiments/benchmarks/' | url }}">See the benchmarks</a>
+          <a class="inro-button" href="https://arxiv.org/abs/2602.13414">Read the paper</a>
+        </div>
+        <code class="inro-hero__install">pip install inro</code>
+      </div>
+      <div class="inro-hero__mark">
+        <img src="{{ 'assets/logo-dark.svg' | url }}" alt="" class="skip-lightbox">
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block content %}
+  {{ page.content }}
+{% endblock %}

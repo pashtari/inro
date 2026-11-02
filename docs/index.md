@@ -1,113 +1,234 @@
 ---
+title: Inro
+template: home.html
 hide:
   - navigation
   - toc
 ---
 
-# Inro
+**Inro** is a PyTorch package for implicit neural representations (INRs): a unified framework for implementing, training and evaluating them. It features the official implementation of **FUTON**, introduced in [our paper](https://arxiv.org/abs/2602.13414), and major INR architectures such as SIREN, FINER, RFF, Instant-NGP and TensoRF behind one interface. Reusable components and pipelines cover image and volume representation and compression, and INR-based inverse problems such as image super-resolution and novel view synthesis.
 
-**Neural fields in PyTorch.** A signal is fitted as a function of its coordinates: Inro provides FUTON, the Fourier Tensor Network of the paper, thirteen baselines behind the same interface, coordinate datasets for images, volumes and posed views, and the training loops and scripts that produce the paper's numbers. The name comes from the *inrō*, a Japanese case of stacked compartments.
+## FUTON against the strongest baseline
+
+Every model of a task has the same parameter budget, and times are median training times per signal on an A100, from the same runs as the scores. FUTON makes the best trade-off of speed and reconstruction quality on every task.
+
+<div class="inro-tiles">
+  <div class="inro-tile">
+    <p class="inro-tile__task">Images, Kodak</p>
+    <p class="inro-tile__gain">+1.42 dB</p>
+    <p class="inro-tile__note">38.14 dB against MFN's 36.72, in 5.4 s against 57.3 s.</p>
+  </div>
+  <div class="inro-tile">
+    <p class="inro-tile__task">Occupancy, Stanford</p>
+    <p class="inro-tile__gain">+0.04 %</p>
+    <p class="inro-tile__note">99.95 % IoU against RFF's 99.91 %, in 7.6 s against 11.7 s.</p>
+  </div>
+  <div class="inro-tile">
+    <p class="inro-tile__task">Radiance fields, Blender</p>
+    <p class="inro-tile__gain">+0.60 dB</p>
+    <p class="inro-tile__note">29.22 dB against FINER's 28.62, in 152 s against 219 s.</p>
+  </div>
+  <div class="inro-tile">
+    <p class="inro-tile__task">Super-resolution, DIV2K</p>
+    <p class="inro-tile__gain">+0.37 dB</p>
+    <p class="inro-tile__note">28.59 dB against Instant-NGP's 28.22, in 9.3 s against 2.9 s.</p>
+  </div>
+</div>
+
+## How FUTON works
+
+Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians, or a hash-grid lookup in front of a ReLU network. FUTON puts the prior in the parameterization: the signal is expanded in a fixed basis along each coordinate axis, and the coefficient tensor of that expansion is stored in low-rank form.
 
 <figure markdown="span">
-  ![FUTON's forward pass](assets/futon_illustration.svg){ width="960" }
-  <figcaption>FUTON's forward pass for one pixel: a fixed basis expands each coordinate, a low-rank tensor network combines the axes, and a small MLP decodes the pixel's colour.</figcaption>
+  ![FUTON's forward pass for one pixel](assets/futon_illustration.svg){ width="960" }
 </figure>
+
+<div class="grid cards" markdown>
+
+-   :material-sine-wave:{ .lg .middle } **Fast**
+
+    ---
+
+    A point costs $O(CKR)$ for $C$ axes, $K$ basis functions per axis and rank $R$. On a grid, each axis is evaluated once per distinct coordinate and shared by every point on it.
+
+-   :material-target:{ .lg .middle } **Accurate at equal size**
+
+    ---
+
+    At matched parameter counts FUTON leads every baseline on the average of each benchmark: Kodak images, Stanford occupancy volumes, Blender radiance fields and DIV2K super-resolution.
+
+-   :material-eye-outline:{ .lg .middle } **Transparent**
+
+    ---
+
+    With a linear decoder FUTON *is* a rank-$R$ CP model of the signal in the chosen basis, so bandwidth ($K$) and capacity ($R$) are explicit knobs, with a [computable error bound](concepts/error-bound.md).
+
+</div>
+
+## See the difference
+
+<div class="inro-panels inro-panels--two">
+<figure class="inro-showcase">
+  <div class="inro-compare" data-compare>
+    <img src="assets/compare_kodim19_siren.png" alt="A crop of kodim19 reconstructed by SIREN" class="skip-lightbox" width="384" height="256">
+    <div class="inro-compare__after"><img src="assets/compare_kodim19_futon.png" alt="The same crop reconstructed by FUTON" class="skip-lightbox" width="384" height="256"></div>
+    <div class="inro-compare__divider"></div>
+    <span class="inro-compare__label inro-compare__label--left">SIREN, 33.72 dB</span>
+    <span class="inro-compare__label inro-compare__label--right">FUTON (cosine), 37.93 dB</span>
+    <input type="range" min="0" max="100" value="50" aria-label="Move to compare SIREN with FUTON">
+  </div>
+  <figcaption>Drag across a crop of kodim19. Both models hold about 197k parameters, and each score is over the whole image.</figcaption>
+</figure>
+<figure class="inro-showcase">
+  <img src="assets/orbit_lego.gif" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (sinc)" class="skip-lightbox">
+  <figcaption>The lego scene in orbit, at about 75k parameters per model, with the test-view PSNR.</figcaption>
+</figure>
+</div>
+
+## Results
+
+=== "Images"
+
+    <div class="inro-panels" markdown>
+
+    ![PSNR against training time on Kodak](assets/panels/image_convergence.svg)
+
+    ![Final PSNR against training time on Kodak](assets/panels/image_time.svg)
+
+    ![Final PSNR against inference throughput on Kodak](assets/panels/image_speed.svg)
+
+    </div>
+
+    --8<-- "docs/_overrides/snippets/legend.html"
+
+    <figure markdown="span">
+      ![kodim19: two regions magnified for every featured model](assets/qualitative_kodim19.png)
+    </figure>
+
+=== "Occupancy"
+
+    <div class="inro-panels" markdown>
+
+    ![IoU against training time on the Stanford shapes](assets/panels/occupancy_convergence.svg)
+
+    ![Final IoU against training time on the Stanford shapes](assets/panels/occupancy_time.svg)
+
+    ![Final IoU against inference throughput on the Stanford shapes](assets/panels/occupancy_speed.svg)
+
+    </div>
+
+    --8<-- "docs/_overrides/snippets/legend.html"
+
+    <figure markdown="span">
+      ![Lucy: two regions magnified for every featured model](assets/qualitative_lucy.png)
+    </figure>
+
+=== "Radiance fields"
+
+    <div class="inro-panels" markdown>
+
+    ![Validation PSNR against training time on the Blender scenes](assets/panels/nerf_convergence.svg)
+
+    ![Final test PSNR against training time on the Blender scenes](assets/panels/nerf_time.svg)
+
+    ![Final test PSNR against rendering speed on the Blender scenes](assets/panels/nerf_speed.svg)
+
+    </div>
+
+    --8<-- "docs/_overrides/snippets/legend.html"
+
+    <figure markdown="span">
+      ![Lego: two regions magnified for every featured model](assets/qualitative_lego.png)
+    </figure>
+
+=== "Super-resolution"
+
+    <div class="inro-panels" markdown>
+
+    ![PSNR against training time on DIV2K](assets/panels/super_resolution_convergence.svg)
+
+    ![Final PSNR against training time on DIV2K](assets/panels/super_resolution_time.svg)
+
+    ![Final PSNR against inference throughput on DIV2K](assets/panels/super_resolution_speed.svg)
+
+    </div>
+
+    --8<-- "docs/_overrides/snippets/legend.html"
+
+    <figure markdown="span">
+      ![0887: two regions magnified for bicubic interpolation and the featured models](assets/qualitative_0887.png)
+    </figure>
+
+<p class="inro-caption">Quality against training time for FUTON and the strongest model of each family, with bands of one standard error; every model's final quality against its training time; and against its inference speed. <a href="experiments/benchmarks/">The benchmarks page</a> has every model, metric and error bar.</p>
+
+## One interface
+
+Every model maps coordinates in $[-1, 1]$ to values, so one training call fits them all.
 
 ```python
 import torch
 import inro
 
-model = inro.FUTON(
+dataset = inro.ImageCoordinateDataset("data/Kodak/kodim19.png")  # (1)!
+H, W, _ = dataset.target.shape
+
+model = inro.FUTON(  # (2)!
     in_features=2,
     out_features=3,
-    basis=("sinc", {"num_components": [384, 256]}),  # half of a 768 x 512 image per axis
+    basis=("sinc", {"num_components": [H // 2, W // 2]}),
     combiner=("cp", {"rank": 280}),
     decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
     output_activation=torch.tanh,
 )
-rgb = model(torch.rand(4096, 2) * 2 - 1)  # coordinates in [-1, 1]^2 -> (4096, 3)
+
+result = inro.train(model, dataset, dataset, num_steps=1000, lr=3e-2, metrics={"psnr": inro.psnr})
+print(result["history"][-1]["eval"])  # {"psnr": 37.3}
 ```
+
+1.  Any RGB image: a path, a tensor or a PIL image. Each access returns every pixel's coordinates and color.
+2.  Swap in any other model of the zoo, such as `inro.SIREN(2, 3, hidden_features=256, hidden_layers=4, output_activation=torch.tanh)`. The training call stays the same.
+
+## Explore
 
 <div class="grid cards" markdown>
 
--   :material-rocket-launch:{ .lg .middle } **Getting started**
+-   :material-rocket-launch-outline:{ .lg .middle } **[Getting started](getting-started/index.md)**
 
     ---
 
-    Install the package, fit an image in a dozen lines, and read what the training loop returns.
+    Install the package and fit your first INR in a dozen lines.
 
-    [:octicons-arrow-right-24: Installation](getting-started/installation.md) · [Quick start](getting-started/quickstart.md)
-
--   :material-book-open-variant:{ .lg .middle } **Concepts**
+-   :material-book-open-variant-outline:{ .lg .middle } **[Concepts](concepts/index.md)**
 
     ---
 
-    How a neural field, a dataset and the training loop fit together, and how FUTON is built from a basis, a combiner and a decoder.
+    How models, datasets and the training loop fit together, FUTON stage by stage, and its error bound.
 
-    [:octicons-arrow-right-24: Neural fields](concepts/neural-fields.md) · [FUTON](concepts/futon.md)
-
--   :material-school:{ .lg .middle } **Tutorials**
+-   :material-school-outline:{ .lg .middle } **[Tutorials](tutorials/index.md)**
 
     ---
 
-    Images, occupancy volumes, radiance fields, image compression, and writing your own components.
+    Images, occupancy volumes, radiance fields, compression, and your own components.
 
-    [:octicons-arrow-right-24: Tutorials](tutorials/index.md)
-
--   :material-chart-line:{ .lg .middle } **Experiments**
+-   :material-chart-line:{ .lg .middle } **[Experiments](experiments/index.md)**
 
     ---
 
-    The benchmark protocol, every table and figure of the paper, the ablations, and how to reproduce them from the configs.
+    The benchmark protocol, every table and figure, the ablations, and how to reproduce them.
 
-    [:octicons-arrow-right-24: Benchmarks](experiments/benchmarks.md) · [Reproduce](experiments/reproduce.md)
-
--   :material-code-braces:{ .lg .middle } **API reference**
+-   :material-code-braces:{ .lg .middle } **[API reference](api/index.md)**
 
     ---
 
-    Every public class and function, with tensor shapes, defaults and the paper's equations.
+    Every public class and function, with shapes and defaults.
 
-    [:octicons-arrow-right-24: API](api/index.md)
-
--   :material-lifebuoy:{ .lg .middle } **Troubleshooting**
+-   :material-lifebuoy:{ .lg .middle } **[Troubleshooting](troubleshooting.md)**
 
     ---
 
-    Coordinate ranges, memory, backends, and the other things that go wrong first.
-
-    [:octicons-arrow-right-24: Troubleshooting](troubleshooting.md)
+    Coordinate ranges, memory, backends, and what else goes wrong first.
 
 </div>
-
-## Why FUTON
-
-Most implicit neural representations hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians, or a hash-grid lookup in front of a ReLU network. FUTON puts the prior in the parameterization. The signal is expanded in a fixed, analytic basis along each coordinate axis, and the coefficient tensor of that expansion is kept in low-rank canonical polyadic (CP) form. The model is then a shallow, parallel tensor contraction rather than a deep network:
-
-- **Fast.** One point costs $O(CKR)$ for $C$ axes, $K$ basis functions per axis and rank $R$. A compactly supported basis such as Lanczos touches only $2a$ taps per axis. On a grid, such as an image's pixels, each axis is evaluated once per distinct coordinate and shared by every point on it. It is all plain PyTorch, and `torch.compile` fuses the gathers with the products.
-- **Accurate at equal size.** At matched parameter counts FUTON leads every baseline on the average of each benchmark: Kodak images, Stanford occupancy volumes, Blender radiance fields and DIV2K super-resolution.
-- **Transparent.** With a linear decoder, FUTON *is* a rank-$R$ CP model of the signal in the chosen basis, so bandwidth ($K$) and capacity ($R$) are explicit knobs with a meaning.
-
-## Results at a glance
-
-Every model of a task has the same parameter budget, the hyperparameters of its authors' code, and a learning rate chosen on the task. Times are median training times per signal on an A100, from the same runs as the scores, every model compiled with `torch.compile`; Instant-NGP is the fastest to train on every task. See [Benchmarks](experiments/benchmarks.md) for every model, metric and error bar.
-
-| Task | Signals | #Params | FUTON (sinc) | FUTON (cosine) | Strongest baseline |
-| --- | --- | --- | --- | --- | --- |
-| Images (Kodak) | 24 | 197k | 37.44 dB in 5.4 s | **38.14 dB** in 5.4 s | MFN, 36.72 dB in 57.3 s |
-| Occupancy (Stanford) | 5 | 131k | **99.95 % IoU** in 7.8 s | **99.95 % IoU** in 7.6 s | RFF, 99.91 % in 11.7 s |
-| Radiance fields (Blender) | 8 | 74k | 29.19 dB in 154 s | **29.22 dB** in 152 s | FINER, 28.62 dB in 219 s |
-| Super-resolution (DIV2K, 4×) | 100 | 500k | **28.59 dB** in 9.3 s | 28.21 dB in 9.2 s | Instant-NGP, 28.22 dB in 2.9 s |
-
-<figure markdown="span">
-  ![Kodak: convergence, training-time trade-off and throughput](assets/results_image.svg){ width="960" }
-  <figcaption>Kodak: PSNR against training time for FUTON and the strongest model of each family (the band is one within-image standard error); every model's final PSNR against its training time; and against its inference throughput.</figcaption>
-</figure>
-
-<figure markdown="span">
-  ![Qualitative comparison on kodim19](assets/qualitative_kodim19.png)
-  <figcaption>kodim19 at about 197k parameters. The two boxed regions are magnified for the ground truth and every featured model, above each model's |error|; the PSNR is over the whole image.</figcaption>
-</figure>
 
 ## Citation
 
@@ -122,4 +243,4 @@ If you use Inro or FUTON in your research, please cite the paper:
 }
 ```
 
-The code is released under the [MIT license](https://github.com/pashtari/inro/blob/main/LICENSE).
+The name comes from the *inrō*, a Japanese case of stacked compartments. The logo is a disc of three compartments, cut by two cosines of rising frequency, as in FUTON's Fourier basis. The code is released under the [MIT license](https://github.com/pashtari/inro/blob/main/LICENSE).

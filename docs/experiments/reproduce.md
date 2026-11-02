@@ -1,6 +1,16 @@
 # Reproducing the paper
 
-Every number and figure of the paper comes from the training scripts and one that reports. This page is the full pipeline, from an empty `data/` folder to `results/`.
+Every number of the paper comes from the training scripts. This page is the full pipeline, from an empty `data/` folder to the runs in `logs/`.
+{ .inro-lead }
+
+The scripts and configs live in the repository, so start from a clone: `git clone https://github.com/pashtari/inro.git`, then `pip install -e ".[3d,nerf]"`.
+
+<ol class="inro-flow">
+  <li><strong>1. Data</strong><code>scripts/download_*.py</code> &rarr; <code>data/</code></li>
+  <li><strong>2. Training</strong><code>scripts/train_*.py</code> &rarr; <code>logs/</code></li>
+  <li><strong>3. Ablations</strong><code>configs/ablation-futon/</code> &rarr; <code>logs/</code></li>
+  <li><strong>4. Results</strong><code>logs/**/results.json</code></li>
+</ol>
 
 ## 1. Data
 
@@ -29,14 +39,14 @@ The four scripts share one command line:
 
 | Option | Meaning |
 | --- | --- |
-| `--data PATH ...` | Signals to fit; default: every signal under `data/` for the task. |
-| `--models NAME ...` | Model names from the config; default: all. |
-| `--config FILE ...` | Configs, deep-merged in order; the last names the log directory (`configs/<name>.yaml` writes to `logs/<name>/`). |
-| `--set KEY.PATH=VALUE ...` | Override one value, read as YAML, e.g. `train.num_steps=500` or `models.SIREN.train.lr=3e-4`. |
-| `--log-dir DIR` | Where the runs go. |
-| `--overwrite` | Rerun runs that already finished. |
-| `--compile` | Compile each model with `torch.compile` before its warm-up pass, as every run of the paper was. |
-| `--device DEV` | `cuda` when available, else `cpu`. |
+| `--data PATH ...` | Signals to fit; default: every signal under `data/` for the task |
+| `--models NAME ...` | Model names from the config; default: all |
+| `--config FILE ...` | Configs, deep-merged in order; the last names the log directory (`configs/<name>.yaml` writes to `logs/<name>/`) |
+| `--set KEY.PATH=VALUE ...` | Override one value, read as YAML, e.g. `train.num_steps=500` or `models.SIREN.train.lr=3e-4` |
+| `--log-dir DIR` | Where the runs go |
+| `--overwrite` | Rerun runs that already finished |
+| `--compile` | Compile each model with `torch.compile` before its warm-up pass, as every run of the paper was |
+| `--device DEV` | `cuda` when available, else `cpu` |
 
 A config holds the shared `data` and `train` settings and, per model, its Inro class, constructor `kwargs` and training overrides (the learning rate). Image configs may use expressions in the image height `H` and width `W`, such as `[H // 2, W // 2]`; the super-resolution config sizes its models from the high-resolution image, and FUTON's entry names a parameter `budget` whose largest CP rank the script fills in. Each config's header says how its learning rates were chosen, and `# deviation` marks a setting that departs from the authors' published ones.
 
@@ -48,7 +58,9 @@ python scripts/train_image.py --set models.SIREN.train.lr=0.001 --log-dir logs/s
 python scripts/train_image.py --config configs/ablation-futon/basis.yaml       # -> logs/ablation-futon/basis/
 ```
 
-Each run directory holds `log.txt`, `log.json`, `checkpoint.pt`, the final reconstruction (images) or two rendered test views (NeRF; super-resolution saves none, the report renders them), and `results.json` with the training configuration, the model's `setup` from the YAML, `num_params`, `train_time`, the final `metrics` (NeRF: the mean over the 200 test views, with every view under `test_views`), the `history`, and the `provenance`: the commit, PyTorch version and GPU of the run. The commits are those of the development history, which the release squashes; every run's configuration is the released config's. Occupancy runs write no mesh, since rendering needs EGL and a GPU driver; the report rebuilds them from the checkpoints.
+??? note "What a run directory holds"
+
+    `log.txt`, `log.json`, `checkpoint.pt`, the final reconstruction (images) or two rendered test views (NeRF; super-resolution saves none), and `results.json` with the training configuration, the model's `setup` from the YAML, `num_params`, `train_time`, the final `metrics` (NeRF: the mean over the 200 test views, with every view under `test_views`), the `history`, and the `provenance`: the commit, PyTorch version and GPU of the run. The commits are those of the development history, which the release squashes; every run's configuration is the released config's. Occupancy runs write no mesh, since rendering needs EGL and a GPU driver.
 
 Measured on A100s (1000 steps; NeRF 25,000), each signal's models in one job:
 
@@ -67,13 +79,11 @@ The FUTON ablations are configs in `configs/ablation-futon/`, run through the im
 
 | Config | Models | Varies |
 | --- | --- | --- |
-| `basis.yaml` | 6 | The six bases at the benchmark's size. |
-| `bandwidth.yaml` | 5 | The relative bandwidth $\kappa = K / N$ over {1/8, 1/4, 1/2, 1, 2}, each at the largest rank, a multiple of 5, within the budget. |
-| `rank.yaml` | 5 | The CP rank over {70, 140, 280, 560, 1120} at $\kappa = 1/2$, 49,539 to 788,739 parameters. |
-| `tensor_net.yaml` | 3 | Tensor-ring and Tucker combiners against CP. |
-| `decoder.yaml` | 4 | MLP decoders 64, 128 and 256 wide and the linear decoder, at equal size. |
-
-Runs that other experiments already hold are copied rather than repeated, each copy's `results.json` naming its `source`: the default model of the bandwidth and rank studies is the benchmark's FUTON (cosine), the bandwidth study's $\kappa = 1/4$ and $\kappa = 1$ are the components-width search's `FUTON-cosine-N4-w64` and `FUTON-cosine-N1-w64`, and the kodim01 and kodim17 runs of the two models whose rate the benchmark's rule moved to 3e-2, $\kappa = 1/8$ and rank 1120, are their rate checks'. That search, `components_width_<task>.yaml` for each task, chose FUTON's components per axis and decoder width on the task's tuning data, $K = N/L$ for $L$ in {4, 2, 1} (and 8 in super-resolution) against decoders 16 to 256 wide, for both bases; the benchmark's FUTON runs on radiance fields are its runs of the chosen `FUTON-sinc-N2-w64` and `FUTON-cosine-N2-w64`, copied likewise. The report leaves the search out.
+| `basis.yaml` | 6 | The six bases at the benchmark's size |
+| `bandwidth.yaml` | 5 | The relative bandwidth $\kappa = K / N$ over {1/8, 1/4, 1/2, 1, 2}, each at the largest rank, a multiple of 5, within the budget |
+| `rank.yaml` | 5 | The CP rank over {70, 140, 280, 560, 1120} at $\kappa = 1/2$, 49,539 to 788,739 parameters |
+| `tensor_net.yaml` | 3 | Tensor-ring and Tucker combiners against CP |
+| `decoder.yaml` | 4 | MLP decoders 64, 128 and 256 wide and the linear decoder, at equal size |
 
 ```bash
 for study in basis bandwidth rank tensor_net decoder; do
@@ -81,37 +91,20 @@ for study in basis bandwidth rank tensor_net decoder; do
 done
 ```
 
-## 4. Report
+??? note "Runs that are shared between experiments"
 
-`scripts/report_paper.py` turns the runs into `results/`, which holds the paper's figures and tables and nothing else:
+    Runs that other experiments already hold are copied rather than repeated, each copy's `results.json` naming its `source`:
 
-```
-results/
-├── legend.{pdf,pgf}                 the models' legend, shared by every figure; super_resolution/legend adds the bicubic level
-├── <task>/convergence.{pdf,pgf}     quality against training time, FUTON and the strongest model of each family
-├── <task>/training_time.{pdf,pgf}   every model's final quality against its training time
-├── <task>/throughput.{pdf,pgf}      the same against its inference throughput
-├── <task>/{training,inference}_memory.{pdf,pgf}  and against its peak memory in either phase
-├── <task>/table.{tex,md}            size, the cost of both phases and final metrics, every shape's and scene's too, best in bold, second underlined
-├── <task>/qualitative_<signal>.pdf  the signal with two regions boxed and magnified for every featured model (bicubic for TensoRF in super-resolution), above each model's |error| for images, volumes and super-resolution
-├── <task>/panels/<signal>/          the renders those magnifications are cut from, rebuilt from the checkpoints
-├── ablation/                        a table and a plot per study: PSNR against training time for the bases, the combiners and the decoders, and against the bandwidth and the rank
-└── bound/                           the error bound against trained FUTONs, from the records of scripts/futon_bound.py: figures and tables of the bound page
-```
+    - The default model of the bandwidth and rank studies is the benchmark's FUTON (cosine).
+    - The bandwidth study's $\kappa = 1/4$ and $\kappa = 1$ are the components-width search's `FUTON-cosine-N4-w64` and `FUTON-cosine-N1-w64`.
+    - The kodim01 and kodim17 runs of the two models whose rate the benchmark's rule moved to 3e-2, $\kappa = 1/8$ and rank 1120, are their rate checks'.
+    - The benchmark's FUTON runs on radiance fields are the search's runs of the chosen `FUTON-sinc-N2-w64` and `FUTON-cosine-N2-w64`.
 
-```bash
-python scripts/report_paper.py                          # everything
-python scripts/report_paper.py --tasks image --overwrite  # redraw one task's panels
-python scripts/report_paper.py --tasks bound            # only the error bound; --tasks also takes ablation and tuning
-python scripts/report_paper.py --no-panels              # tables and plots only, no GPU needed
-python scripts/report_paper.py --orbit 60               # plus an orbit GIF of each NeRF model
-```
+    That search, `components_width_<task>.yaml` for each task, chose FUTON's components per axis and decoder width on the task's tuning data, $K = N/L$ for $L$ in {4, 2, 1} (and 8 in super-resolution) against decoders 16 to 256 wide, for both bases.
 
-The signals the paper shows are listed in `EXAMPLES` at the top of the script, and their magnified regions and the radiance-field views are set by hand in `CENTERS` and `VIEWS`, on parts of the signal where the models visibly differ. Any other signal gets them by rule: the view at the median of FUTON's gain over the strongest other model shown, and the two squares where the models shown disagree most, weighted by the detail the reference carries there, which favours no model. Images and super-resolution add each model's absolute error beneath its magnifications, on one scale per figure. Drawing the panels needs the signals in `data/` and a GPU; they are kept and reused, so recomposing a figure costs seconds. Figures come as PDF and as PGF for LaTeX, sized for a NeurIPS page: a plot is a third of the 5.5-inch text width, a strip of magnifications spans it, plot text is 7 to 8 pt, a strip labels every panel in one size, at most 7 pt, at which its widest label fits, and every tick falls on a whole or half number. The image and super-resolution tables fit the text width in 9 pt type; the occupancy and NeRF ones, with every shape's and scene's scores, are wider and take a page turned sideways. The `±` in the tables is a paired standard error over the signals: each signal's own level is removed before the error is taken, which is the uncertainty of a comparison between models rather than of an absolute level; IoU, which saturates near 100 % on every shape, takes the plain standard error over the shapes. A band in a figure spans one of them, the same error.
+## 4. Results
 
-Costs come from the benchmark runs themselves: the training time counts the training steps alone, after a warm-up pass that compiles the model, and every evaluation records how long it took and its peak memory. Each cost in the tables is the median over a task's signals, so a run slowed by other work on its GPU does not move it.
-
-Or skip the report and read the runs directly:
+Every run's `results.json` holds its metrics and costs, so the runs can be read directly:
 
 ```python
 import json
@@ -121,3 +114,8 @@ import pandas as pd
 records = [json.loads(p.read_text()) for p in Path("logs").rglob("results.json")]
 table = pd.json_normalize(records)
 ```
+
+The tables aggregate them as follows:
+
+- **Errors.** The `±` in the tables is a paired standard error over the signals: each signal's own level is removed before the error is taken, which is the uncertainty of a comparison between models rather than of an absolute level; IoU, which saturates near 100 % on every shape, takes the plain standard error over the shapes. A band in a figure spans one of them, the same error.
+- **Costs.** They come from the benchmark runs themselves: the training time counts the training steps alone, after a warm-up pass that compiles the model, and every evaluation records how long it took and its peak memory. Each cost in the tables is the median over a task's signals, so a run slowed by other work on its GPU does not move it.
