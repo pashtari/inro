@@ -6,7 +6,7 @@ hide:
   - toc
 ---
 
-**Inro** is a PyTorch package for implicit neural representations (INRs): a unified framework for implementing, training and evaluating them. It features the official implementation of **FUTON**, introduced in [our paper](https://arxiv.org/abs/2602.13414), and major INR architectures such as SIREN, FINER, RFF, Instant-NGP and TensoRF behind one interface. Reusable components and pipelines cover image and volume representation and compression, and INR-based inverse problems such as image super-resolution and novel view synthesis.
+**Inro** is a PyTorch package for implicit neural representations (INRs): a unified framework for implementing, training and evaluating them. It features the official implementation of **FUTON**, introduced in [our paper](https://arxiv.org/abs/2602.13414), and major INR architectures such as SIREN, FINER, RFF, Instant-NGP and TensoRF behind one interface. Reusable components and pipelines cover image and volume representation and novel view synthesis.
 
 ## FUTON against the strongest baseline
 
@@ -27,11 +27,6 @@ Every model of a task has the same parameter budget, and times are median traini
     <p class="inro-tile__task">Radiance fields, Blender</p>
     <p class="inro-tile__gain">+0.60 dB</p>
     <p class="inro-tile__note">29.22 dB against FINER's 28.62, in 152 s against 219 s.</p>
-  </div>
-  <div class="inro-tile">
-    <p class="inro-tile__task">Super-resolution, DIV2K</p>
-    <p class="inro-tile__gain">+0.37 dB</p>
-    <p class="inro-tile__note">28.59 dB against Instant-NGP's 28.22, in 9.3 s against 2.9 s.</p>
   </div>
 </div>
 
@@ -55,7 +50,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
 
     ---
 
-    At matched parameter counts FUTON leads every baseline on the average of Kodak images, Stanford occupancy volumes and Blender radiance fields, and on 77 of the 100 DIV2K images in super-resolution, where it ties Instant-NGP on the average.
+    At matched parameter counts FUTON leads every baseline on the average of Kodak images, Stanford occupancy volumes and Blender radiance fields.
 
 -   :material-eye-outline:{ .lg .middle } **Transparent**
 
@@ -74,13 +69,13 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     <div class="inro-compare__after"><img src="assets/compare_kodim19_futon.png" alt="The same crop reconstructed by FUTON" class="skip-lightbox" width="384" height="256"></div>
     <div class="inro-compare__divider"></div>
     <span class="inro-compare__label inro-compare__label--left">SIREN, 33.72 dB</span>
-    <span class="inro-compare__label inro-compare__label--right">FUTON (cosine), 37.93 dB</span>
+    <span class="inro-compare__label inro-compare__label--right">FUTON, 37.93 dB</span>
     <input type="range" min="0" max="100" value="50" aria-label="Move to compare SIREN with FUTON">
   </div>
   <figcaption>Drag across a crop of kodim19. Both models hold about 197k parameters, and each score is over the whole image.</figcaption>
 </figure>
 <figure class="inro-showcase">
-  <img src="assets/orbit_lego.gif" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (cosine)" class="skip-lightbox">
+  <img src="assets/orbit_lego.gif" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON" class="skip-lightbox">
   <figcaption>The lego scene in orbit, at about 75k parameters per model, with the test-view PSNR.</figcaption>
 </figure>
 </div>
@@ -141,24 +136,6 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
       ![Lego: two regions magnified for every featured model](assets/qualitative_lego.png)
     </figure>
 
-=== "Super-resolution"
-
-    <div class="inro-panels" markdown>
-
-    ![PSNR against training time on DIV2K](assets/panels/super_resolution_convergence.svg)
-
-    ![Final PSNR against training time on DIV2K](assets/panels/super_resolution_time.svg)
-
-    ![Final PSNR against inference throughput on DIV2K](assets/panels/super_resolution_speed.svg)
-
-    </div>
-
-    --8<-- "docs/_overrides/snippets/legend.html"
-
-    <figure markdown="span">
-      ![0887: two regions magnified for bicubic interpolation and the featured models](assets/qualitative_0887.png)
-    </figure>
-
 <p class="inro-caption">Quality against training time for FUTON and the strongest model of each family, with bands of one standard error; every model's final quality against its training time; and against its inference speed. <a href="experiments/benchmarks/">The benchmarks page</a> has every model, metric and error bar.</p>
 
 ## One interface
@@ -209,7 +186,7 @@ print(result["history"][-1]["eval"])  # {"psnr": 37.8}
 
     ---
 
-    Images, occupancy volumes, radiance fields, compression, and your own components.
+    Images, occupancy volumes and radiance fields, and notebooks that run each end to end.
 
 -   :material-chart-line:{ .lg .middle } **[Experiments](experiments/index.md)**
 

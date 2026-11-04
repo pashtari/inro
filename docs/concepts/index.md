@@ -27,7 +27,7 @@ The library's design, from the abstraction every model shares to the conventions
 
     ---
 
-    The thirteen architectures, their families, references and constructor arguments.
+    The twelve architectures of the benchmarks, their families, references and constructor arguments.
 
 -   :material-ruler-square:{ .lg .middle } **[Conventions](conventions.md)**
 

@@ -49,7 +49,7 @@ print(result["history"][-1]["eval"])
 
 On a GPU this takes about a dozen seconds (13 s on an RTX 4060 Ti) and ends near 37.8 dB PSNR.
 
-!!! info "This is the benchmark's FUTON (cosine)"
+!!! info "This is the benchmark's FUTON"
 
     It holds 197,379 parameters. The benchmark also tabulates the basis on the pixel grid (`grid_size`) and compiles the model, which trains it in about 4 s on an A100.
 

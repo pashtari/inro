@@ -18,11 +18,9 @@ The scripts and configs live in the repository, so start from a clone: `git clon
 python scripts/download_kodak.py      # data/Kodak/, 24 images, about 30 MB
 python scripts/download_meshes.py     # data/occupancy/, 5 meshes, about 3 GB
 python scripts/download_blender.py    # data/nerf/blender/, 8 scenes, about 2.4 GB
-python scripts/download_div2k.py      # data/DIV2K/, 100 validation images and their 4x downsamplings, about 450 MB
-python scripts/download_div2k.py --training  # and the three training images the settings were tuned on, 3.8 GB of archives
 ```
 
-The Kodak images come from Rich Franzen's mirror, the meshes from the Stanford 3D Scanning Repository (rotated into canonical pose where a release is not), the Blender scenes from a pinned Hugging Face mirror of the official Google Drive release, and the DIV2K images from the official site. All four scripts resume and keep existing files.
+The Kodak images come from Rich Franzen's mirror, the meshes from the Stanford 3D Scanning Repository (rotated into canonical pose where a release is not), and the Blender scenes from a pinned Hugging Face mirror of the official Google Drive release. All three scripts resume and keep existing files.
 
 ## 2. Training
 
@@ -32,10 +30,9 @@ The Kodak images come from Rich Franzen's mirror, the meshes from the Stanford 3
 python scripts/train_image.py --compile            # 24 images x 13 models -> logs/image/<image>/<model>/
 python scripts/train_occupancy.py --compile        # 5 shapes x 14 models  -> logs/occupancy/<shape>/<model>/
 python scripts/train_nerf.py --compile             # 8 scenes x 14 models  -> logs/nerf/<scene>/<model>/
-python scripts/train_super_resolution.py --compile # 100 images x 17 models -> logs/super_resolution/<image>/<model>/
 ```
 
-The four scripts share one command line:
+The three scripts share one command line:
 
 | Option | Meaning |
 | --- | --- |
@@ -48,7 +45,7 @@ The four scripts share one command line:
 | `--compile` | Compile each model with `torch.compile` before its warm-up pass, as every run of the paper was |
 | `--device DEV` | `cuda` when available, else `cpu` |
 
-A config holds the shared `data` and `train` settings and, per model, its Inro class, constructor `kwargs` and training overrides (the learning rate). Image configs may use expressions in the image height `H` and width `W`, such as `[H // 2, W // 2]`; the super-resolution config sizes its models from the high-resolution image, and FUTON's entry names a parameter `budget` whose largest CP rank the script fills in. Each config's header says how its learning rates were chosen, and `# deviation` marks a setting that departs from the authors' published ones.
+A config holds the shared `data` and `train` settings and, per model, its Inro class, constructor `kwargs` and training overrides (the learning rate). Image configs may use expressions in the image height `H` and width `W`, such as `[H // 2, W // 2]`, and the occupancy config in the voxel grid's `D`, `H` and `W`, where FUTON's entry names a parameter `budget` whose largest CP rank the script fills in. Each config's header says how its learning rates were chosen, and `# deviation` marks a setting that departs from the authors' published ones.
 
 Finished runs are skipped, so an interrupted sweep restarts where it stopped, and a failed run writes `error.txt` and lets the sweep continue. Runs are keyed by model name, so a variant needs its own name or its own `--log-dir`:
 
@@ -60,7 +57,7 @@ python scripts/train_image.py --config configs/ablation-futon/basis.yaml       #
 
 ??? note "What a run directory holds"
 
-    `log.txt`, `log.json`, `checkpoint.pt`, the final reconstruction (images) or two rendered test views (NeRF; super-resolution saves none), and `results.json` with the training configuration, the model's `setup` from the YAML, `num_params`, `train_time`, the final `metrics` (NeRF: the mean over the 200 test views, with every view under `test_views`), the `history`, and the `provenance`: the commit, PyTorch version and GPU of the run. The commits are those of the development history, which the release squashes; every run's configuration is the released config's. Occupancy runs write no mesh, since rendering needs EGL and a GPU driver.
+    `log.txt`, `log.json`, `checkpoint.pt`, the final reconstruction (images) or two rendered test views (NeRF), and `results.json` with the training configuration, the model's `setup` from the YAML, `num_params`, `train_time`, the final `metrics` (NeRF: the mean over the 200 test views, with every view under `test_views`), the `history`, and the `provenance`: the commit, PyTorch version and GPU of the run. The commits are those of the development history, which the release squashes; every run's configuration is the released config's. Occupancy runs write no mesh, since rendering needs EGL and a GPU driver.
 
 Measured on A100s (1000 steps; NeRF 25,000), each signal's models in one job:
 
@@ -69,9 +66,8 @@ Measured on A100s (1000 steps; NeRF 25,000), each signal's models in one job:
 | Images | 56 s | 13 min | 5.2 h |
 | Occupancy | 27 s | 7 min | 34 min |
 | NeRF | 5 min | 77 min | 10 h |
-| Super-resolution | 1 min | 15 min | 25 h |
 
-A run's time includes compiling its model and its 20 evaluations, with LPIPS on images and super-resolution; training alone takes from 3 s (Instant-NGP) to a minute (MFN) on an image. A super-resolution step renders 261k pixels through a 500k-parameter model, so that sweep is best spread over many short jobs, one image each. Every run uses seed 0; some GPU kernels accumulate in a nondeterministic order, so a rerun on the same hardware lands within about a tenth of a decibel of a run, and training times vary with the machine and its load.
+A run's time includes compiling its model and its 20 evaluations, with LPIPS on images; training alone takes from 3 s (Instant-NGP) to a minute (MFN) on an image. Every run uses seed 0; some GPU kernels accumulate in a nondeterministic order, so a rerun on the same hardware lands within about a tenth of a decibel of a run, and training times vary with the machine and its load.
 
 ## 3. Ablations
 
@@ -93,13 +89,7 @@ done
 
 ??? note "Runs that are shared between experiments"
 
-    Runs that other experiments already hold are copied rather than repeated, each copy's `results.json` naming its `source`:
-
-    - The default model of the bandwidth and rank studies is the benchmark's FUTON (cosine).
-    - The bandwidth study's $\kappa = 1/4$ and $\kappa = 1$ are the components-width search's `FUTON-cosine-N4-w64` and `FUTON-cosine-N1-w64`.
-    - The benchmark's FUTON runs on radiance fields are the search's runs of the chosen `FUTON-cosine-N2-w64`.
-
-    That search, `components_width_<task>.yaml` for each task, chose FUTON's components per axis and head on the task's tuning data, $K = N/L$ for $L$ in {4, 2, 1} (and 8 in super-resolution) against MLP heads 16 to 256 wide and, on volumes, a linear one, for both bases.
+    Runs that another experiment already holds are copied rather than repeated, each copy's `results.json` naming its `source`: the default model of the bandwidth and rank studies, for one, is the benchmark's FUTON.
 
 ## 4. Results
 

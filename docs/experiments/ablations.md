@@ -35,7 +35,7 @@ FUTON's design choices, varied one at a time on the image task: the basis, the b
 
 | | |
 | --- | --- |
-| **Default model** | The benchmark's FUTON (cosine): $K = (H/2, W/2)$ components per axis, 384 × 256 for a landscape image, CP rank 280 and a one-layer MLP head 64 wide, 197,379 parameters, trained at 1e-1 |
+| **Default model** | The benchmark's FUTON: $K = (H/2, W/2)$ components per axis, 384 × 256 for a landscape image, CP rank 280 and a one-layer MLP head 64 wide, 197,379 parameters, trained at 1e-1 |
 | **Setting** | The benchmark's: the 24 Kodak images at 768 × 512, 1000 steps, each on the whole image, compiled and timed as the benchmark's on A100s, so only the model changes |
 | **Size** | Every model but the rank study's takes the largest rank, a multiple of 5, that keeps FUTON smaller than every baseline (F-INR (SIREN), 198,806 parameters) |
 | **Learning rate** | The default's, 1e-1, with three exceptions that each section names: the five families beside the cosine take the sinc basis's rate, 3e-2; two models of the sweeps take 3e-2 because it wins on kodim01 and kodim17, as the benchmark picks its rates; and the Tucker combiner takes 3e-2 because 1e-1 diverges |
@@ -82,7 +82,7 @@ The benchmark's cosine basis leads at 37.63 dB, ahead on 22 of the 24 images, th
 
 ## Bandwidth
 
-The relative bandwidth $\kappa = K / N$, the components per axis as a fraction of the pixels, over {1/8, 1/4, 1/2, 1, 2}, at the budget. A rank costs a factor entry per component on each axis and a weight per hidden unit, $(K_1 + K_2 + 64) R + 259$ parameters in all, so the rank falls as the bandwidth grows: 885, 515, 280, 145 and 75. At $\kappa = 1$ each axis has as many components as pixels, the grid's Nyquist rate, and $\kappa = 1/2$ is the benchmark's FUTON (cosine). The model at $\kappa = 1/8$ trains at 3e-2, since at 1e-1 it loses 1.4 dB on kodim01 and kodim17.
+The relative bandwidth $\kappa = K / N$, the components per axis as a fraction of the pixels, over {1/8, 1/4, 1/2, 1, 2}, at the budget. A rank costs a factor entry per component on each axis and a weight per hidden unit, $(K_1 + K_2 + 64) R + 259$ parameters in all, so the rank falls as the bandwidth grows: 885, 515, 280, 145 and 75. At $\kappa = 1$ each axis has as many components as pixels, the grid's Nyquist rate, and $\kappa = 1/2$ is the benchmark's FUTON. The model at $\kappa = 1/8$ trains at 3e-2, since at 1e-1 it loses 1.4 dB on kodim01 and kodim17.
 
 <div class="inro-split" markdown>
 

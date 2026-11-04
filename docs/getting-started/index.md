@@ -26,9 +26,10 @@ Everything is importable from the top-level package:
 ```python
 import inro
 
-inro.FUTON, inro.SIREN, inro.InstantNGP            # models
-inro.ImageCoordinateDataset                        # datasets
-inro.train, inro.evaluate, inro.chunked_inference  # training and evaluation
-inro.psnr, inro.ssim, inro.lpips, inro.iou         # metrics
-inro.compression, inro.nerf                        # image compression and radiance fields
+inro.FUTON, inro.SIREN, inro.InstantNGP                       # models
+inro.ImageCoordinateDataset, inro.OccupancyCoordinateDataset  # datasets
+inro.train, inro.evaluate, inro.chunked_inference             # training and evaluation
+inro.psnr, inro.ssim, inro.lpips, inro.iou                    # metrics
+inro.futon_bound                                              # FUTON's error bound
+inro.nerf                                                     # radiance fields
 ```

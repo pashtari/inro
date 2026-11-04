@@ -46,7 +46,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
 
 Every model of a task has the same parameter budget. Times are median training times per signal on an A100, from the same runs as the scores. FUTON makes the best trade-off of speed and reconstruction quality on every task. The [benchmarks page](https://pashtari.github.io/inro/experiments/benchmarks/) has every model, metric and error bar.
 
-| Task | #Params | FUTON (cosine) | Strongest baseline | FUTON's lead |
+| Task | #Params | FUTON | Strongest baseline | FUTON's lead |
 | --- | --- | --- | --- | --- |
 | Images (24 Kodak) | 197k | **37.63 dB** in 4.1 s | MFN, 36.72 dB in 57.3 s | **+0.90 dB, 13.9× faster** |
 | Occupancy (5 Stanford shapes) | 131k | **99.97 % IoU** in 1.7 s | RFF, 99.91 % in 11.7 s | **+0.06 %, 7.0× faster** |
@@ -64,6 +64,18 @@ Every model of a task has the same parameter budget. Times are median training t
   <sub>Kodak at about 197k parameters: PSNR against training time for FUTON and the strongest model of each family (left), and every model's final PSNR against its training time (middle) and its inference throughput (right). Below, two regions of kodim19 above each model's error, with each model's PSNR over the whole image.</sub>
 </p>
 
+### Occupancy
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/results_occupancy.svg" width="920" alt="Stanford shapes: IoU against training time for FUTON and the strongest model of each family; every model's final IoU against its training time; and against its inference throughput">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lucy.png" width="920" alt="Lucy: two regions magnified for every featured model, above each model's error">
+</p>
+<p align="center">
+  <sub>Stanford shapes at about 131k parameters: IoU against training time for FUTON and the strongest model of each family (left), and every model's final IoU against its training time (middle) and its inference throughput (right). Below, two regions of Lucy above each model's error, with each model's IoU over the whole volume.</sub>
+</p>
+
 ### Radiance fields
 
 <p align="center">
@@ -73,7 +85,7 @@ Every model of a task has the same parameter budget. Times are median training t
   <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lego.png" width="920" alt="The lego scene from a test view, with two regions magnified for every featured model">
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (cosine)">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON">
 </p>
 <p align="center">
   <sub>Blender scenes at about 75k parameters: validation PSNR against training time (left), and every model's final test PSNR against its training time (middle) and its rendering speed (right). Below, the lego scene magnified and in orbit, with each model's test-view PSNR.</sub>
@@ -130,18 +142,18 @@ Every model takes `in_features` and `out_features` first, so `inro.SIREN(2, 3, h
 | **Data** | Coordinate datasets for images, occupancy volumes, MRI k-space, super-resolution and posed views |
 | **Training** | `inro.train`, `inro.evaluate`, metrics and losses, quantization-aware training, and [block coordinate descent solvers](https://pashtari.github.io/inro/api/futon/#solvers) for FUTON |
 | **Theory** | [`inro.futon_bound`](https://pashtari.github.io/inro/concepts/error-bound/) brackets the best error a linear FUTON can reach on a signal, and builds a FUTON that attains the upper bound |
-| **Compression** | [`inro.compression`](https://pashtari.github.io/inro/tutorials/compression/): a FUTON codec, PIL baselines, and one function that measures any codec |
+| **Compression** | [`inro.compression`](https://pashtari.github.io/inro/api/compression/): a FUTON codec, PIL baselines, and one function that measures any codec |
 | **Novel views** | [`inro.nerf`](https://pashtari.github.io/inro/tutorials/nerf/): any model as the density network of a radiance field, trained and scored on posed views |
 
 <details>
 <summary><b>Reproducing the paper</b></summary>
 
-Four download scripts and four training scripts produce every run behind the results. `configs/<task>.yaml` holds every model's class, arguments and learning rate; finished runs are skipped, so an interrupted sweep resumes. See [Reproducing the paper](https://pashtari.github.io/inro/experiments/reproduce/).
+Three download scripts and three training scripts produce every run behind the results. `configs/<task>.yaml` holds every model's class, arguments and learning rate; finished runs are skipped, so an interrupted sweep resumes. See [Reproducing the paper](https://pashtari.github.io/inro/experiments/reproduce/).
 
 ```bash
-python scripts/download_kodak.py         # also download_meshes.py, download_blender.py, download_div2k.py
+python scripts/download_kodak.py         # also download_meshes.py, download_blender.py
 
-python scripts/train_image.py --compile  # also train_occupancy.py, train_nerf.py, train_super_resolution.py
+python scripts/train_image.py --compile  # also train_occupancy.py, train_nerf.py
 ```
 
 </details>

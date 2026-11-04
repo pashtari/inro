@@ -13,11 +13,11 @@
 # K = 100 components per axis, half the views' 200 pixels, a one-layer MLP
 # head 64 wide and the largest CP rank, a multiple of 5, that keeps it
 # smaller than every baseline (RFF, 74,459): 180 (73,027). Its components and
-# width come from configs/ablation-futon/components_width_nerf.yaml, the best
-# validation PSNR among the configurations that train and render fastest and
-# in the least memory. Samples do not lie on a grid, so FUTON reads its basis
-# from a table of 2048 points per axis (grid_size), each coordinate rounded to
-# the nearest, 0.001 apart, finer than the marching step.
+# width were chosen in a sweep of both: the best validation PSNR among the
+# configurations that train and render fastest and in the least memory.
+# Samples do not lie on a grid, so FUTON reads its basis from a table of 2048
+# points per axis (grid_size), each coordinate rounded to the nearest, 0.001
+# apart, finer than the marching step.
 
 data:
   downsample: 4  # 200x200 views (torch-ngp --downscale)
@@ -164,7 +164,7 @@ models:
       grid: false  # samples along rays are scattered
     train: {lr: 1.0e-3}
 
-  FUTON-cosine:
+  FUTON:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: 100, grid_size: 2048}]

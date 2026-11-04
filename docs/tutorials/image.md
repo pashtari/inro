@@ -33,7 +33,7 @@ Each access is one training step, and the benchmark trains on the whole image at
 
 Each benchmark model holds about 197k parameters. FUTON's basis size follows the image, half the sampling resolution per axis, and its `grid_size` declares the pixel grid, on which the basis is evaluated once and each point reads its row. The first layer of its MLP head reads a batch that covers the image off the grid in one contraction.
 
-=== "FUTON (cosine)"
+=== "FUTON"
 
     ```python
     futon = inro.FUTON(
@@ -80,7 +80,7 @@ Each benchmark model holds about 197k parameters. FUTON's basis size follows the
 
 The learning rate matters. Every model trains with PyTorch's default Adam, at these rates:
 
-| Model | FUTON (cosine) | SIREN | FINER | Instant-NGP | TensoRF |
+| Model | FUTON | SIREN | FINER | Instant-NGP | TensoRF |
 | --- | --- | --- | --- | --- | --- |
 | Learning rate | 1e-1 | 1e-3 | 1e-3 | 3e-2 | 3e-2 |
 
@@ -98,7 +98,7 @@ result = inro.train(
     metrics={"psnr": inro.psnr, "ssim": inro.ssim, "ms_ssim": inro.ms_ssim, "lpips": inro.lpips},
     log_interval=50,
     eval_interval=50,
-    log_dir="logs/tutorial/kodim19/FUTON-cosine",
+    log_dir="logs/tutorial/kodim19/FUTON",
 )
 ```
 
@@ -127,7 +127,7 @@ curve.plot(x="time", y="psnr")
   <figcaption>The same curve over the 24 Kodak images, for FUTON and the strongest model of each family.</figcaption>
 </figure>
 
-`inro.LinePlot` wraps seaborn for the multi-model case: collect one record per model and step and call `LinePlot(records).plot(x="time", y="psnr", hue="model")`. The notebook `notebooks/image_representation.ipynb` collects such records for seven models and draws them with seaborn itself.
+`inro.LinePlot` wraps seaborn for the multi-model case: collect one record per model and step and call `LinePlot(records).plot(x="time", y="psnr", hue="model")`. The notebook `notebooks/image_representation.ipynb` collects such records for six models and draws them with seaborn itself.
 
 ## Reconstruction
 
@@ -139,17 +139,13 @@ eval_set.save(image, "kodim19_futon.png")
 
 `inro.evaluate(model, eval_set, metrics=..., ckpt_path="logs/.../checkpoint.pt", log_dir=...)` does the same from a checkpoint and writes the reconstruction beside the logs.
 
-## Masks and guide images
-
-`MaskedImageCoordinateDataset(image, side=..., mask=...)` appends a preprocessed guide image to the coordinates and returns a boolean `mask` and its thick `boundary` with every item, at the image resolution. The default loss ignores them; a custom loss that fits only the observed pixels is a few lines, see [custom components](custom-components.md#a-loss).
-
 ## The benchmark script
 
 `scripts/train_image.py` runs every model of the config on every image under `data/Kodak/`, writes each run to `logs/image/<image>/<model>/`, and skips runs that already have a `results.json`:
 
 ```bash
 python scripts/train_image.py                                        # all images, all models
-python scripts/train_image.py --data data/Kodak/kodim19.png --models FUTON-cosine SIREN
+python scripts/train_image.py --data data/Kodak/kodim19.png --models FUTON SIREN
 python scripts/train_image.py --set train.num_steps=500 --log-dir logs/short
 ```
 

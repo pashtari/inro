@@ -154,8 +154,6 @@ nav:
       - Fitting an image: tutorials/image.md
       - Occupancy volumes: tutorials/occupancy.md
       - Radiance fields: tutorials/nerf.md
-      - Image compression: tutorials/compression.md
-      - Custom components: tutorials/custom-components.md
       - Notebooks: tutorials/notebooks.md
   - Experiments:
       - experiments/index.md
@@ -173,4 +171,5 @@ nav:
       - Compression: api/compression.md
       - Radiance fields: api/nerf.md
       - Utilities: api/utils.md
+      - Custom components: api/custom-components.md
   - Troubleshooting: troubleshooting.md

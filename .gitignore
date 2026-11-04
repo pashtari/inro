@@ -12,20 +12,20 @@ __pycache__/
 Thumbs.db
 
 # unwanted folders
-.trash/
 .claude/
-.old_experiments/
-.archived_notebooks/
-.local_logs/
-.explorations/
+.archived/
 data/
 paper/
 poster/
 slides/
 graphical_abstract/
-/experiments/
 logs/
 results/
+
+# scripts kept out of the repository
+scripts/hpc/
+scripts/report_paper.py
+scripts/report_site.py
 
 # MkDocs build
 site/

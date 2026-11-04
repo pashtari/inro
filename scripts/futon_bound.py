@@ -89,10 +89,10 @@ def dataset(task: str, name: str, **data):
 
 
 def benchmark_rank(task: str, sizes: list[int], channels: int) -> int:
-    """Return the CP rank of the benchmark's FUTON (cosine) on a signal of ``sizes``."""
+    """Return the CP rank of the benchmark's FUTON on a signal of ``sizes``."""
     config = yaml.safe_load((ROOT / "configs" / f"{task}.yaml").read_text())
     names = "DHW"[-len(sizes) :]
-    entry = resolve(config["models"]["FUTON-cosine"], **dict(zip(names, sizes)))
+    entry = resolve(config["models"]["FUTON"], **dict(zip(names, sizes)))
     return fill_rank(entry, outputs=channels)["kwargs"]["combiner"][1]["rank"]
 
 
