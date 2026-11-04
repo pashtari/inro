@@ -1,11 +1,11 @@
 # FUTON ablation on the image task: a tensor-ring (-TR) and a Tucker (-Tucker)
 # combiner against the default CP one, for the cosine basis at
-# K = (H / 2, W / 2), each feeding the benchmark's one-layer MLP decoder 64
+# K = (H / 2, W / 2), each feeding the benchmark's one-layer MLP head 64
 # wide: the benchmark's CP rank 280 (197,379 parameters), and for the others
 # the largest ranks that keep FUTON smaller than every baseline (F-INR,
 # 198,806): tensor-ring rank 16, whose 16^2 = 256 features hold 180,483, and
 # Tucker ranks R_c = 0.163 K_c, (41, 62) with a 41 x 62 x 62 core whose 62
-# features feed the decoder, 196,135.
+# features feed the head, 196,135.
 #     python scripts/train_image.py --config configs/ablation-futon/tensor_net.yaml
 # The data and training settings repeat configs/image.yaml.
 
@@ -24,7 +24,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 280}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 1.0e-1}
 
@@ -33,7 +33,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [tr, {rank: 16}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 1.0e-1}
 
@@ -42,6 +42,6 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [tucker, {rank: ["H // 2 * 163 // 1000", "W // 2 * 163 // 1000"]}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 3.0e-2}  # 1e-1, the cosine basis's rate, diverges on 8 of the 24 images

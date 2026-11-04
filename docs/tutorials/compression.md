@@ -23,7 +23,7 @@ encoded = inro.compression.encode_futon(
     image,
     basis=("cosine", {"num_components": 128}),
     combiner=("cp", {"rank": 64}),
-    decoder="linear",
+    head="linear",
     num_steps=500,
     lr=0.1,
     alpha=0.005,
@@ -32,7 +32,7 @@ encoded = inro.compression.encode_futon(
 reconstruction = inro.compression.decode_futon(encoded)  # uint8 (3, H, W)
 ```
 
-`encode_futon` builds a `FUTON` from the keyword arguments (`in_features` and `out_features` default to 2 and the channel count), trains it with `inro.rate_distortion_loss`, quantizes every parameter tensor to `quant_max` levels, and packs the integer codes, their scales, the model configuration, the image ID and the spatial shape into gzip-compressed bytes. `decode_futon` rebuilds the model from those bytes and evaluates it on the pixel grid. The specs must be registry keys or `(key, dict)` pairs so that they survive the round trip.
+`encode_futon` builds a `FUTON` from the keyword arguments (`in_features` and `out_features` default to 2 and the channel count), trains it with `inro.rate_distortion_loss`, quantizes every parameter tensor to `quant_max` levels, and packs the integer codes, their scales, the model configuration, the image ID and the spatial shape into gzip-compressed bytes. `decode_futon` rebuilds the model from those bytes and evaluates it on the pixel grid. The specs must be registry keys or `(key, dict)` pairs so that they survive the round trip. The linear head reads a whole image off the grid in one contraction.
 
 The rate-distortion loss is $\text{MSE} + \alpha \cdot H$, where $H$ is the size-weighted mean of a Laplace entropy estimate of each parameter tensor, in bits; `alpha=0` disables the rate term. `quant_interval` rounds the parameters to the quantization grid every so many steps during training, so that the model adapts to it (quantization-aware training); the final quantization always runs.
 
@@ -45,7 +45,7 @@ futon = inro.compression.evaluate_compression(
     inro.compression.decode_futon,
     basis=("cosine", {"num_components": 128}),
     combiner=("cp", {"rank": 64}),
-    decoder="linear",
+    head="linear",
     num_steps=500,
 )
 jpeg = inro.compression.evaluate_compression(
@@ -64,7 +64,7 @@ The keyword arguments go to the encoder, so a rate-distortion curve is a loop ov
 records = [
     {"codec": "FUTON", "rank": rank, **inro.compression.evaluate_compression(
         image, inro.compression.encode_futon, inro.compression.decode_futon,
-        basis=("cosine", {"num_components": 128}), combiner=("cp", {"rank": rank}), decoder="linear",
+        basis=("cosine", {"num_components": 128}), combiner=("cp", {"rank": rank}), head="linear",
     )}
     for rank in (16, 32, 64, 128)
 ]

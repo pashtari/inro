@@ -1,5 +1,5 @@
 # FUTON ablation on the radiance-field task: the components per axis, K = N/L
-# for L in {4, 2, 1}, against the width of the one-layer MLP decoder, 16 to
+# for L in {4, 2, 1}, against the width of the one-layer MLP head, 16 to
 # 256, each at the largest CP rank, a multiple of 5, that keeps FUTON smaller
 # than every baseline (RFF, 74,459 with the colour network), for the sinc and
 # the cosine basis at 1e-2, each reading its basis from a table of 2048 points
@@ -37,7 +37,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 405}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 16}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 16}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N4-w32:
@@ -45,7 +45,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 370}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 32}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 32}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N4-w64:
@@ -53,7 +53,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 310}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N4-w128:
@@ -61,7 +61,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 235}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N4-w256:
@@ -69,7 +69,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 155}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N2-w16:
@@ -77,7 +77,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 210}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 16}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 16}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N2-w32:
@@ -85,7 +85,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 200}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 32}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 32}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N2-w64:
@@ -93,7 +93,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 180}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N2-w128:
@@ -101,7 +101,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 150}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N2-w256:
@@ -109,7 +109,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 110}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N1-w16:
@@ -117,7 +117,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 110}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 16}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 16}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N1-w32:
@@ -125,7 +125,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 105}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 32}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 32}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N1-w64:
@@ -133,7 +133,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 100}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N1-w128:
@@ -141,7 +141,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 90}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
     train: {lr: 1.0e-2}
 
   FUTON-sinc-N1-w256:
@@ -149,7 +149,7 @@ models:
     kwargs:
       basis: [sinc, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 70}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N4-w16:
@@ -157,7 +157,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 405}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 16}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 16}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N4-w32:
@@ -165,7 +165,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 370}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 32}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 32}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N4-w64:
@@ -173,7 +173,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 310}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N4-w128:
@@ -181,7 +181,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 235}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N4-w256:
@@ -189,7 +189,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 50, grid_size: 2048}]
       combiner: [cp, {rank: 155}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N2-w16:
@@ -197,7 +197,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 210}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 16}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 16}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N2-w32:
@@ -205,7 +205,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 200}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 32}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 32}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N2-w64:
@@ -213,7 +213,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 180}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N2-w128:
@@ -221,7 +221,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 150}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N2-w256:
@@ -229,7 +229,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 100, grid_size: 2048}]
       combiner: [cp, {rank: 110}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N1-w16:
@@ -237,7 +237,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 110}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 16}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 16}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N1-w32:
@@ -245,7 +245,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 105}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 32}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 32}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N1-w64:
@@ -253,7 +253,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 100}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N1-w128:
@@ -261,7 +261,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 90}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
     train: {lr: 1.0e-2}
 
   FUTON-cosine-N1-w256:
@@ -269,5 +269,5 @@ models:
     kwargs:
       basis: [cosine, {num_components: 200, grid_size: 2048}]
       combiner: [cp, {rank: 70}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
     train: {lr: 1.0e-2}

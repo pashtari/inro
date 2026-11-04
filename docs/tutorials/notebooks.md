@@ -3,7 +3,7 @@
 Five notebooks in `notebooks/` run one signal end to end. They are the interactive version of the training scripts and the fastest way to see how the models compare on your own data.
 { .inro-lead }
 
-Four compare FUTON, with its sinc and cosine bases, against five representative baselines of a task at equal size: RFF, SIREN, FINER, Instant-NGP and TensoRF, or in super-resolution the last four and bicubic interpolation. The fifth compares the ways to fit FUTON.
+Four compare FUTON (cosine) against five representative baselines of a task at equal size: RFF, SIREN, FINER, Instant-NGP and TensoRF, or in super-resolution the last four and bicubic interpolation. The fifth compares the ways to fit FUTON.
 
 | Notebook | Signal | Models | Runtime on an A100 |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ Four compare FUTON, with its sinc and cosine bases, against five representative 
 | `occupancy_volume.ipynb` | `data/occupancy/lucy.ply` at $256^3$ | 7, about 131k parameters each, 1000 steps of $2^{18}$ voxels | about 4 minutes |
 | `nerf.ipynb` | `data/nerf/blender/lego` under FINER's protocol, in a quick pass | 7, about 75k parameters each, 5000 steps | about 11 minutes (set `NUM_STEPS = 25_000` for the benchmark's full schedule, about 35 minutes) |
 | `image_super_resolution.ipynb` | `data/DIV2K/DIV2K_valid_HR/0887.png` from its 4× bicubic downsampling | 6 INRs, about 500k parameters each, 1000 steps of 135 blocks, and bicubic interpolation | about 6 minutes |
-| `futon_solvers.ipynb` | `data/Kodak/kodim19.png` | 4 FUTONs, about 197k parameters each: an MLP or a linear decoder, fitted by Adam (1000 steps on the whole image) or by alternating least squares or multiplicative updates (500 sweeps) | about 3 minutes |
+| `futon_solvers.ipynb` | `data/Kodak/kodim19.png` | 4 FUTONs, about 197k parameters each: an MLP or a linear head, fitted by Adam (1000 steps on the whole image) or by alternating least squares or multiplicative updates (500 sweeps) | about 3 minutes |
 
 ## Run them
 

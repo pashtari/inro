@@ -23,9 +23,9 @@ H, W, _ = dataset.target.shape
 model = inro.FUTON(  # (2)!
     in_features=2,
     out_features=3,
-    basis=("sinc", {"num_components": [H // 2, W // 2]}),
+    basis=("cosine", {"num_components": [H // 2, W // 2]}),
     combiner=("cp", {"rank": 280}),
-    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+    head=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
     output_activation=torch.tanh,  # (3)!
 )
 
@@ -34,7 +34,7 @@ result = inro.train(  # (4)!
     dataset,
     dataset,
     num_steps=1000,
-    lr=3e-2,
+    lr=1e-1,
     metrics={"psnr": inro.psnr, "ssim": inro.ssim},
     log_interval=250,
     eval_interval=250,
@@ -43,15 +43,15 @@ print(result["history"][-1]["eval"])
 ```
 
 1.  `dataset.input` holds the pixel-center coordinates, `(H, W, 2)` in $[-1, 1]$, and `dataset.target` the RGB values, `(H, W, 3)`, also in $[-1, 1]$. Each access returns the whole image; `subsample=0.1` would draw a fresh random 10 % of the pixels per access instead, flattened to `(N, 2)` and `(N, 3)`.
-2.  Three specs, each a registry key, a `(key, kwargs)` pair, a class or a module instance. The sinc basis has half as many functions per axis as the image has pixels, the CP combiner has rank 280, and the decoder is an MLP with one hidden layer of width 64.
+2.  Three specs, each a registry key, a `(key, kwargs)` pair, a class or a module instance. The cosine basis has half as many functions per axis as the image has pixels, the CP combiner has rank 280, and the head is an MLP with one hidden layer of width 64, whose first layer reads a batch that covers the image off the whole grid in one contraction.
 3.  The targets are in $[-1, 1]$, and so is the output of `tanh`.
 4.  Adam with cosine annealing from `lr` down to `lr / 100`, one optimizer step per batch; this dataset's one item is the whole image, so every step sees every pixel. Every `log_interval` steps it prints the training metrics above a progress bar. Every `eval_interval` steps, and at the last, it maps predictions back to `uint8` with `dataset.postprocess` and adds the metrics to that line.
 
-On a GPU this takes about half a minute (34 s on an RTX 4060 Ti) and ends near 37.3 dB PSNR.
+On a GPU this takes about a dozen seconds (13 s on an RTX 4060 Ti) and ends near 37.8 dB PSNR.
 
-!!! info "This is the benchmark's FUTON (sinc)"
+!!! info "This is the benchmark's FUTON (cosine)"
 
-    It holds 197,379 parameters. The benchmark also tabulates the basis on the pixel grid (`grid_size`) and compiles the model, which trains it in about 5 s on an A100.
+    It holds 197,379 parameters. The benchmark also tabulates the basis on the pixel grid (`grid_size`) and compiles the model, which trains it in about 4 s on an A100.
 
 The result is a plain dictionary:
 
@@ -81,7 +81,7 @@ Coordinates need not lie on the pixel grid: `inro.create_coordinates((2 * H, 2 *
 Pass `log_dir` to keep a record of the run:
 
 ```python
-result = inro.train(model, dataset, dataset, num_steps=1000, lr=3e-2, log_dir="logs/quickstart")
+result = inro.train(model, dataset, dataset, num_steps=1000, lr=1e-1, log_dir="logs/quickstart")
 ```
 
 | File | Content |

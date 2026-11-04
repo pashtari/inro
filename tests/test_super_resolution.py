@@ -167,7 +167,7 @@ def test_futon_rank_is_the_largest_multiple_of_5_within_the_budget(task, outputs
                 out_features=outputs,
                 basis=("lanczos", {"num_components": components, "radius": 3}),
                 combiner=("cp", {"rank": rank}),
-                decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+                head=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
             )
             return inro.count_parameters(model)
 
@@ -183,7 +183,7 @@ def test_prepare_fills_futon_rank_from_the_budget(task, image_pair):
         "kwargs": {
             "basis": ["sinc", {"num_components": ["H // 4", "W // 4"]}],
             "combiner": ["cp", {"rank": "budget"}],
-            "decoder": ["mlp", {"hidden_layers": 1, "hidden_features": 64}],
+            "head": ["mlp", {"hidden_layers": 1, "hidden_features": 64}],
         },
     }
     model = task.prepare(entry, path)
@@ -196,3 +196,33 @@ def test_prepare_fills_futon_rank_from_the_budget(task, image_pair):
         "class": "SIREN",
         "kwargs": {"hidden_features": 16},
     }
+
+
+def test_futon_rank_of_a_linear_head_fills_the_budget(task):
+    from train_common import fill_rank, futon_rank
+
+    budget = 131_456
+    for components in ([48, 57, 44], [97, 115, 88], [135, 78, 231]):
+        rank = futon_rank(components, budget, None, 1)
+
+        def count(rank: int) -> int:
+            model = inro.FUTON(
+                in_features=3,
+                out_features=1,
+                basis=("cosine", {"num_components": components}),
+                combiner=("cp", {"rank": rank}),
+                head="linear",
+            )
+            return inro.count_parameters(model)
+
+        assert rank % 5 == 0
+        assert count(rank) <= budget < count(rank + 5)
+        entry = {
+            "budget": budget,
+            "kwargs": {
+                "basis": ["cosine", {"num_components": components}],
+                "combiner": ["cp", {"rank": "budget"}],
+                "head": "linear",
+            },
+        }
+        assert fill_rank(entry, outputs=1)["kwargs"]["combiner"][1]["rank"] == rank

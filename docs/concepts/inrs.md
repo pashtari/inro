@@ -57,7 +57,7 @@ Every model maps a tensor of coordinates `(..., in_features)` in $[-1, 1]$ to va
 
 ```python
 model = inro.FUTON(
-    2, 3, basis=("cosine", {"num_components": 64}), combiner=("cp", {"rank": 32}), decoder="linear"
+    2, 3, basis=("cosine", {"num_components": 64}), combiner=("cp", {"rank": 32}), head="linear"
 )
 model(torch.rand(10, 2) * 2 - 1).shape      # (10, 3)
 model(torch.rand(4, 5, 2) * 2 - 1).shape    # (4, 5, 3)
@@ -104,7 +104,7 @@ A dataset yields dictionaries with four keys:
 
 !!! tip "Solvers"
 
-    A FUTON with a CP combiner and a linear decoder, both without bias, can be fitted by block coordinate descent instead of a gradient step: pass `optimizer=inro.LeastSquares(model, momentum=...)` or `inro.MultiplicativeUpdate(model, momentum=...)`. Each batch is swept once, and a sweep costs about the same whole or subsampled, so a whole grid with `momentum=0` is the fast setting. On subsamples, `momentum` averages the blocks' problems over the batches. The newest batch's weight, `1 - momentum`, is the solver's learning rate, and the cosine schedule anneals it as it does Adam's; without momentum it stays one. `optimizer.compile(batch)` compiles the sweep. See the [solvers' reference](../api/futon.md#solvers).
+    A FUTON with a CP combiner and a linear head, both without bias, can be fitted by block coordinate descent instead of a gradient step: pass `optimizer=inro.LeastSquares(model, momentum=...)` or `inro.MultiplicativeUpdate(model, momentum=...)`. Each batch is swept once, and a sweep costs about the same whole or subsampled, so a whole grid with `momentum=0` is the fast setting. On subsamples, `momentum` averages the blocks' problems over the batches. The newest batch's weight, `1 - momentum`, is the solver's learning rate, and the cosine schedule anneals it as it does Adam's; without momentum it stays one. `optimizer.compile(batch)` compiles the sweep. See the [solvers' reference](../api/futon.md#solvers).
 
 The return value is `{"config", "model_dict", "history"}`: the run's settings, the final parameters, and one record per logged step with `elapsed`, the seconds spent training so far, the training metrics of the step's batch and, when the step was evaluated, the mean evaluation metrics under `"eval"`. The records are plain dictionaries, so `pd.DataFrame(result["history"])` gives a learning curve.
 

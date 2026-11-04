@@ -13,14 +13,14 @@
 # Every model has about 500k parameters, close to the 519k values of a
 # 339 x 510 low-resolution image: each baseline is the smallest of its kind
 # that reaches 500,000, and FUTON, with one component per low-resolution pixel
-# along each axis and a one-layer MLP decoder 128 wide, takes the largest CP
+# along each axis and a one-layer MLP head 128 wide, takes the largest CP
 # rank, a multiple of 5, that keeps it smaller than every baseline (RFF,
 # 500,007): 510 on a 2040 x 1356 image (498,785). Its components and width
-# come from configs/ablation-futon/components_width_super_resolution.yaml, with
-# the sinc basis, on the three training images: the low-resolution size is the
-# only one that beats bicubic there, and a decoder 128 wide gains 0.51 dB over
-# it, short of the 0.70 dB of one 256 wide, which takes 1.6 times the training
-# time and 1.5 times the memory. The cosine basis takes the same model.
+# come from configs/ablation-futon/components_width_super_resolution.yaml,
+# where they were chosen with the sinc basis on the three training images: the
+# low-resolution size is the only one that beats bicubic there, and an MLP head
+# 128 wide gains 0.51 dB over it, short of the 0.70 dB of one 256 wide, which
+# takes 1.6 times the training time and 1.5 times the memory.
 
 data:
   scale: 4
@@ -180,23 +180,13 @@ models:
       output_activation: tanh
     train: {lr: 3.0e-4}
 
-  FUTON-sinc:
+  FUTON-cosine:
     class: FUTON
     budget: 500006  # parameters; "budget" below is the largest rank within it
     kwargs:
       # one basis function per low-resolution pixel along each axis
-      basis: [sinc, {num_components: [H // 4, W // 4], grid_size: [H, W]}]
-      combiner: [cp, {rank: budget}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
-      output_activation: tanh
-    train: {lr: 1.0e-2}
-
-  FUTON-cosine:
-    class: FUTON
-    budget: 500006
-    kwargs:
       basis: [cosine, {num_components: [H // 4, W // 4], grid_size: [H, W]}]
       combiner: [cp, {rank: budget}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
       output_activation: tanh
     train: {lr: 1.0e-2}

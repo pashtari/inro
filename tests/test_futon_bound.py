@@ -1,4 +1,4 @@
-"""Tests for the error bounds of FUTON with a linear decoder."""
+"""Tests for the error bounds of FUTON with a linear head."""
 
 import math
 
@@ -33,7 +33,7 @@ def features(basis, sizes):
 
 
 def futon(basis, rank, channels):
-    """Build the paper's model: a CP combiner and a linear decoder without bias."""
+    """Build the paper's model: a CP combiner and a linear head without bias."""
     return inro.FUTON(
         len(basis.num_components),
         channels,
@@ -164,6 +164,6 @@ def test_cosine_coefficients_are_a_dct_block():
 def test_initialize_rejects_other_models():
     basis = inro.SincBasis(2, num_components=[4, 4])
     bound = inro.futon_bound(signal((6, 6), 1), features(basis, (6, 6)), ranks=2)
-    model = inro.FUTON(2, 1, basis, ("cp", {"rank": 2}), "linear")  # decoder bias
+    model = inro.FUTON(2, 1, basis, ("cp", {"rank": 2}), "linear")  # head bias
     with pytest.raises(ValueError, match="without bias"):
         bound.initialize(model)

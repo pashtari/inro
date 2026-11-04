@@ -15,7 +15,7 @@ The paper's experiments are one protocol applied to four tasks, documented in en
 
     ---
 
-    FUTON's basis, bandwidth, rank, combiner and decoder, varied one at a time on images.
+    FUTON's basis, bandwidth, rank, combiner and head, varied one at a time on images.
 
 -   :material-replay:{ .lg .middle } **[Reproducing the paper](reproduce.md)**
 
@@ -37,7 +37,7 @@ The paper's experiments are one protocol applied to four tasks, documented in en
 Every model of a task follows the same rules:
 
 - **Hyperparameters.** Those of its authors' code, wherever the budget allows them.
-- **FUTON's size.** Its components per axis and decoder width are chosen per task on the data its baselines were tuned on: half the resolution and 64 units on images, volumes and radiance fields, where FUTON reads its basis from a table of 2048 points per axis, and the low-resolution grid and 128 units for super-resolution. Its CP rank is the largest multiple of 5 that keeps it smaller than every baseline. The [bandwidth](ablations.md#bandwidth) and [decoder](ablations.md#decoder) ablations show the choice on images.
+- **FUTON's size.** Its components per axis and head are chosen per task on the data its baselines were tuned on: half the resolution and 64 units on images and radiance fields, where FUTON reads its basis from a table of 2048 points per axis, half the resolution and a linear head on volumes, and the low-resolution grid and 128 units for super-resolution. Its CP rank is the largest multiple of 5 that keeps it smaller than every baseline. The [bandwidth](ablations.md#bandwidth) and [head](ablations.md#head) ablations show the choice on images.
 - **Learning rate.** From the grid {3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4}, chosen on two or three signals of the task.
 - **Optimizer.** PyTorch's default Adam.
 - **Run.** Seed 0 on an NVIDIA A100, the model compiled with `torch.compile` in a warm-up pass that keeps compilation out of the clock.

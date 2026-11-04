@@ -5,7 +5,7 @@
 
 <figure markdown="span">
   ![Orbit around the lego scene](../assets/orbit_lego.gif){ width="720" }
-  <figcaption>The lego scene rendered in orbit by SIREN, Instant-NGP and FUTON (sinc) at equal parameter count (about 75k), with the test-view PSNR.</figcaption>
+  <figcaption>The lego scene rendered in orbit by SIREN, Instant-NGP and FUTON (cosine) at equal parameter count (about 75k), with the test-view PSNR.</figcaption>
 </figure>
 
 <ol class="inro-flow">
@@ -19,6 +19,7 @@
 ## Data
 
 ```python
+import torch
 import inro
 
 root = "data/nerf/blender/lego"
@@ -36,9 +37,9 @@ test_set = inro.nerf.BlenderDataset(root, split="test", downsample=4)
 ```python
 field = inro.nerf.RadianceField(
     density_net=(inro.FUTON, {  # (1)!
-        "basis": ("sinc", {"num_components": 100, "grid_size": 2048}),  # (2)!
+        "basis": ("cosine", {"num_components": 100, "grid_size": 2048}),  # (2)!
         "combiner": ("cp", {"rank": 180}),
-        "decoder": ("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+        "head": ("mlp", {"hidden_layers": 1, "hidden_features": 64}),
     }),
     color_net=("mlp", {"hidden_features": 64, "hidden_layers": 2}),  # (3)!
     geometry_features=15,
@@ -69,7 +70,7 @@ result = inro.nerf.train(
     num_rays=4096,
     lr=1e-2,
     eval_interval=2500,
-    log_dir="logs/tutorial/lego/FUTON-sinc",
+    log_dir="logs/tutorial/lego/FUTON-cosine",
 )
 ```
 
@@ -105,8 +106,8 @@ imageio.mimsave("lego_orbit.gif", frames, duration=0.083, loop=0)
 
 ## The benchmark script
 
-`scripts/train_nerf.py` trains every model of the config on every scene under `data/nerf/blender/`, evaluates on the 200 test views, each rendered whole in one pass, and saves two rendered test views per run. The NeRF sweep is the long one: about five minutes per model and scene on an A100, 120 runs in all.
+`scripts/train_nerf.py` trains every model of the config on every scene under `data/nerf/blender/`, evaluates on the 200 test views, each rendered whole in one pass, and saves two rendered test views per run. The NeRF sweep is the long one: about five minutes per model and scene on an A100, 112 runs in all.
 
 ```bash
-python scripts/train_nerf.py --data data/nerf/blender/lego --models FUTON-sinc
+python scripts/train_nerf.py --data data/nerf/blender/lego --models FUTON-cosine
 ```

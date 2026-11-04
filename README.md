@@ -31,7 +31,7 @@
 It also includes major INR architectures and baselines, such as SIREN, FINER, RFF, Instant-NGP, and TensoRF, all accessible through a consistent interface. Beyond the models, Inro provides reusable components and unified pipelines for training and evaluating INRs on image and volume representation and compression, and for INR-based inverse problems, including image super-resolution and novel view synthesis.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/futon_illustration.svg" width="920" alt="FUTON's forward pass for one pixel: a fixed basis expands each coordinate, a tensor network combines the axes, and an MLP decodes the pixel's color">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/futon_illustration.svg" width="920" alt="FUTON's forward pass for one pixel: a fixed basis expands each coordinate, a tensor network combines the axes, and a head, here an MLP, gives the pixel's color">
 </p>
 
 ## Why FUTON
@@ -40,17 +40,17 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
 
 - **Fast.** A point costs O(CKR) for C axes, K basis functions per axis and rank R. On a grid, such as an image's pixels, each axis is evaluated once per distinct coordinate and shared by every point on it.
 - **Accurate at equal size.** At matched parameter counts FUTON leads every baseline on the average of each benchmark: Kodak images, Stanford occupancy volumes and Blender radiance fields.
-- **Transparent.** With a linear decoder FUTON *is* a rank-R CP model of the signal in the chosen basis, so bandwidth (K) and capacity (R) are explicit knobs.
+- **Transparent.** With a linear head FUTON *is* a rank-R CP model of the signal in the chosen basis, so bandwidth (K) and capacity (R) are explicit knobs.
 
 ## Results
 
 Every model of a task has the same parameter budget. Times are median training times per signal on an A100, from the same runs as the scores. FUTON makes the best trade-off of speed and reconstruction quality on every task. The [benchmarks page](https://pashtari.github.io/inro/experiments/benchmarks/) has every model, metric and error bar.
 
-| Task | #Params | FUTON (cosine) | FUTON (sinc) | Strongest baseline | FUTON's lead |
-| --- | --- | --- | --- | --- | --- |
-| Images (24 Kodak) | 197k | **38.14 dB** in 5.4 s | 37.44 dB in 5.4 s | MFN, 36.72 dB in 57.3 s | **+1.42 dB, 10.6× faster** |
-| Occupancy (5 Stanford shapes) | 131k | **99.95 % IoU** in 7.6 s | **99.95 % IoU** in 7.8 s | RFF, 99.91 % in 11.7 s | **+0.04 %, 1.5× faster** |
-| Radiance fields (8 Blender scenes) | 74k | **29.22 dB** in 152 s | 29.19 dB in 154 s | FINER, 28.62 dB in 219 s | **+0.60 dB, 1.4× faster** |
+| Task | #Params | FUTON (cosine) | Strongest baseline | FUTON's lead |
+| --- | --- | --- | --- | --- |
+| Images (24 Kodak) | 197k | **37.63 dB** in 4.1 s | MFN, 36.72 dB in 57.3 s | **+0.90 dB, 13.9× faster** |
+| Occupancy (5 Stanford shapes) | 131k | **99.97 % IoU** in 1.7 s | RFF, 99.91 % in 11.7 s | **+0.06 %, 7.0× faster** |
+| Radiance fields (8 Blender scenes) | 74k | **29.22 dB** in 152 s | FINER, 28.62 dB in 219 s | **+0.60 dB, 1.4× faster** |
 
 ### Images
 
@@ -73,7 +73,7 @@ Every model of a task has the same parameter budget. Times are median training t
   <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lego.png" width="920" alt="The lego scene from a test view, with two regions magnified for every featured model">
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (sinc)">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (cosine)">
 </p>
 <p align="center">
   <sub>Blender scenes at about 75k parameters: validation PSNR against training time (left), and every model's final test PSNR against its training time (middle) and its rendering speed (right). Below, the lego scene magnified and in orbit, with each model's test-view PSNR.</sub>
@@ -89,7 +89,7 @@ pip install inro
 
 `pip install "inro[3d,nerf]"` adds meshes, nerfacc and video export. The training scripts, configs and notebooks live in this repository: `git clone https://github.com/pashtari/inro.git`, then `pip install -e .`.
 
-Fit FUTON to an image and score it. On a GPU this takes about half a minute and reaches about 37 dB.
+Fit FUTON to an image and score it. On a GPU this takes about a dozen seconds and reaches about 38 dB.
 
 ```python
 import torch
@@ -101,19 +101,19 @@ H, W, _ = dataset.target.shape
 model = inro.FUTON(
     in_features=2,
     out_features=3,
-    basis=("sinc", {"num_components": [H // 2, W // 2]}),  # half the pixels per axis
+    basis=("cosine", {"num_components": [H // 2, W // 2]}),  # half the pixels per axis
     combiner=("cp", {"rank": 280}),
-    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+    head=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
     output_activation=torch.tanh,
 )
 
 result = inro.train(
     model, dataset, dataset,
-    num_steps=1000, lr=3e-2,
+    num_steps=1000, lr=1e-1,
     metrics={"psnr": inro.psnr, "ssim": inro.ssim},
     eval_interval=250,
 )
-print(result["history"][-1]["eval"])  # {"psnr": 37.3, "ssim": 0.949, ...}
+print(result["history"][-1]["eval"])  # {"psnr": 37.8, "ssim": 0.954, ...}
 
 output = inro.chunked_inference(model, dataset.input, chunk_size=65536)  # (H, W, 3) in [-1, 1]
 dataset.save(dataset.postprocess(output.cpu()), "kodim19_futon.png")
@@ -125,7 +125,7 @@ Every model takes `in_features` and `out_features` first, so `inro.SIREN(2, 3, h
 
 | | |
 | --- | --- |
-| **FUTON** | `inro.FUTON` with the bases `cosine`, `sinc`, `legendre`, `chebyshev`, `triangle`, `lanczos`; the combiners `cp`, `hadamard`, `tr`, `tucker`; and the decoders `linear`, `mlp` |
+| **FUTON** | `inro.FUTON` with the bases `cosine`, `sinc`, `legendre`, `chebyshev`, `triangle`, `lanczos`; the combiners `cp`, `tr`, `tucker`; and the heads `linear`, `mlp`, `identity` |
 | **Baselines** | SIREN, FreSh, FINER, Gauss, WIRE, MFN, RFF, PE-MLP, Instant-NGP, TensoRF, GA-Planes, F-INR, Deep Image Prior |
 | **Data** | Coordinate datasets for images, occupancy volumes, MRI k-space, super-resolution and posed views |
 | **Training** | `inro.train`, `inro.evaluate`, metrics and losses, quantization-aware training, and [block coordinate descent solvers](https://pashtari.github.io/inro/api/futon/#solvers) for FUTON |

@@ -1,7 +1,7 @@
-"""Bounds on how well a FUTON with a linear decoder can fit a sampled signal.
+"""Bounds on how well a FUTON with a linear head can fit a sampled signal.
 
 On a signal's sampling grid, the error of a FUTON with a CP combiner and a linear
-decoder, both without bias, splits exactly in two: the error of the best approximation
+head, both without bias, splits exactly in two: the error of the best approximation
 in the basis's span, which no rank removes, and the CP misfit of the signal's
 coefficients in an orthonormal basis of that span. :func:`futon_bound` computes the
 first exactly, brackets the best second, and returns the factors of a FUTON that attains
@@ -11,20 +11,21 @@ the upper bound. The documentation's error bound page states and proves the theo
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import reduce
 from itertools import combinations, permutations
 
 import torch
-from torch import Tensor, nn
+import torch.nn.functional as F
+from torch import Tensor
 
-from .futon import FUTON, CPCombiner
+from .futon import FUTON
+from .futon_inits import _als, _cp_parts, _expansion, _project, _residual
 
 __all__ = ["FUTONBound", "futon_bound"]
 
 
 @dataclass
 class FUTONBound:
-    r"""Bounds on the best mean squared error of a FUTON with a linear decoder.
+    r"""Bounds on the best mean squared error of a FUTON with a linear head.
 
     Errors are float64 means over the grid's points and the signal's channels, as
     :func:`inro.train` reports them.
@@ -38,7 +39,7 @@ class FUTONBound:
         upper: Per rank, the error of the FUTON in ``factors``, and so an upper bound on
             the best one's.
         factors: Per rank, the factors :math:`\boldsymbol{U}^{(c)}`, ``(K_c, R)``, and
-            the decoder :math:`\boldsymbol{V}`, ``(D, R)``, that attain ``upper``.
+            the head :math:`\boldsymbol{V}`, ``(D, R)``, that attain ``upper``.
     """
 
     ranks: list[int]
@@ -49,38 +50,24 @@ class FUTONBound:
 
     @torch.no_grad()
     def initialize(self, model: FUTON) -> None:
-        """Give ``model`` the factors and the decoder that attain ``upper`` at its rank.
+        """Give ``model`` the factors and the head that attain ``upper`` at its rank.
 
         The model's error on the bound's grid is then the bound, up to its precision.
 
         Args:
-            model: FUTON with the bound's basis, a CP combiner and a linear decoder
+            model: FUTON with the bound's basis, a CP combiner and a linear head
                 without bias.
 
         Raises:
-            ValueError: If ``model`` has another combiner or decoder, or a rank without
+            ValueError: If ``model`` has another combiner or head, or a rank without
                 a bound.
         """
-        if not (
-            isinstance(model.encoding.combiner, CPCombiner)
-            and isinstance(model.decoder, nn.Linear)
-            and model.decoder.bias is None
+        factors, output, _ = _cp_parts(model)
+        bound_factors, bound_output = self.factors[self.ranks.index(output.shape[1])]
+        for parameter, factor in zip(
+            [*factors, output], [*bound_factors, bound_output]
         ):
-            raise ValueError(
-                "the bound is for a FUTON with a CP combiner and a linear decoder"
-                " without bias"
-            )
-        factors, decoder = self.factors[self.ranks.index(model.encoding.combiner.rank)]
-        for parameter, factor in zip(model.encoding.combiner.factors, factors):
             parameter.copy_(factor)
-        model.decoder.weight.copy_(decoder)
-
-
-def _unfold(tensor: Tensor, rows: Sequence[int]) -> Tensor:
-    """Return the matricization with ``rows`` as row modes and the rest as columns."""
-    columns = [mode for mode in range(tensor.ndim) if mode not in rows]
-    shape = math.prod(tensor.shape[mode] for mode in rows)
-    return tensor.permute(*rows, *columns).reshape(shape, -1)
 
 
 def _tails(tensor: Tensor, ranks: Sequence[int]) -> Tensor:
@@ -90,114 +77,20 @@ def _tails(tensor: Tensor, ranks: Sequence[int]) -> Tensor:
     Young none comes closer to ``tensor`` than the energy of the singular values a
     matricization has beyond the ``R``-th.
     """
-    best = torch.zeros(len(ranks), dtype=tensor.dtype)
+    best = tensor.new_zeros(len(ranks))
+    modes = range(tensor.ndim)
     for size in range(1, tensor.ndim // 2 + 1):
-        for rows in combinations(range(tensor.ndim), size):
+        for rows in combinations(modes, size):
             if 2 * size == tensor.ndim and 0 not in rows:  # each split once
                 continue
-            matrix = _unfold(tensor, rows)
+            columns = [mode for mode in modes if mode not in rows]
+            matrix = tensor.permute(*rows, *columns).flatten(0, size - 1).flatten(1)
             if matrix.shape[0] > matrix.shape[1]:
                 matrix = matrix.T
             energies = torch.linalg.eigvalsh(matrix @ matrix.T).flip(0).clamp_min(0)
-            beyond = energies.sum() - torch.cat(
-                [energies.new_zeros(1), energies.cumsum(0)]
-            )
-            tails = beyond[[min(rank, len(energies)) for rank in ranks]].cpu()
+            tails = torch.stack([energies[rank:].sum() for rank in ranks])
             best = torch.maximum(best, tails)
     return best
-
-
-def _expansion(tensor: Tensor, order: Sequence[int]) -> tuple[Tensor, list[Tensor]]:
-    """Return the orthonormal rank-1 expansion of a batch of tensors, by nested SVDs.
-
-    The SVD of each tensor's matricization with ``order[0]`` as rows writes it as a sum
-    of orthogonal terms, each a unit vector times a unit tensor of the other modes,
-    which are expanded in turn, all at once as a batch.
-
-    Args:
-        tensor: Batch of tensors ``(B, I_1, ..., I_M)``.
-        order: Modes in the order they are split off.
-
-    Returns:
-        The terms' weights ``(B, L)``, products of singular values, and, per mode, their
-        unit vectors ``(B, L, I_m)``.
-    """
-    batch, *shape = tensor.shape
-    first = order[0]
-    rest = [mode for mode in range(len(shape)) if mode != first]
-    matrix = tensor.permute(0, first + 1, *(mode + 1 for mode in rest))
-    u, s, vh = torch.linalg.svd(
-        matrix.reshape(batch, shape[first], -1), full_matrices=False
-    )
-    terms = s.shape[1]
-    if len(rest) == 1:
-        vectors = [u.transpose(1, 2), vh] if first == 0 else [vh, u.transpose(1, 2)]
-        return s, vectors
-    inner = vh.reshape(batch * terms, *(shape[mode] for mode in rest))
-    weights, parts = _expansion(inner, [rest.index(mode) for mode in order[1:]])
-    length = weights.shape[1]
-    vectors: list[Tensor] = [Tensor()] * len(shape)
-    for mode, part in zip(rest, parts):
-        vectors[mode] = part.reshape(batch, terms * length, -1)
-    vectors[first] = (
-        u.transpose(1, 2).reshape(batch * terms, 1, -1).expand(-1, length, -1)
-    ).reshape(batch, terms * length, -1)
-    return (s.reshape(batch * terms, 1) * weights).reshape(batch, -1), vectors
-
-
-def _residual(tensor: Tensor, factors: Sequence[Tensor]) -> float:
-    """Return ``||tensor - [[factors]]||_F^2``, with the CP tensor formed in full."""
-    letters = "abcdefgh"[: tensor.ndim]
-    spec = f"{','.join(letter + 'r' for letter in letters)}->{letters}"
-    return float((tensor - torch.einsum(spec, *factors)).square().sum())
-
-
-def _sweep(tensor: Tensor, factors: list[Tensor]) -> list[Tensor]:
-    """Run one sweep of alternating least squares, each mode's factor solved exactly."""
-    letters = "abcdefgh"[: tensor.ndim]
-    for mode in range(tensor.ndim):
-        others = [k for k in range(tensor.ndim) if k != mode]
-        gram = reduce(torch.mul, (factors[k].T @ factors[k] for k in others))
-        ridge = 1e-12 * gram.diagonal().mean().clamp_min(1e-300)
-        spec = (
-            f"{letters},{','.join(letters[k] + 'r' for k in others)}->{letters[mode]}r"
-        )
-        right = torch.einsum(spec, tensor, *(factors[k] for k in others))
-        eye = torch.eye(len(gram), dtype=gram.dtype, device=gram.device)
-        factors[mode] = torch.linalg.solve(gram + ridge * eye, right.T).T
-    # Spread each component's scale evenly over the modes; the tensor is unchanged.
-    norms = torch.stack([factor.norm(dim=0) for factor in factors]).clamp_min(1e-150)
-    scale = norms.log().mean(0).exp()
-    return [factor / norm * scale for factor, norm in zip(factors, norms)]
-
-
-def _als(
-    tensor: Tensor, factors: list[Tensor], sweeps: int, tol: float, floor: float
-) -> list[Tensor]:
-    """Run alternating least squares from ``factors``, until the bound settles.
-
-    After each sweep, the step it took is extended by ``k^(1/3)`` at sweep ``k`` and
-    kept if that lowers the residual: Bro's line search, which shortens the slow
-    stretches of ALS. The sweeps stop once one lowers the residual by less than ``tol``
-    of the bound, ``floor`` plus the residual, that it is part of.
-    """
-    error = _residual(tensor, factors)
-    for k in range(1, sweeps + 1):
-        update = _sweep(tensor, list(factors))
-        trial = [new + k ** (1 / 3) * (new - old) for new, old in zip(update, factors)]
-        candidates = [
-            (_residual(tensor, update), update),
-            (_residual(tensor, trial), trial),
-        ]
-        # A NaN error, of factors that overflowed, sorts last and stops the sweeps.
-        best_error, best = min(candidates, key=lambda c: (math.isnan(c[0]), c[0]))
-        if not best_error <= error:  # rounding at convergence, or a NaN
-            break
-        settled = error - best_error < tol * (floor + best_error)
-        error, factors = best_error, best
-        if settled:
-            break
-    return factors
 
 
 @torch.no_grad()
@@ -208,9 +101,9 @@ def futon_bound(
     sweeps: int = 500,
     tol: float = 3e-5,
 ) -> FUTONBound:
-    """Bound the best grid error of a FUTON with a linear decoder on a signal.
+    """Bound the best grid error of a FUTON with a linear head on a signal.
 
-    Every FUTON with a CP combiner and a linear decoder, both without bias, with these
+    Every FUTON with a CP combiner and a linear head, both without bias, with these
     per-axis features and rank ``R`` has a mean squared error on the grid of at least
     the bound's ``lower`` at ``R``, and the one given by its ``factors`` has exactly its
     ``upper``; no FUTON goes below ``truncation``. The bounds depend on the basis only
@@ -263,27 +156,21 @@ def futon_bound(
         phi = phi.double().cpu() / math.sqrt(len(phi))
         q, s, vh = torch.linalg.svd(phi, full_matrices=False)
         keep = s > s[0] * max(phi.shape) * torch.finfo(s.dtype).eps
-        bases.append(q[:, keep])
+        bases.append(q[:, keep].to(signal))
         inverses.append(vh[keep].T / s[keep])  # B_c^+, (K_c, K_c')
 
     # The signal's coefficients in the orthonormal basis of the span.
-    coefficients = signal
-    for axis, q in enumerate(bases):
-        coefficients = torch.tensordot(coefficients, q.to(signal), dims=([axis], [0]))
-        coefficients = coefficients.movedim(-1, axis)
-    coefficients = coefficients / math.sqrt(math.prod(sizes))
+    coefficients = _project(signal, bases) / math.sqrt(math.prod(sizes))
     energy = float(coefficients.square().sum())
     truncation = max(float(signal.square().mean()) * channels - energy, 0.0)
-
     small = coefficients.cpu()
     lower = _tails(small, ranks)
 
-    # The upper bounds' SVD form: per rank, the R heaviest terms of the nested
-    # SVD expansion along the best mode order. Modes of size one are peeled
-    # first, at no cost, and the last two of an order share one SVD.
-    modes = range(coefficients.ndim)
-    single = [mode for mode in modes if coefficients.shape[mode] == 1]
-    rest = [mode for mode in modes if coefficients.shape[mode] > 1]
+    # The upper bounds' SVD form: per rank, the R heaviest terms of the nested SVDs
+    # along the mode order that keeps the most energy in them. Modes of size one are
+    # peeled first, at no cost, and the last two of an order share one SVD.
+    single = [mode for mode in range(small.ndim) if small.shape[mode] == 1]
+    rest = [mode for mode in range(small.ndim) if small.shape[mode] > 1]
     orders = [
         single + list(order)
         for order in permutations(rest)
@@ -291,44 +178,30 @@ def futon_bound(
     ]
     expansions = []
     for order in orders:
-        weights, vectors = _expansion(small.unsqueeze(0), order)
-        weights, index = weights[0].sort(descending=True)
-        vectors = [part[0, index] for part in vectors]
-        kept = torch.cat([weights.new_zeros(1), weights.square().cumsum(0)])
-        expansions.append((weights, vectors, kept))
+        weights, vectors = _expansion(small, order)
+        weights, index = weights.sort(descending=True)
+        expansions.append((weights, [vector[index] for vector in vectors]))
 
     # The search runs in float32 on the signal's device; each bound is the
     # exact float64 error of the factors it finds.
     working = coefficients.float()
     upper, factors = [], []
     for rank in ranks:
-        errors = [
-            energy - float(kept[min(rank, len(kept) - 1)]) for _, _, kept in expansions
-        ]
-        weights, vectors, _ = expansions[
-            min(range(len(errors)), key=errors.__getitem__)
-        ]
-        terms = min(rank, len(weights))
-        initial = [part[:terms].T.to(working) for part in vectors]
-        initial[0] = initial[0] * weights[:terms].to(working)
-        chosen = _als(working, initial, sweeps, tol, truncation)
-        chosen = [factor.double() for factor in chosen]
+        kept = [float(weights[:rank].square().sum()) for weights, _ in expansions]
+        weights, vectors = expansions[kept.index(max(kept))]
+        start = [vector[:rank].T.to(working) for vector in vectors]
+        start[0] = start[0] * weights[:rank].to(working)
+        chosen = [f.double() for f in _als(working, start, sweeps, tol, truncation)]
         residual = _residual(coefficients, chosen)
         # A rank's FUTON is one of every larger rank, with zero components added.
         if upper and upper[-1] < residual:
             residual, chosen = upper[-1], factors[-1]
-        padded = [
-            torch.cat([f, f.new_zeros(len(f), rank - f.shape[1])], 1) for f in chosen
-        ]
         upper.append(residual)
-        factors.append(padded)
+        factors.append([F.pad(f, (0, rank - f.shape[1])) for f in chosen])
 
-    # Back to the basis: U^(c) = B_c^+ U~^(c), with the decoder unchanged.
+    # Back to the basis: U^(c) = B_c^+ U~^(c), with the head unchanged.
     mapped = [
-        (
-            [inverse @ factor.cpu() for inverse, factor in zip(inverses, chosen[:-1])],
-            chosen[-1].cpu(),
-        )
+        ([inverse @ f.cpu() for inverse, f in zip(inverses, chosen)], chosen[-1].cpu())
         for chosen in factors
     ]
     to_mse = 1 / channels

@@ -200,7 +200,7 @@ def luma(image: Tensor) -> Tensor:
         235.0
     """
     weights = torch.tensor([65.481, 128.553, 24.966], device=image.device) / 255
-    return 16 + torch.einsum("chw,c->hw", image.float(), weights).unsqueeze(0)
+    return 16 + torch.einsum("c...,c->...", image.float(), weights).unsqueeze(0)
 
 
 def super_resolution_metrics(

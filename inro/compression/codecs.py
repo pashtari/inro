@@ -124,7 +124,7 @@ def encode_futon(
         device: Device to run on; ``None`` uses CUDA when available, else the CPU.
         seed: Seed of the global PyTorch RNG, set after the model is built, so it does
             not control its initialization.
-        **kwargs: Arguments of :class:`FUTON`. ``basis``, ``combiner`` and ``decoder``
+        **kwargs: Arguments of :class:`FUTON`. ``basis``, ``combiner`` and ``head``
             are required, each a registry key or a ``(key, dict)`` pair, and every value
             must load with ``torch.load(weights_only=True)``. ``in_features`` and
             ``out_features`` default to 2 and the channel count.
@@ -134,7 +134,7 @@ def encode_futon(
             shape, serialized with ``torch.save`` and gzip.
 
     Raises:
-        ValueError: If ``basis``, ``combiner`` or ``decoder`` is missing, or is neither
+        ValueError: If ``basis``, ``combiner`` or ``head`` is missing, or is neither
             a registry key nor a ``(key, dict)`` pair.
 
     Examples:
@@ -144,12 +144,12 @@ def encode_futon(
         ...     num_steps=2,
         ...     basis=("cosine", {"num_components": 8}),
         ...     combiner=("cp", {"rank": 8}),
-        ...     decoder="linear",
+        ...     head="linear",
         ... )
         >>> decode_futon(encoded).shape
         torch.Size([3, 16, 16])
     """
-    for name in ("basis", "combiner", "decoder"):
+    for name in ("basis", "combiner", "head"):
         if name not in kwargs:
             raise ValueError(f"encode_futon requires the FUTON argument `{name}`")
         _check_module_spec(name, kwargs[name])

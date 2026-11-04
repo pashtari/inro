@@ -31,28 +31,16 @@ Each access is one training step, and the benchmark trains on the whole image at
 
 ## Models at equal size
 
-Each benchmark model holds about 197k parameters. FUTON's basis size follows the image, half the sampling resolution per axis, and its `grid_size` declares the pixel grid, on which the basis is evaluated once and each point reads its row.
-
-=== "FUTON (sinc)"
-
-    ```python
-    futon = inro.FUTON(
-        2, 3,
-        basis=("sinc", {"num_components": [H // 2, W // 2], "grid_size": (H, W)}),
-        combiner=("cp", {"rank": 280}),
-        decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
-        output_activation=torch.tanh,
-    )
-    ```
+Each benchmark model holds about 197k parameters. FUTON's basis size follows the image, half the sampling resolution per axis, and its `grid_size` declares the pixel grid, on which the basis is evaluated once and each point reads its row. The first layer of its MLP head reads a batch that covers the image off the grid in one contraction.
 
 === "FUTON (cosine)"
 
     ```python
-    futon_cosine = inro.FUTON(
+    futon = inro.FUTON(
         2, 3,
         basis=("cosine", {"num_components": [H // 2, W // 2], "grid_size": (H, W)}),
         combiner=("cp", {"rank": 280}),
-        decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+        head=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
         output_activation=torch.tanh,
     )
     ```
@@ -92,11 +80,11 @@ Each benchmark model holds about 197k parameters. FUTON's basis size follows the
 
 The learning rate matters. Every model trains with PyTorch's default Adam, at these rates:
 
-| Model | FUTON (sinc) | FUTON (cosine) | SIREN | FINER | Instant-NGP | TensoRF |
-| --- | --- | --- | --- | --- | --- | --- |
-| Learning rate | 3e-2 | 1e-1 | 1e-3 | 1e-3 | 3e-2 | 3e-2 |
+| Model | FUTON (cosine) | SIREN | FINER | Instant-NGP | TensoRF |
+| --- | --- | --- | --- | --- | --- |
+| Learning rate | 1e-1 | 1e-3 | 1e-3 | 3e-2 | 3e-2 |
 
-`configs/image.yaml` lists all fourteen models with their rates and, where a setting departs from the authors' code, a comment saying why. Use `inro.count_parameters(model, trainable_only=False)` when you change a size.
+`configs/image.yaml` lists all thirteen models with their rates and, where a setting departs from the authors' code, a comment saying why. Use `inro.count_parameters(model, trainable_only=False)` when you change a size.
 
 ## Training
 
@@ -106,11 +94,11 @@ result = inro.train(
     train_set,
     eval_set,
     num_steps=1000,
-    lr=3e-2,
+    lr=1e-1,
     metrics={"psnr": inro.psnr, "ssim": inro.ssim, "ms_ssim": inro.ms_ssim, "lpips": inro.lpips},
     log_interval=50,
     eval_interval=50,
-    log_dir="logs/tutorial/kodim19/FUTON-sinc",
+    log_dir="logs/tutorial/kodim19/FUTON-cosine",
 )
 ```
 
@@ -161,7 +149,7 @@ eval_set.save(image, "kodim19_futon.png")
 
 ```bash
 python scripts/train_image.py                                        # all images, all models
-python scripts/train_image.py --data data/Kodak/kodim19.png --models FUTON-sinc SIREN
+python scripts/train_image.py --data data/Kodak/kodim19.png --models FUTON-cosine SIREN
 python scripts/train_image.py --set train.num_steps=500 --log-dir logs/short
 ```
 

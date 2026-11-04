@@ -5,6 +5,7 @@ constants the protocol is pinned to must not drift.
 """
 
 import math
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,21 +14,30 @@ import yaml
 
 import inro
 
-DATA_ROOT = Path(__file__).resolve().parents[1] / "data/nerf/blender/lego"
+ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = ROOT / "data/nerf/blender/lego"
 
 GEOMETRY_FEATURES = 15
 COLOR_NET = ("mlp", {"hidden_features": 64, "hidden_layers": 2})
 MLP_CONFIG = {"hidden_features": 182, "hidden_layers": 3}
-CONFIG = Path(__file__).resolve().parents[1] / "configs/nerf.yaml"
+CONFIG = ROOT / "configs/nerf.yaml"
+
+sys.path.insert(0, str(ROOT / "scripts"))
+from train_common import build  # noqa: E402  # the configs' loader, as the scripts'
 
 # The density networks the benchmark runs, as its config gives them.
 DENSITY_NETS = {
-    name: (getattr(inro, model["class"]), model["kwargs"])
+    name: build(model)
     for name, model in yaml.safe_load(CONFIG.read_text())["models"].items()
 }
-# Other bases at FUTON's size, which take the sparse path along the rays.
-FUTON_CLASS, FUTON_KWARGS = DENSITY_NETS["FUTON-sinc"]
+# Other bases at FUTON's size: the sinc of the basis ablation, and local bases, which
+# take their taps along the rays.
+FUTON_CLASS, FUTON_KWARGS = DENSITY_NETS["FUTON-cosine"]
 DENSITY_NETS |= {
+    "FUTON-sinc": (
+        FUTON_CLASS,
+        {**FUTON_KWARGS, "basis": ("sinc", {"num_components": 100, "grid_size": 2048})},
+    ),
     "FUTON-lanczos": (
         FUTON_CLASS,
         {**FUTON_KWARGS, "basis": ("lanczos", {"num_components": 100, "radius": 3})},

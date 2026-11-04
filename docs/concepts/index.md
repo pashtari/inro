@@ -15,13 +15,13 @@ The library's design, from the abstraction every model shares to the conventions
 
     ---
 
-    The Fourier Tensor Network, stage by stage: bases, combiners, decoders, and how to size a model.
+    The Fourier Tensor Network, stage by stage: bases, combiners, heads, and how to size a model.
 
 -   :material-sigma:{ .lg .middle } **[Error bound of FUTON](error-bound.md)**
 
     ---
 
-    How close a FUTON with a linear decoder can come to a signal, exactly and in computable bounds, with the proof and an experiment.
+    How close a FUTON with a linear head can come to a signal, exactly and in computable bounds, with the proof and an experiment.
 
 -   :material-view-grid-outline:{ .lg .middle } **[The model zoo](models.md)**
 

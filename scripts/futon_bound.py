@@ -9,7 +9,7 @@ For every signal, spectral resolution ``K = (kappa N_1, ..., kappa N_C)`` and CP
 rank ``R``, the script:
 
 - bounds the best grid error of the paper's FUTON, a cosine basis, a CP combiner
-  and a linear decoder without bias (``inro.futon_bound``);
+  and a linear head without bias (``inro.futon_bound``);
 - evaluates the certified FUTON, built from the bound's factors without training,
   which attains the upper bound, and times its SVD form, the same terms before
   alternating least squares refines them;
@@ -60,7 +60,7 @@ TASKS = {
         "kappas": (0.125, 0.25, 0.5, 1.0, 2.0),
         "ranks": (32, 64, 128, 256, 512, 1024),
         "data": {"max_samples": 262144},  # as configs/occupancy.yaml
-        "lr": 3e-2,  # FUTON's rate in configs/occupancy.yaml
+        "lr": 3e-2,  # the benchmark's rate for the sinc basis on volumes
     },
 }
 # The paper's basis. Records carry it, so that settings of another basis are never
@@ -97,7 +97,7 @@ def benchmark_rank(task: str, sizes: list[int], channels: int) -> int:
 
 
 def futon(sizes: list[int], channels: int, kappa: float, rank: int) -> inro.FUTON:
-    """Build the paper's FUTON: cosine basis, CP combiner, linear decoder, no bias."""
+    """Build the paper's FUTON: cosine basis, CP combiner, linear head, no bias."""
     components = [max(2, int(kappa * size)) for size in sizes]
     basis = (BASIS, {"num_components": components, "grid_size": sizes})
     return inro.FUTON(len(sizes), channels, basis, ("cp", {"rank": rank}),
@@ -128,7 +128,7 @@ def train(model: inro.FUTON, data, device, lr: float, steps: int = STEPS,
     """Train in place with Adam as the benchmark does, and return the seconds taken."""
     torch.manual_seed(seed)
     model.encoding.combiner.reset_parameters()
-    model.decoder.reset_parameters()
+    model.head.reset_parameters()
     start = time.perf_counter()
     inro.train(model, data, num_steps=steps, lr=lr, log_interval=0,
                save_reconstruction=False, device=device, seed=seed)  # fmt: skip

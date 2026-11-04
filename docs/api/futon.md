@@ -4,6 +4,10 @@ The [FUTON concept page](../concepts/futon.md) derives the model; this page is t
 
 ::: inro.models.futon
 
+## Starts
+
+::: inro.models.futon_inits
+
 ## Solvers
 
 ::: inro.models.futon_solvers
