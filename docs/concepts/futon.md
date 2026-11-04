@@ -33,6 +33,13 @@ $$
 
 where $\boldsymbol{\varphi}(x_c) = [\varphi_1(x_c), \dots, \varphi_K(x_c)]$ and $\odot$ is the elementwise product. Nothing in the forward pass is $K^C$ any more: each axis is projected to $R$ channels, the channels are multiplied across axes, and the $R$ products are summed. With $D$ output channels the final sum becomes a linear map $\boldsymbol{V} \in \mathbb{R}^{D \times R}$; replacing it with a small MLP gives the model used in the experiments.
 
+The prior holds for natural signals. For kodim23 at $K = 32$ cosines per axis, $\mathcal{W} \in \mathbb{R}^{32 \times 32 \times 3}$ holds the image's 3,072 generalized Fourier coefficients, whose energy concentrates at low frequencies: the $8 \times 8$ lowest carry 78 % of it. A CP tensor of rank 4 keeps the dominant structure in 268 numbers, and the image it represents scores 17.2 dB, against 23.8 dB for all 3,072 coefficients, the most any FUTON with a linear head reaches at this $K$.
+
+<figure markdown="span">
+  ![kodim23 and its coefficient tensor at K = 32, in full and at rank 4, as RGB images](../assets/futon_coefficients.png){ width="760" }
+  <figcaption>kodim23 and its coefficient tensor in the cosine basis at K = 32 per axis, as an RGB image with one cell per frequency: in full, and at rank 4, the certified FUTON of the error bound, built from the image without training. A channel's coefficient w is shown as 0.5 + 0.5 tanh(w / s), gray at zero, with s the 90th percentile of the full tensor's magnitudes. Each PSNR is that of the image the tensor represents. scripts/futon_coefficients.py computes both.</figcaption>
+</figure>
+
 This is the pipeline `head(combiner(basis(x)))`:
 
 | Stage | Computes | Parameters | Keys |
