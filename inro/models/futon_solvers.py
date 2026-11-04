@@ -1,6 +1,6 @@
 """Block coordinate descent for FUTON: solvers in place of a gradient optimizer.
 
-A FUTON with a CP combiner and a linear decoder, both without bias, is multilinear, so
+A FUTON with a CP combiner and a linear head, both without bias, is multilinear, so
 fitting one block with the others held is a least-squares problem. :class:`BCD` sweeps
 the blocks once per batch and leaves each block's update to a subclass:
 :class:`LeastSquares` solves the block's problem, for any basis, and
@@ -8,7 +8,7 @@ the blocks once per batch and leaves each block's update to a subclass:
 model nonnegative. :func:`inro.train` takes both in place of Adam, on the same datasets.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from functools import reduce
 from typing import Any
 
@@ -16,27 +16,10 @@ import torch
 from torch import Tensor, nn
 from torch.optim import Optimizer
 
-from .futon import FUTON, CPCombiner
+from .futon import FUTON
+from .futon_inits import _cp, _cp_parts, _mttkrp, _ridged
 
 __all__ = ["BCD", "LeastSquares", "MultiplicativeUpdate"]
-
-MODES = "ijklmn"  # einsum letters of a grid's axes and, last, its channels
-
-
-def _cp(factors: Sequence[Tensor]) -> Tensor:
-    """Return the CP tensor ``(I_1, ..., I_M)`` of factor matrices ``(I_m, R)``."""
-    modes = MODES[: len(factors)]
-    return torch.einsum(",".join(m + "r" for m in modes) + "->" + modes, *factors)
-
-
-def _correlation(grid: Tensor, factors: Sequence[Tensor], mode: int) -> Tensor:
-    """Contract ``grid`` with every factor matrix but ``mode``'s: ``(I_mode, R)``."""
-    modes = MODES[: grid.dim()]
-    rest = [k for k in range(grid.dim()) if k != mode]
-    operands = ",".join([modes, *(modes[k] + "r" for k in rest)])
-    return torch.einsum(
-        f"{operands}->{modes[mode]}r", grid, *(factors[k] for k in rest)
-    )
 
 
 @torch.compiler.disable()  # sizes that depend on the data
@@ -45,24 +28,13 @@ def _distinct(x: Tensor) -> list[tuple[Tensor, Tensor]]:
     return [torch.unique(u, return_inverse=True) for u in x.unbind(-1)]
 
 
-def ridged(gram: Tensor, ridge: float) -> Tensor:
-    """Return a Gram matrix with a multiple of its mean diagonal added to its diagonal.
-
-    Args:
-        gram: Gram matrix.
-        ridge: Multiple of the mean diagonal.
-    """
-    eye = torch.eye(len(gram), dtype=gram.dtype, device=gram.device)
-    return gram + ridge * gram.diagonal().mean() * eye
-
-
 class BCD(Optimizer):
-    """Block coordinate descent over a FUTON's factor matrices and decoder.
+    """Block coordinate descent over a FUTON's factor matrices and head.
 
     On a grid the model is a CP tensor, so with the other blocks held each block has
     small normal equations, which a subclass's :meth:`solve` handles. :meth:`step`
-    updates the factors in order, then the decoder, and holds every axis's response at
-    unit mean square, the decoder's columns taking the scales.
+    updates the factors in order, then the head, and holds every axis's response at
+    unit mean square, the head's columns taking the scales.
 
     A batch is taken as points of the grid the basis declares, or else of the grid of
     its distinct coordinates. Only the residual comes from its points, so a sweep costs
@@ -72,7 +44,7 @@ class BCD(Optimizer):
     the batch's error.
 
     Args:
-        model: FUTON with a CP combiner and a linear decoder, both without bias, whose
+        model: FUTON with a CP combiner and a linear head, both without bias, whose
             basis evaluates one axis at a time through ``axis_features``, as the
             built-in ones do. Updated in place.
         momentum: Weight of the past batches in a block's statistics, in ``[0, 1)``, as
@@ -99,23 +71,15 @@ class BCD(Optimizer):
         initialize: bool = True,
         **defaults: Any,
     ) -> None:
-        if not (
-            isinstance(model, FUTON)
-            and isinstance(combiner := model.encoding.combiner, CPCombiner)
-            and isinstance(decoder := model.decoder, nn.Linear)
-            and decoder.bias is None
-        ):
-            raise ValueError(
-                "block coordinate descent fits a FUTON with a CP combiner and a"
-                " linear decoder without bias"
-            )
+        factors, output, _ = _cp_parts(model)
         if not 0 <= momentum < 1:
             raise ValueError("momentum must be in [0, 1)")
-        # The blocks, which the solver reads here rather than from param_groups,
-        # whose lr changes at every step and would make a compiled sweep recompile.
-        self._factors, self._weight = combiner.factors, decoder.weight
+        # The blocks, the factors then the output factor, which the solver reads here
+        # rather than from param_groups, whose lr changes at every step and would make
+        # a compiled sweep recompile.
+        self._blocks = [*factors, output]
         settings = {"lr": 1 - momentum, "initialize": initialize}
-        super().__init__([*self._factors, self._weight], settings | defaults)
+        super().__init__(self._blocks, settings | defaults)
         self.model = model
         self._sweep = self._sweep_eagerly
         if initialize:
@@ -127,17 +91,18 @@ class BCD(Optimizer):
 
         A subclass draws the entries. Each factor is then divided by the sum of its
         basis's magnitudes in the middle of the domain, so that each axis's response
-        there is at most about one, and the decoder by ``2 * R``, so that its components
+        there is at most about one, and the head by ``2 * R``, so that its components
         sum to about one half: the first sweep starts from an output of the signal's
         order.
         """
         basis: Any = self.model.encoding.basis  # any basis with axis_features
-        for c, factor in enumerate(self._factors):
+        *factors, weight = self._blocks
+        for c, factor in enumerate(factors):
             # Magnitudes, since a signed basis's values can cancel: the cosines' sum to
             # zero when K_c is 0 or 3 modulo 4.
             middle = basis.axis_features(factor.new_zeros(1), c)
             factor.copy_(self._draw(factor) / middle.abs().sum())
-        self._weight.copy_(self._draw(self._weight) / (2 * self._weight.shape[1]))
+        weight.copy_(self._draw(weight) / (2 * weight.shape[1]))
 
     def _draw(self, param: Tensor) -> Tensor:
         """Draw a parameter's entries anew, before scaling."""
@@ -160,11 +125,11 @@ class BCD(Optimizer):
 
         Args:
             value: Current block, ``(K_c, R)`` for a factor and ``(D, R)`` for the
-                decoder.
+                head.
             right: Right-hand side, of the block's shape.
             gram: Elementwise product of the other blocks' Gram matrices, ``(R, R)``.
             left: Gram matrix of the basis, in the form the subclass prepares it;
-                ``None`` is the identity, for the decoder.
+                ``None`` is the identity, for the head.
         """
         raise NotImplementedError
 
@@ -181,17 +146,16 @@ class BCD(Optimizer):
         """
         self._sweep = torch.compile(self._sweep_eagerly, **options)
         if batch is not None:
-            params = [*self._factors, self._weight]
-            saved = [p.detach().clone() for p in params]
+            saved = [block.detach().clone() for block in self._blocks]
             self.step(batch)
             with torch.no_grad():
-                for param, value in zip(params, saved):
-                    param.copy_(value)
+                for block, value in zip(self._blocks, saved):
+                    block.copy_(value)
             self.state.clear()
 
     @torch.no_grad()
     def step(self, batch: Mapping[str, Tensor]) -> Tensor:  # type: ignore[override]
-        """Run one sweep over the factor matrices and the decoder on a batch.
+        """Run one sweep over the factor matrices and the head on a batch.
 
         Args:
             batch: ``input``, coordinates ``(..., C)`` in ``[-1, 1]``, and ``target``,
@@ -218,12 +182,12 @@ class BCD(Optimizer):
         and is made once.
         """
         self._lr = x.new_zeros(())
-        square = (self._weight.shape[1],) * 2
-        for param in [*self._factors, self._weight]:  # a block's (right, gram)
-            statistics = (torch.zeros_like(param), x.new_zeros(square))
-            self.state[param] = {"total": x.new_zeros(()), "statistics": statistics}
+        square = (self._blocks[-1].shape[1],) * 2
+        for block in self._blocks:  # its averages of (right, gram)
+            statistics = (torch.zeros_like(block), x.new_zeros(square))
+            self.state[block] = {"total": x.new_zeros(()), "statistics": statistics}
         if getattr(self.model.encoding.basis, "grid_size", None) is not None:
-            for factor, table in zip(self._factors, self._grid(x)[0]):
+            for factor, table in zip(self._blocks[:-1], self._grid(x)[0]):
                 self.state[factor]["left"] = self._left(table)
 
     def _average(self, param: Tensor, *statistics: Tensor) -> tuple[Tensor, ...]:
@@ -245,17 +209,13 @@ class BCD(Optimizer):
         basis: Any = self.model.encoding.basis  # any basis with axis_features
         if getattr(basis, "grid_size", None) is not None:
             features = basis(x)
-            tables = [
-                f.table if isinstance(f.table, Tensor) else f.table.dense()
-                for f in features
-            ]
-            return tables, tuple(f.rows for f in features)
+            return [f.table for f in features], tuple(f.rows for f in features)
         distinct = _distinct(x)
         tables = [basis.axis_features(u, c) for c, (u, _) in enumerate(distinct)]
         return tables, tuple(rows for _, rows in distinct)
 
     def _targets(self, y: Tensor, output: Tensor) -> Tensor:
-        """Return what the decoder's output must fit for the model's to approach ``y``.
+        """Return what the head's output must fit for the model's to approach ``y``.
 
         Without an output activation, ``y`` itself. With one, the Gauss-Newton target
         from the current ``output``: the output plus the residual over the activation's
@@ -274,9 +234,9 @@ class BCD(Optimizer):
     def _sweep_eagerly(self, x: Tensor, y: Tensor) -> Tensor:
         count = len(x)
         tables, rows = self._grid(x)
-        factors, weight = self._factors, self._weight
+        *factors, weight = self._blocks
         # On the grid the output is a CP tensor, whose factors are the axes'
-        # responses and the decoder; the points pick their entries.
+        # responses and the head; the points pick their entries.
         modes = [table @ factor for table, factor in zip(tables, factors)] + [weight]
         grams = [m.T @ m / len(m) for m in modes[:-1]]
         output = _cp(modes)[rows]
@@ -294,13 +254,13 @@ class BCD(Optimizer):
             # What the model explains, from the Gram matrices, and what it misses, from
             # the batch: exact on a whole grid, unbiased on a random share.
             explained = modes[c] @ gram / len(table)
-            right = table.T @ (explained + _correlation(error, modes, c) / count)
+            right = table.T @ (explained + _mttkrp(error, modes, c) / count)
             right, gram = self._average(factor, right, gram)
             left = self.state[factor].get("left")  # made once on a declared grid
             if left is None:
                 left = self._left(table)
             value = self.solve(factor, right, gram, left)
-            # A component scaled in a factor and back in the decoder leaves
+            # A component scaled in a factor and back in the head leaves
             # the model as it was: unit mean square responses fix the scales.
             response = table @ value
             scale = response.square().mean(0).sqrt()
@@ -311,7 +271,7 @@ class BCD(Optimizer):
             grams[c] = modes[c].T @ modes[c] / len(table)
             error = missed(_cp(modes)[rows])
         gram = reduce(torch.mul, grams)
-        right = weight @ gram + _correlation(error, modes, len(tables)) / count
+        right = weight @ gram + _mttkrp(error, modes, len(tables)) / count
         right, gram = self._average(weight, right, gram)
         weight.copy_(self.solve(weight, right, gram))
         return loss
@@ -338,7 +298,7 @@ class LeastSquares(BCD):
         ...     out_features=3,
         ...     basis=("sinc", {"num_components": 16}),
         ...     combiner=("cp", {"rank": 8}),
-        ...     decoder=("linear", {"bias": False}),
+        ...     head=("linear", {"bias": False}),
         ... )
         >>> solver = LeastSquares(model, momentum=0)
         >>> axis = torch.linspace(-1, 1, 32)
@@ -361,7 +321,7 @@ class LeastSquares(BCD):
         return torch.randn_like(param)
 
     def _left(self, table: Tensor) -> Tensor:
-        gram = ridged(super()._left(table), self.defaults["ridge"])
+        gram = _ridged(super()._left(table), self.defaults["ridge"])
         return torch.cholesky_inverse(torch.linalg.cholesky_ex(gram).L)
 
     def solve(
@@ -371,7 +331,7 @@ class LeastSquares(BCD):
         if left is not None:
             right = left @ right
         # The Gram matrix is symmetric, so the right solve is a left one transposed.
-        factor = torch.linalg.cholesky_ex(ridged(gram, self.defaults["ridge"])).L
+        factor = torch.linalg.cholesky_ex(_ridged(gram, self.defaults["ridge"])).L
         return torch.cholesky_solve(right.T, factor).T
 
 
@@ -420,11 +380,11 @@ class MultiplicativeUpdate(BCD):
 
     def _check(self, x: Tensor, y: Tensor) -> None:
         tables, rows = self._grid(x)
-        params = [*self._factors, self._weight]
-        output = _cp([t @ a for t, a in zip(tables, params)] + params[-1:])[rows]
+        *factors, weight = self._blocks
+        output = _cp([t @ a for t, a in zip(tables, factors)] + [weight])[rows]
         # The targets of an affine activation are exact up to a few roundings,
         # which may leave a zero slightly negative.
-        lowest = [*tables, *params, self._targets(y, output) + 1e-5]
+        lowest = [*tables, *self._blocks, self._targets(y, output) + 1e-5]
         if torch.stack([t.amin() for t in lowest]).amin() < 0:
             raise ValueError(
                 "multiplicative updates need a nonnegative basis, nonnegative"

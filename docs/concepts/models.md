@@ -9,7 +9,7 @@ Thirteen architectures share one interface: `Model(in_features, out_features, ..
 
     ---
 
-    A fixed basis per axis, a low-rank combiner across axes, and a decoder.
+    A fixed basis per axis, a low-rank combiner across axes, and a head.
 
 -   :material-graph-outline:{ .lg .middle } **[Coordinate networks](#coordinate-networks)**
 
@@ -35,9 +35,9 @@ Thirteen architectures share one interface: `Model(in_features, out_features, ..
 
 | Model | Class | Idea | Reference |
 | --- | --- | --- | --- |
-| FUTON | `FUTON` | A fixed basis per axis, a low-rank CP combiner across axes, and a linear or MLP decoder | Ashtari et al., arXiv 2026 |
+| FUTON | `FUTON` | A fixed basis per axis, a low-rank CP combiner across axes, and a linear or MLP head | Ashtari et al., arXiv 2026 |
 
-The benchmarks run it with the sinc basis and the cosine basis, FUTON (sinc) and FUTON (cosine) in the results and `FUTON-sinc` and `FUTON-cosine` in the configs; the ablations add the Lanczos basis and three more. The [FUTON page](futon.md) explains every part.
+The benchmarks run it with the cosine basis, FUTON (cosine) in the results and `FUTON-cosine` in the configs; the basis ablation compares the sinc and Lanczos bases and three more with it. The [FUTON page](futon.md) explains every part.
 
 ## Coordinate networks
 

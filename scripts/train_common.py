@@ -66,16 +66,21 @@ def resolve(value: Any, **sizes: int) -> Any:
 
 
 def futon_rank(
-    components: Sequence[int], budget: int, hidden: int, outputs: int
+    components: Sequence[int], budget: int, hidden: int | None, outputs: int
 ) -> int:
     """Return the largest CP rank, a multiple of 5, that keeps FUTON within ``budget``.
 
     Rank ``R`` costs ``R * sum(components)`` factor entries and ``R * hidden`` in
-    a decoder of one hidden layer of width ``hidden``, whose bias and output
-    layer add ``hidden + hidden * outputs + outputs``.
+    a head of one hidden layer of width ``hidden``, whose bias and output layer
+    add ``hidden + hidden * outputs + outputs``. A linear head, for
+    ``hidden=None``, costs ``R * outputs`` and its bias ``outputs``.
     """
-    rank = (budget - hidden - hidden * outputs - outputs) // (sum(components) + hidden)
-    return rank // 5 * 5
+    per_rank, fixed = (
+        (outputs, outputs)
+        if hidden is None
+        else (hidden, hidden + hidden * outputs + outputs)
+    )
+    return (budget - fixed) // (sum(components) + per_rank) // 5 * 5
 
 
 def fill_rank(model: dict[str, Any], outputs: int) -> dict[str, Any]:
@@ -86,10 +91,9 @@ def fill_rank(model: dict[str, Any], outputs: int) -> dict[str, Any]:
     if settings.get("rank") != "budget":
         return model
     _, basis = model["kwargs"]["basis"]
-    _, decoder = model["kwargs"]["decoder"]
-    rank = futon_rank(
-        basis["num_components"], model["budget"], decoder["hidden_features"], outputs
-    )
+    head = model["kwargs"]["head"]  # "linear", or an MLP of one hidden layer
+    hidden = None if head == "linear" else head[1]["hidden_features"]
+    rank = futon_rank(basis["num_components"], model["budget"], hidden, outputs)
     kwargs = {**model["kwargs"], "combiner": [combiner, {**settings, "rank": rank}]}
     return {**model, "kwargs": kwargs}
 

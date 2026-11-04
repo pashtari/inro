@@ -52,13 +52,13 @@ def futon(
     activation=None,
     **options,
 ):
-    """Build the paper's model in double: CP and a linear decoder without bias."""
+    """Build the paper's model in double: CP and a linear head without bias."""
     return inro.FUTON(
         in_features,
         out_features,
         basis=(basis, {"num_components": num_components, **options}),
         combiner=("cp", {"rank": rank}),
-        decoder=("linear", {"bias": False}),
+        head=("linear", {"bias": False}),
         output_activation=activation,
     ).to(DOUBLE)
 
@@ -93,7 +93,7 @@ def separable(basis):
         for factor, k in zip(truth.encoding.combiner.factors, (3, 4)):
             factor.zero_()
             factor[k, 0] = 1
-        truth.decoder.weight.fill_(1)
+        truth.head.weight.fill_(1)
     x = grid((40, 50), 1)["input"]
     return truth, {"input": x, "target": truth(x).detach()}
 
@@ -104,13 +104,13 @@ class TestSolver:
     def test_fits_the_papers_model_only(self):
         basis = ("sinc", {"num_components": 8})
         linear = ("linear", {"bias": False})
-        for combiner, decoder in [
-            (("cp", {"rank": 2}), "linear"),  # a decoder with bias
+        for combiner, head in [
+            (("cp", {"rank": 2}), "linear"),  # a head with bias
             (("cp", {"rank": 2}), ("mlp", {"hidden_layers": 1})),
             (("tr", {"rank": 2}), linear),
         ]:
             with pytest.raises(ValueError):
-                LeastSquares(inro.FUTON(2, 1, basis, combiner, decoder))
+                LeastSquares(inro.FUTON(2, 1, basis, combiner, head))
         with pytest.raises(ValueError):
             MultiplicativeUpdate(futon(2, 1, 8, 2, "triangle", signed), momentum=1.0)
         with pytest.raises(ValueError):
@@ -236,7 +236,7 @@ class TestLeastSquares:
                         zip(fibers, model.encoding.combiner.factors)
                     )
                 ]
-                weight = model.decoder.weight
+                weight = model.head.weight
                 if (
                     len(solutions) < 2
                 ):  # a factor: the design is its features times the rest
@@ -248,7 +248,7 @@ class TestLeastSquares:
                         design = torch.einsum("jk,ir,dr->ijdkr", phi, other, weight)
                     design = design.reshape(-1, phi.shape[1] * 3)
                     target = y.reshape(-1)
-                else:  # the decoder: the design is the responses' product
+                else:  # the head: the design is the responses' product
                     design = torch.einsum("ir,jr->ijr", *features).reshape(-1, 3)
                     target = y
                 expected = torch.linalg.lstsq(design, target).solution
@@ -380,7 +380,7 @@ class TestMultiplicativeUpdate:
         solver = MultiplicativeUpdate(model, inner=1, momentum=0.0)
         blocks = [
             *model.encoding.combiner.factors,
-            model.decoder.weight,
+            model.head.weight,
         ]
         updates, solve = [], solver.solve
 
@@ -465,7 +465,7 @@ class TestTraining:
                 {"num_components": 6, "normalize": not nonnegative},
             ),
             combiner=("cp", {"rank": 3}),
-            decoder=("linear", {"bias": False}),
+            head=("linear", {"bias": False}),
             output_activation=signed if nonnegative else torch.tanh,
         )
         results = inro.train(

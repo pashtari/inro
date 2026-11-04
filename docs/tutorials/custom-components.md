@@ -6,8 +6,8 @@ The library is built from small interfaces. This page shows the contract of each
 | Component | Built or called as | Must provide |
 | --- | --- | --- |
 | [Basis](#a-basis) | `basis(in_features, **kwargs)` | `num_components`, and one `(N, K_c)` feature tensor per axis |
-| [Combiner](#a-combiner-or-decoder) | `combiner(basis.num_components, **kwargs)` | `out_features`, and `(N, out_features)` from the features |
-| [Decoder](#a-combiner-or-decoder) | `decoder(combiner.out_features, out_features, **kwargs)` | Any module |
+| [Combiner](#a-combiner-or-head) | `combiner(basis.num_components, **kwargs)` | `out_features`, and `(N, out_features)` from the features |
+| [Head](#a-combiner-or-head) | `head(combiner.out_features, out_features, **kwargs)` | Any module |
 | [Loss](#a-loss) | `loss_fn(batch, model)` | A scalar loss and a dictionary of metrics |
 | [Metric](#a-metric) | `fn(reconstruction, original)` | A float |
 | [Dataset](#a-dataset) | `dataset[i]` | Items with `id`, `input`, `target`, `_original`; `preprocess`, `postprocess`, `save` |
@@ -44,18 +44,18 @@ model = inro.FUTON(
     2, 3,
     basis=(GaussianBasis, {"num_components": 64}),
     combiner=("cp", {"rank": 32}),
-    decoder="linear",
+    head="linear",
 )
 ```
 
 A class and a `(class, kwargs)` pair work anywhere a registry key does, as does a ready module instance. To add a key instead, register the class in `inro.models.futon.BASES`.
 
-## A combiner or decoder
+## A combiner or head
 
-A combiner takes the tuple of per-axis features. A decoder is any module, so `torch.nn.Linear`, `inro.MLP`, or a class of your own:
+A combiner takes the tuple of per-axis features: tensors, `SharedRows` on a grid, or `Taps` for a local basis. A product with a matrix gives a tensor, or `SharedRows` again on a grid, whose `dense()` is the matrix. A head is any module, so `torch.nn.Linear`, `inro.MLP`, or a class of your own:
 
 ```python
-class GatedDecoder(nn.Module):
+class GatedHead(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
@@ -67,9 +67,9 @@ class GatedDecoder(nn.Module):
 
 model = inro.FUTON(
     2, 3,
-    basis=("sinc", {"num_components": 128}),
+    basis=("cosine", {"num_components": 128}),
     combiner=("cp", {"rank": 64}),
-    decoder=GatedDecoder,
+    head=GatedHead,
 )
 ```
 
@@ -145,6 +145,6 @@ Extra keyword arguments go to the hidden layers; the output layer stays linear. 
 `inro.build_module(spec, registry, *args, **kwargs)` is the resolver behind every spec: an instance is returned as is, a key is looked up in `registry`, a class is called, and a `(key_or_class, params)` pair adds keyword arguments. A two-element list works too, so specs can come from YAML or JSON. Use it for your own components:
 
 ```python
-DECODERS = {"linear": nn.Linear, "mlp": inro.MLP, "gated": GatedDecoder}
-decoder = inro.build_module(("gated", {}), DECODERS, 64, 3)
+HEADS = {"linear": nn.Linear, "mlp": inro.MLP, "gated": GatedHead}
+head = inro.build_module(("gated", {}), HEADS, 64, 3)
 ```

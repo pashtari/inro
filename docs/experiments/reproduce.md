@@ -29,10 +29,10 @@ The Kodak images come from Rich Franzen's mirror, the meshes from the Stanford 3
 `scripts/train_<task>.py` fits every model of `configs/<task>.yaml` to every signal of the task:
 
 ```bash
-python scripts/train_image.py --compile            # 24 images x 14 models -> logs/image/<image>/<model>/
-python scripts/train_occupancy.py --compile        # 5 shapes x 15 models  -> logs/occupancy/<shape>/<model>/
-python scripts/train_nerf.py --compile             # 8 scenes x 15 models  -> logs/nerf/<scene>/<model>/
-python scripts/train_super_resolution.py --compile # 100 images x 18 models -> logs/super_resolution/<image>/<model>/
+python scripts/train_image.py --compile            # 24 images x 13 models -> logs/image/<image>/<model>/
+python scripts/train_occupancy.py --compile        # 5 shapes x 14 models  -> logs/occupancy/<shape>/<model>/
+python scripts/train_nerf.py --compile             # 8 scenes x 14 models  -> logs/nerf/<scene>/<model>/
+python scripts/train_super_resolution.py --compile # 100 images x 17 models -> logs/super_resolution/<image>/<model>/
 ```
 
 The four scripts share one command line:
@@ -83,10 +83,10 @@ The FUTON ablations are configs in `configs/ablation-futon/`, run through the im
 | `bandwidth.yaml` | 5 | The relative bandwidth $\kappa = K / N$ over {1/8, 1/4, 1/2, 1, 2}, each at the largest rank, a multiple of 5, within the budget |
 | `rank.yaml` | 5 | The CP rank over {70, 140, 280, 560, 1120} at $\kappa = 1/2$, 49,539 to 788,739 parameters |
 | `tensor_net.yaml` | 3 | Tensor-ring and Tucker combiners against CP |
-| `decoder.yaml` | 4 | MLP decoders 64, 128 and 256 wide and the linear decoder, at equal size |
+| `head.yaml` | 4 | MLP heads 64, 128 and 256 wide and the linear head, at equal size |
 
 ```bash
-for study in basis bandwidth rank tensor_net decoder; do
+for study in basis bandwidth rank tensor_net head; do
   python scripts/train_image.py --config configs/ablation-futon/$study.yaml --compile
 done
 ```
@@ -97,10 +97,9 @@ done
 
     - The default model of the bandwidth and rank studies is the benchmark's FUTON (cosine).
     - The bandwidth study's $\kappa = 1/4$ and $\kappa = 1$ are the components-width search's `FUTON-cosine-N4-w64` and `FUTON-cosine-N1-w64`.
-    - The kodim01 and kodim17 runs of the two models whose rate the benchmark's rule moved to 3e-2, $\kappa = 1/8$ and rank 1120, are their rate checks'.
-    - The benchmark's FUTON runs on radiance fields are the search's runs of the chosen `FUTON-sinc-N2-w64` and `FUTON-cosine-N2-w64`.
+    - The benchmark's FUTON runs on radiance fields are the search's runs of the chosen `FUTON-cosine-N2-w64`.
 
-    That search, `components_width_<task>.yaml` for each task, chose FUTON's components per axis and decoder width on the task's tuning data, $K = N/L$ for $L$ in {4, 2, 1} (and 8 in super-resolution) against decoders 16 to 256 wide, for both bases.
+    That search, `components_width_<task>.yaml` for each task, chose FUTON's components per axis and head on the task's tuning data, $K = N/L$ for $L$ in {4, 2, 1} (and 8 in super-resolution) against MLP heads 16 to 256 wide and, on volumes, a linear one, for both bases.
 
 ## 4. Results
 

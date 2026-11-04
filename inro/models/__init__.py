@@ -13,7 +13,7 @@ from .futon import (
     CosineBasis,
     CPCombiner,
     FUTONEncoding,
-    HadamardCombiner,
+    GridFeatures,
     LanczosBasis,
     LegendreBasis,
     SharedRows,
@@ -24,6 +24,7 @@ from .futon import (
     TriangleBasis,
 )
 from .futon_bounds import FUTONBound, futon_bound
+from .futon_inits import ALSInit, SVDInit
 from .futon_solvers import BCD, LeastSquares, MultiplicativeUpdate
 from .gaplanes import GAPlanes
 from .gauss import Gauss, GaussLayer
@@ -65,18 +66,20 @@ __all__ = [
     "MultiVector",
     "SharedRows",
     "Taps",
+    "GridFeatures",
     "CosineBasis",
     "SincBasis",
     "LegendreBasis",
     "ChebyshevBasis",
     "TriangleBasis",
     "LanczosBasis",
-    "HadamardCombiner",
     "CPCombiner",
     "TRCombiner",
     "TuckerCombiner",
     "FUTONEncoding",
     "FUTON",
+    "SVDInit",
+    "ALSInit",
     "BCD",
     "LeastSquares",
     "MultiplicativeUpdate",

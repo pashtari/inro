@@ -157,7 +157,7 @@ class FINR(nn.Module):
             core = factors[0].view(count, channels, rank, rank)
             left = factors[1].view(count, channels, rank)
             right = factors[2].view(count, channels, rank)
-            out = torch.einsum("ncpq,ncp,ncq->nc", core, left, right)
+            out = torch.einsum("...pq,...p,...q->...", core, left, right)
         out = out.reshape(*x.shape[:-1], channels)
         if self.output_activation is not None:
             out = self.output_activation(out)

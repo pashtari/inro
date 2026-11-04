@@ -1,9 +1,9 @@
-# FUTON ablation on the image task: the decoder, for the cosine basis. The
-# benchmark's one-layer MLP decoder 64 wide at CP rank 280 (197,379
+# FUTON ablation on the image task: the head, for the cosine basis. The
+# benchmark's one-layer MLP head 64 wide at CP rank 280 (197,379
 # parameters) against MLPs 128 and 256 wide (-w128, -w256) and the paper's
-# linear decoder (-linear), each at the largest rank, a multiple of 5, that
+# linear head (-linear), each at the largest rank, a multiple of 5, that
 # keeps FUTON smaller than every baseline (F-INR, 198,806): 255, 220 and 305.
-#     python scripts/train_image.py --config configs/ablation-futon/decoder.yaml
+#     python scripts/train_image.py --config configs/ablation-futon/head.yaml
 # The data and training settings repeat configs/image.yaml.
 
 data:
@@ -21,7 +21,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 280}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 64}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 64}]
       output_activation: tanh
     train: {lr: 1.0e-1}
 
@@ -30,7 +30,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 255}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 128}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 128}]
       output_activation: tanh
     train: {lr: 1.0e-1}
 
@@ -39,7 +39,7 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 220}]
-      decoder: [mlp, {hidden_layers: 1, hidden_features: 256}]
+      head: [mlp, {hidden_layers: 1, hidden_features: 256}]
       output_activation: tanh
     train: {lr: 1.0e-1}
 
@@ -48,6 +48,6 @@ models:
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
       combiner: [cp, {rank: 305}]
-      decoder: linear
+      head: linear
       output_activation: tanh
     train: {lr: 1.0e-1}

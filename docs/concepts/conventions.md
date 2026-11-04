@@ -30,7 +30,7 @@ Coordinates live in $[-1, 1]$ on every axis, both endpoints included. `inro.crea
   <circle cx="294" cy="176" r="3.5" fill="#ee6a36"/><text x="286" y="168" font-size="12" text-anchor="end">(1, 1)</text>
 </svg>
 
-FUTON's bases, the hash and feature grids, and `GridINR` patches are defined on this domain, so do not pre-normalize to $[0, 1]$. Models accept any leading shape; FUTON's sparse bases need a flat `(N, C)` batch, which `FUTON.forward` produces internally.
+FUTON's bases, the hash and feature grids, and `GridINR` patches are defined on this domain, so do not pre-normalize to $[0, 1]$. Models accept any leading shape; the taps of FUTON's local bases need a flat `(N, C)` batch, which `FUTON.forward` produces internally.
 
 ## Values
 

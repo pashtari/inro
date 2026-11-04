@@ -11,7 +11,7 @@ Examples:
     ...     out_features=3,
     ...     basis=("cosine", {"num_components": 64}),
     ...     combiner=("cp", {"rank": 32}),
-    ...     decoder="linear",
+    ...     head="linear",
     ... )
     >>> model(inro.create_coordinates((16, 16))).shape
     torch.Size([16, 16, 3])

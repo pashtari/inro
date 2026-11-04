@@ -15,13 +15,13 @@ Every model of a task has the same parameter budget, and times are median traini
 <div class="inro-tiles">
   <div class="inro-tile">
     <p class="inro-tile__task">Images, Kodak</p>
-    <p class="inro-tile__gain">+1.42 dB</p>
-    <p class="inro-tile__note">38.14 dB against MFN's 36.72, in 5.4 s against 57.3 s.</p>
+    <p class="inro-tile__gain">+0.90 dB</p>
+    <p class="inro-tile__note">37.63 dB against MFN's 36.72, in 4.1 s against 57.3 s.</p>
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Occupancy, Stanford</p>
-    <p class="inro-tile__gain">+0.04 %</p>
-    <p class="inro-tile__note">99.95 % IoU against RFF's 99.91 %, in 7.6 s against 11.7 s.</p>
+    <p class="inro-tile__gain">+0.06 %</p>
+    <p class="inro-tile__note">99.97 % IoU against RFF's 99.91 %, in 1.7 s against 11.7 s.</p>
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Radiance fields, Blender</p>
@@ -55,13 +55,13 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
 
     ---
 
-    At matched parameter counts FUTON leads every baseline on the average of each benchmark: Kodak images, Stanford occupancy volumes, Blender radiance fields and DIV2K super-resolution.
+    At matched parameter counts FUTON leads every baseline on the average of Kodak images, Stanford occupancy volumes and Blender radiance fields, and on 77 of the 100 DIV2K images in super-resolution, where it ties Instant-NGP on the average.
 
 -   :material-eye-outline:{ .lg .middle } **Transparent**
 
     ---
 
-    With a linear decoder FUTON *is* a rank-$R$ CP model of the signal in the chosen basis, so bandwidth ($K$) and capacity ($R$) are explicit knobs, with a [computable error bound](concepts/error-bound.md).
+    With a linear head FUTON *is* a rank-$R$ CP model of the signal in the chosen basis, so bandwidth ($K$) and capacity ($R$) are explicit knobs, with a [computable error bound](concepts/error-bound.md).
 
 </div>
 
@@ -80,7 +80,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
   <figcaption>Drag across a crop of kodim19. Both models hold about 197k parameters, and each score is over the whole image.</figcaption>
 </figure>
 <figure class="inro-showcase">
-  <img src="assets/orbit_lego.gif" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (sinc)" class="skip-lightbox">
+  <img src="assets/orbit_lego.gif" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON (cosine)" class="skip-lightbox">
   <figcaption>The lego scene in orbit, at about 75k parameters per model, with the test-view PSNR.</figcaption>
 </figure>
 </div>
@@ -175,18 +175,19 @@ H, W, _ = dataset.target.shape
 model = inro.FUTON(  # (2)!
     in_features=2,
     out_features=3,
-    basis=("sinc", {"num_components": [H // 2, W // 2]}),
+    basis=("cosine", {"num_components": [H // 2, W // 2]}),
     combiner=("cp", {"rank": 280}),
-    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+    head=("mlp", {"hidden_layers": 1, "hidden_features": 64}),  # (3)!
     output_activation=torch.tanh,
 )
 
-result = inro.train(model, dataset, dataset, num_steps=1000, lr=3e-2, metrics={"psnr": inro.psnr})
-print(result["history"][-1]["eval"])  # {"psnr": 37.3}
+result = inro.train(model, dataset, dataset, num_steps=1000, lr=1e-1, metrics={"psnr": inro.psnr})
+print(result["history"][-1]["eval"])  # {"psnr": 37.8}
 ```
 
 1.  Any RGB image: a path, a tensor or a PIL image. Each access returns every pixel's coordinates and color.
 2.  Swap in any other model of the zoo, such as `inro.SIREN(2, 3, hidden_features=256, hidden_layers=4, output_activation=torch.tanh)`. The training call stays the same.
+3.  An MLP with one hidden layer 64 wide, whose first layer reads a whole image off the combiner's grid in one contraction.
 
 ## Explore
 

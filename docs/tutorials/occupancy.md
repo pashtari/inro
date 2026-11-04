@@ -35,21 +35,21 @@ At 256 samples per unit length a cropped volume holds 2 to 8 million voxels; `ma
 
 ## Model
 
-The benchmark FUTON uses half the voxels along each axis of the cropped grid, a one-layer MLP decoder 64 wide, and the largest CP rank, a multiple of 5, that keeps it smaller than every baseline, the smallest of which has 131,457 parameters. Rank $R$ costs $R$ times the components plus the width, and the decoder adds $2 \cdot 64 + 1$, so Lucy's $135 \times 78 \times 231$ grid gets 460, for 131,229 parameters:
+The benchmark FUTON uses half the voxels along each axis of the cropped grid, a linear head, and the largest CP rank, a multiple of 5, that keeps it smaller than every baseline, the smallest of which has 131,457 parameters. Rank $R$ costs $R$ times the components plus one, and the head's bias adds 1, so Lucy's $135 \times 78 \times 231$ grid gets 590, for 130,981 parameters:
 
 ```python
 components = [size // 2 for size in eval_set.grid_size]
-rank = (131_456 - 129) // (sum(components) + 64) // 5 * 5
+rank = (131_456 - 1) // (sum(components) + 1) // 5 * 5
 model = inro.FUTON(
     3, 1,
-    basis=("sinc", {"num_components": components, "grid_size": eval_set.grid_size}),
+    basis=("cosine", {"num_components": components, "grid_size": eval_set.grid_size}),
     combiner=("cp", {"rank": rank}),
-    decoder=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
+    head="linear",
     output_activation=torch.tanh,
 )
 ```
 
-The cosine variant replaces the basis with `("cosine", {"num_components": components, "grid_size": eval_set.grid_size})`. On the voxel grid, which `grid_size` declares and which the crop sizes differently for every shape, either basis is evaluated once, when it is built, and each point reads its rows.
+On the voxel grid, which `grid_size` declares and which the crop sizes differently for every shape, the basis is evaluated once, when it is built, and each point reads its rows. The linear head reads a batch of $2^{18}$ voxels off the whole grid in one contraction.
 
 ## Training and evaluation
 
@@ -59,13 +59,13 @@ result = inro.train(
     train_set,
     eval_set,
     num_steps=1000,
-    lr=3e-2,
+    lr=1e-2,
     metrics={"iou": inro.iou},
     chunk_size=262144,  # (1)!
     log_interval=50,
     eval_interval=50,
     save_reconstruction=False,
-    log_dir="logs/tutorial/lucy/FUTON-sinc",
+    log_dir="logs/tutorial/lucy/FUTON-cosine",
 )
 print(result["history"][-1]["eval"]["iou"])  # (2)!
 ```

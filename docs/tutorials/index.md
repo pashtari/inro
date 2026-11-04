@@ -41,7 +41,7 @@ Each tutorial is a complete, runnable workflow for one task, at the benchmarks' 
 
     ---
 
-    Your own basis, combiner, decoder, loss, metric and dataset.
+    Your own basis, combiner, head, loss, metric and dataset.
 
     *Needs nothing.*
 
