@@ -21,7 +21,7 @@ The library's design, from the abstraction every model shares to the conventions
 
     ---
 
-    How close a FUTON with a linear head can come to a signal, exactly and in computable bounds, with the proof and an experiment.
+    How close a FUTON with a linear head can come to a signal, and where training lands, from the signal's samples alone, with the proof and an experiment.
 
 -   :material-view-grid-outline:{ .lg .middle } **[The model zoo](models.md)**
 

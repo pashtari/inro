@@ -9,16 +9,15 @@ For every signal, spectral resolution ``K = (kappa N_1, ..., kappa N_C)`` and CP
 rank ``R``, the script:
 
 - bounds the best grid error of the paper's FUTON, a cosine basis, a CP combiner
-  and a linear head without bias (``inro.futon_bound``);
-- evaluates the certified FUTON, built from the bound's factors without training,
-  which attains the upper bound, and times its SVD form, the same terms before
-  alternating least squares refines them;
+  and a linear head without bias (``inro.futon_bound``), the upper bound being
+  the error of the certified FUTON, built from the nested SVDs without training,
+  and times it;
 - trains the same FUTON with Adam from a random start, as the benchmark trains
   every model.
 
-A check on every signal, at ``K = N/2`` and the benchmark's rank, shows whether
-training rather than the bound is the limit: Adam for the benchmark's steps and
-for longer, and alternating least squares on the whole grid. Errors are mean
+A check on every signal, at ``K = N/2`` and the benchmark's rank, measures how close
+training comes to the ceiling: Adam for the benchmark's steps and for longer, and
+alternating least squares on the whole grid. Errors are mean
 squared errors on the whole grid, and PSNR is taken for signals in ``[-1, 1]``.
 The theorem behind the bound is in docs/concepts/error-bound.md.
 
@@ -144,7 +143,7 @@ def warm_up(task: str, device: torch.device) -> None:
     full = dataset(task, name)
     sizes, channels = list(full.target.shape[:-1]), full.target.shape[-1]
     features = features_of(futon(sizes, channels, 0.125, 1), sizes, device)
-    inro.futon_bound(full.target.to(device), features, [8], sweeps=5)
+    inro.futon_bound(full.target.to(device), features, [8])
     train_data = dataset(task, name, **TASKS[task]["data"])
     train(
         futon(sizes, channels, 0.125, 8),
@@ -161,7 +160,7 @@ def of_basis(rows: list[dict]) -> list[dict]:
 
 
 def run(task: str, name: str, device: torch.device) -> None:
-    """Bound, certify and train every setting of one signal not yet recorded.
+    """Bound and train every setting of one signal not yet recorded.
 
     A ``K`` is bounded at all its ranks in one call, whose time the cost reports,
     so a ``K`` with a rank yet to bound is bounded again at every rank; a setting
@@ -188,15 +187,7 @@ def run(task: str, name: str, device: torch.device) -> None:
         start = time.perf_counter()
         bound = inro.futon_bound(target, features, settings["ranks"])
         seconds = time.perf_counter() - start
-        start = time.perf_counter()  # the SVD form, before any refinement
-        closed = inro.futon_bound(target, features, settings["ranks"], sweeps=0)
-        closed_seconds = time.perf_counter() - start
-        for i, (rank, lower, upper) in enumerate(
-            zip(bound.ranks, bound.lower, bound.upper)
-        ):
-            certified = futon(sizes, channels, kappa, rank)
-            bound.initialize(certified)
-            certified_mse, certified_iou = evaluate(certified, full, device)
+        for rank, lower, upper in zip(bound.ranks, bound.lower, bound.upper):
             config = configs.get((kappa, rank))
             if config is None:  # no Adam run yet
                 model = futon(sizes, channels, kappa, rank)
@@ -221,10 +212,6 @@ def run(task: str, name: str, device: torch.device) -> None:
                     "lower": float(lower),
                     "upper": float(upper),
                     "bound_seconds": seconds,
-                    "certified": certified_mse,
-                    "certified_iou": certified_iou,
-                    "closed": float(closed.upper[i]),  # the SVD form's error
-                    "closed_seconds": closed_seconds,
                 }
             )
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -235,7 +222,7 @@ def run(task: str, name: str, device: torch.device) -> None:
 
 
 def checks(task: str, device: torch.device) -> None:
-    """Check on every signal whether training, rather than the bound, is the limit.
+    """Check on every signal how close training comes to the bound's ceiling.
 
     At ``K = N/2`` and the benchmark's rank: Adam for the benchmark's steps and for
     ``LONGER`` times them, and alternating least squares on the whole grid from a

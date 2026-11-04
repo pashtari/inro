@@ -1,6 +1,6 @@
 # Error bound of FUTON
 
-How well can a FUTON of a given size fit a signal, before it is trained? For FUTON with a linear head the question has an exact answer, computed from the signal's samples before any training, and the answer comes with a model: a FUTON that fits the signal at least as well as promised, built without training.
+How well can a FUTON of a given size fit a signal, before it is trained? For FUTON with a linear head, the signal's samples answer it in seconds: the exact limit that the basis sets at any rank, a ceiling that no FUTON of that size passes, and a FUTON, built without training, that provably reaches a computed PSNR.
 { .inro-lead }
 
 ## In short
@@ -29,7 +29,7 @@ The truncation is computed exactly. The best CP misfit is bracketed: from below 
   ![The three PSNRs on one axis](../assets/bound_interval.svg){ width="640" }
 </figure>
 
-The best FUTON of that size lies between the certified PSNR and the ceiling. On the benchmark's Kodak images and occupancy volumes, no trained FUTON passes its ceiling beyond float32 rounding, in any of 522 settings, and the certified FUTON is never more than 0.04 dB behind Adam's. `inro.futon_bound` computes all three numbers and the certified FUTON from a sampled signal.
+The best FUTON of that size lies between the certified PSNR and the ceiling, and so, in practice, does training: on the benchmark's 24 Kodak images and five occupancy volumes, in all 522 settings, Adam's FUTON ends between the certified FUTON, to within 0.02 dB, and the ceiling. On the images that bracket is a median 0.05 dB wide, so it says what training will reach before training starts, in a fraction of a second. `inro.futon_bound` computes all three numbers and the certified FUTON from a sampled signal.
 
 ## Setting
 
@@ -113,13 +113,13 @@ For an orthonormal basis, $\boldsymbol{B}_c = \boldsymbol{I}$ and $\boldsymbol{\
 
 - the *truncation*, with $e = \lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2$, which no FUTON of resolution $K$ exceeds, at any rank;
 - the *ceiling*, with $e = \lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + L_R^2$, which no FUTON of resolution $K$ and rank $R$ exceeds. It is a value, not a model, and a FUTON reaches it only in the case of item (4);
-- the *certified PSNR*, with $e = \lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + U_R^2$, the exact PSNR of the *certified FUTON* $\hat{\boldsymbol{\theta}}$ of item (3), built from the samples without training. It comes in two forms, named for how they are computed: the *SVD form* takes the $R$ heaviest terms of the nested-SVD expansion (`sweeps=0`), and the *ALS form*, the default, refines them by alternating least squares (Algorithm), which never lowers the PSNR.
+- the *certified PSNR*, with $e = \lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + U_R^2$, the exact PSNR of the *certified FUTON* $\hat{\boldsymbol{\theta}}$ of item (3), the $R$ heaviest terms of the nested-SVD expansion, built from the samples without training.
 
 The best PSNR a FUTON of resolution $K$ and rank $R$ can reach lies between the certified PSNR and the ceiling.
 
 !!! theorem "Corollary (design)"
 
-    A target PSNR $\tau$ is out of reach at $(K, R)$ if the ceiling is below $\tau$, and the certified FUTON reaches it if the certified PSNR is at least $\tau$. The smallest $(K, R)$ of the second kind is therefore a design for $\tau$ that comes with its model, and no $(K, R)$ of the first kind can be one.
+    A target PSNR $\tau$ is out of reach at $(K, R)$ if the ceiling is below $\tau$, and the certified FUTON reaches it if the certified PSNR is at least $\tau$. Among candidate settings ordered by size, the smallest that can reach $\tau$ therefore lies between the smallest whose ceiling reaches $\tau$ and the smallest whose certified PSNR does, and the latter is a design for $\tau$ that comes with its model.
 
 ## Consequences
 
@@ -183,10 +183,6 @@ Three lemmas give the theorem; open each block to read it.
 
     $\mathbb{V}_K$ is the span of products of one function per axis from the axis spans, so its projection factorizes over the axes, $P_K = P_{K_1} \otimes \cdots \otimes P_{K_C}$, and $P_K$ of a separable term is the separable term of the projected factors. Hence $P_K \sum_r g^{(1)}_r \cdots g^{(C)}_r \boldsymbol{v}_r = \boldsymbol{\Psi} \bullet \boldsymbol{\mathcal{Y}}$ with $\boldsymbol{\mathcal{Y}}$ a sum of $R$ rank-1 tensors, and by item (1) the FUTON with that $\boldsymbol{\mathcal{Y}}$ has squared error $\lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + \lVert \boldsymbol{\mathcal{Z}} - \boldsymbol{\mathcal{Y}} \rVert_F^2$, where $\lVert \boldsymbol{\mathcal{Z}} - \boldsymbol{\mathcal{Y}} \rVert_F = \lVert P_K (\boldsymbol{s} - \sum_r g^{(1)}_r \cdots g^{(C)}_r \boldsymbol{v}_r) \rVert \le \delta$, a projection being nonexpansive. $\square$
 
-??? note "Remark (refinement)"
-
-    Item (3) holds for any tensor of rank at most $R$, so the SVD form can be improved by any search whose result is taken exactly: the ALS form refines it by alternating least squares, whose every sweep solves each factor's least-squares problem exactly and so never increases $\lVert \boldsymbol{\mathcal{Z}} - \boldsymbol{\mathcal{Y}} \rVert_F$. Every iterate is a valid, tighter $U_R$ and, by (2), again a FUTON. A smaller rank's factors, padded with zero components, are factors of every larger rank, so $U_R$ is also taken nonincreasing in $R$.
-
 ??? note "Remark (color channels)"
 
     For RGB images, $C = 2$ and $D = 3$, so $\boldsymbol{\mathcal{Z}}$ is of order three and item (4) does not apply. The head $\boldsymbol{V}$ is the factor of the color mode. Expanding that mode first in Lemma 3 is a principal component analysis of the colors, followed by one SVD per color component and a common rank budget across them.
@@ -201,27 +197,10 @@ On the sampling grid, axis $c$'s basis is the matrix $\boldsymbol{\Phi}_c \in \m
 | 2 | $\boldsymbol{\mathcal{Z}} = \boldsymbol{\mathcal{S}} \times_1 \boldsymbol{Q}_1^\top \cdots \times_C \boldsymbol{Q}_C^\top / \sqrt{N}$ | $O(N D \sum_c K_c)$ |
 | 3 | $\lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 = \lVert \boldsymbol{\mathcal{S}} \rVert_F^2 / N - \lVert \boldsymbol{\mathcal{Z}} \rVert_F^2$, exact | $O(N D)$ |
 | 4 | $L_R^2$: singular values of every flattening of $\boldsymbol{\mathcal{Z}}$, tails beyond each $R$ | one eigendecomposition per split |
-| 5 | Lemma 3 for every mode order, keeping the order with the most weight in its $R$ heaviest terms: the SVD form | nested SVDs of $\boldsymbol{\mathcal{Z}}$ |
-| 6 | Refine those terms by alternating least squares (below): the ALS form; $U_R^2 = \lVert \boldsymbol{\mathcal{Z}} - \boldsymbol{\mathcal{Y}} \rVert_F^2$ in float64 | $O(T R D \prod_c K'_c)$ for $T$ sweeps |
-| 7 | $\hat{\boldsymbol{U}}^{(c)} = \boldsymbol{P}_c \boldsymbol{\Sigma}_c^{-1} \tilde{\boldsymbol{U}}^{(c)}$, $\hat{\boldsymbol{V}} = \tilde{\boldsymbol{V}}$ | $O(R \sum_c K_c K'_c)$ |
+| 5 | Lemma 3 for every mode order, keeping the order with the most weight in its $R$ heaviest terms; $U_R^2 = \lVert \boldsymbol{\mathcal{Z}} - \boldsymbol{\mathcal{Y}} \rVert_F^2$ for their sum $\boldsymbol{\mathcal{Y}}$, in float64 | nested SVDs of $\boldsymbol{\mathcal{Z}}$ |
+| 6 | $\hat{\boldsymbol{U}}^{(c)} = \boldsymbol{P}_c \boldsymbol{\Sigma}_c^{-1} \tilde{\boldsymbol{U}}^{(c)}$, $\hat{\boldsymbol{V}} = \tilde{\boldsymbol{V}}$ | $O(R \sum_c K_c K'_c)$ |
 
-### Alternating least squares
-
-Step 6 starts from the SVD form and minimizes the CP misfit $\lVert \boldsymbol{\mathcal{Z}} - [\![ \boldsymbol{A}_1, \dots, \boldsymbol{A}_{C+1} ]\!] \rVert_F^2$ over the factors $\boldsymbol{A}_m \in \mathbb{R}^{K'_m \times R}$ of the coefficient tensor's $C + 1$ modes: $\boldsymbol{A}_c = \tilde{\boldsymbol{U}}^{(c)}$ for the axes and $\boldsymbol{A}_{C+1} = \tilde{\boldsymbol{V}}$, with $K'_{C+1} = D$, for the channels. A sweep visits the modes in turn and replaces each factor by the exact least-squares solution with the others held fixed,
-
-$$
-\boldsymbol{A}_m \leftarrow \boldsymbol{\mathcal{Z}}_{(m)} \boldsymbol{K}_m \Big( \bigodot_{k \ne m} \boldsymbol{A}_k^\top \boldsymbol{A}_k \Big)^{-1},
-$$
-
-where $\boldsymbol{\mathcal{Z}}_{(m)}$ is the mode-$m$ matricization, $\boldsymbol{K}_m$ the Khatri–Rao product of the other factors in the matching order, and $\odot$ the elementwise product of their $R \times R$ Gram matrices; the system is solved with a ridge of $10^{-12}$ of its mean diagonal.
-
-- **Monotone.** Each update is an exact block minimization, so a sweep never raises the misfit.
-- **Accelerated.** After a sweep, each component's scale is spread evenly over the modes, which leaves the tensor unchanged, and the sweep's step is continued past the new factors by $k^{1/3}$ times its length at sweep $k$, kept if that lowers the misfit (Bro, 1998).
-- **Stopping.** The sweeps stop once one lowers the bound, truncation plus misfit, by less than $\mathrm{tol} = 3 \cdot 10^{-5}$ of it, or after 500.
-- **Cost.** They work on the coefficient tensor, not on the samples, so a sweep costs $O(R D \prod_c K'_c)$ whatever the number of samples; they run in float32 on the signal's device, and $U_R$ is the misfit of the final factors in float64, valid whatever the search found.
-- **Per rank.** Each rank is refined on its own, and `sweeps=0` skips the step and returns the SVD form.
-
-Dividing by $D$ turns the outputs into mean squared errors: every FUTON has an error of at least $(\lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + L_R^2)/D$, and the certified FUTON $\hat{\boldsymbol{\theta}}$ has exactly $(\lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + U_R^2)/D$. Everything a bound rests on, steps 1 to 5 and the misfit of step 6, is computed in float64. Step 2 is the only pass over the signal, and it is separable, one matrix product per axis. The rest works on the coefficient tensor, whose size is set by $K$, not by the signal, which is what makes the bound cheap next to training up to $K = N/2$ ([cost](#cost)): Adam's every step passes over a batch of the signal, through the whole model, for a thousand steps.
+Dividing by $D$ turns the outputs into mean squared errors: every FUTON has an error of at least $(\lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + L_R^2)/D$, and the certified FUTON $\hat{\boldsymbol{\theta}}$ has exactly $(\lVert \boldsymbol{s} - \hat{\boldsymbol{s}}_K \rVert^2 + U_R^2)/D$. Everything a bound rests on, steps 1 to 5, is computed in float64. Step 2 is the only pass over the signal, and it is separable, one matrix product per axis. The rest works on the coefficient tensor, whose size is set by $K$, not by the signal, which is what makes the bound cheap next to training ([cost](#cost)): Adam's every step passes over a batch of the signal, through the whole model, for a thousand steps.
 
 ```python
 import torch
@@ -240,23 +219,23 @@ bound.initialize(model)                      # the certified FUTON, error bound.
 
 ## Experiment
 
-The experiment asks three things of the bound: that it holds, that it is tight enough to stand in for training, and that it costs little enough to be worth computing first. Every number below is a dataset's: a mean, a count or a quantile over its signals.
+The experiment asks what the bound tells before any training: whether its guarantees hold, where it places what training reaches, how it sizes a FUTON for a target PSNR, and what it costs. Every number below is a dataset's: a mean, a count or a quantile over its signals.
 
 <div class="inro-tiles inro-tiles--wide">
   <div class="inro-tile">
-    <p class="inro-tile__task">The bounds hold</p>
+    <p class="inro-tile__task">The bracket holds</p>
     <p class="inro-tile__gain">522 of 522</p>
-    <p class="inro-tile__note">settings keep every trained FUTON at or under its ceiling, up to float32 rounding.</p>
+    <p class="inro-tile__note">settings put Adam's FUTON between the certified FUTON, to within 0.02 dB, and the ceiling.</p>
   </div>
   <div class="inro-tile">
-    <p class="inro-tile__task">Tight enough</p>
-    <p class="inro-tile__gain">0.04 dB</p>
-    <p class="inro-tile__note">at most, the certified FUTON's lag behind Adam's, without any training.</p>
+    <p class="inro-tile__task">Training, located</p>
+    <p class="inro-tile__gain">0.05 dB</p>
+    <p class="inro-tile__note">median width of that bracket on the images, known before training starts.</p>
   </div>
   <div class="inro-tile">
-    <p class="inro-tile__task">Cheap enough</p>
-    <p class="inro-tile__gain">3.5 to 9×</p>
-    <p class="inro-tile__note">less time than training, to design a FUTON for a target PSNR.</p>
+    <p class="inro-tile__task">Cheap</p>
+    <p class="inro-tile__gain">60 to 120×</p>
+    <p class="inro-tile__note">less time than training, to size a FUTON for a target PSNR, with a model that reaches it.</p>
   </div>
 </div>
 
@@ -265,93 +244,89 @@ The experiment asks three things of the bound: that it holds, that it is tight e
 | | |
 | --- | --- |
 | **Signals** | The 24 Kodak images ($C = 2$, $D = 3$, $768 \times 512$ or $512 \times 768$ pixels in $[-1, 1]$) and the five Stanford occupancy volumes of the benchmark ($C = 3$, $D = 1$, occupancy $\pm 1$ on grids of 78 to 231 voxels per side) |
-| **Settings** | The paper's cosine basis at $K_c = \kappa N_c$ for the relative bandwidths $\kappa \in \{1/8, 1/4, 1/2\}$, with $R \in \{32, 64, 128, 256, 512, 1024\}$ on every signal, around the ranks of the benchmark's FUTON (cosine), 280 on every image and 435 to 620 on the volumes: 522 settings, and for the cost alone also at $K = N$ and $K = 2N$ |
-| **Bound** | `inro.futon_bound` gives the truncation, the ceiling and the certified FUTON $\hat{\boldsymbol{\theta}}$ in its ALS form, and times its SVD form |
-| **Training** | The same FUTON with Adam under the benchmark's protocol: 1000 steps, each on the whole image for images and on $2^{18}$ random voxels for volumes, at $10^{-1}$ on images, the benchmark's learning rate for FUTON (cosine), and $3 \cdot 10^{-2}$ on volumes, the sinc basis's rate there, annealed to a hundredth, one seed |
+| **Settings** | The paper's cosine basis at $K_c = \kappa N_c$ for the relative bandwidths $\kappa \in \{1/8, 1/4, 1/2\}$, with $R \in \{32, 64, 128, 256, 512, 1024\}$ on every signal, around the ranks of the benchmark's FUTON, 280 on every image and 435 to 620 on the volumes: 522 settings, and for the cost alone also at $K = N$ and $K = 2N$ |
+| **Bound** | `inro.futon_bound` gives the truncation, the ceiling and the certified FUTON $\hat{\boldsymbol{\theta}}$ for all six ranks of a $K$ in one call, which is timed |
+| **Training** | The same FUTON with Adam under the benchmark's protocol: 1000 steps, each on the whole image for images and on $2^{18}$ random voxels for volumes, at $10^{-1}$ on images, the benchmark's learning rate for FUTON, and $3 \cdot 10^{-2}$ on volumes, the sinc basis's rate there, annealed to a hundredth, one seed |
 | **Scores** | Mean squared errors on the whole grid; PSNR is $10 \log_{10}(4 / \mathrm{MSE})$ for signals in $[-1, 1]$ |
 | **Hardware** | NVIDIA A100s, each dataset's study in one job, so that its bounds and Adam runs are timed alike |
 | **Reproduce** | `python scripts/futon_bound.py` writes the records to `logs/bound/` |
 
-### The bounds hold
+### The bracket holds
 
-No trained FUTON passes its ceiling in any of the 522 settings. In 15 of them, all on Kodak at full rank, $R \ge 512$ at $N/8$ and $R = 1024$ at $N/4$, where the ceiling is the truncation itself and the full-rank FUTON reaches it, Adam's error lies below it by a relative $2.3 \cdot 10^{-8}$ at most, the float32 rounding of its forward pass. Every certified FUTON, evaluated by its own forward pass in float32, has the error of its upper bound to within a relative $1.5 \cdot 10^{-7}$, and to within $4.3 \cdot 10^{-6}$ at $K = N$ and $2N$, where its float32 sums run over up to 1536 components. The tests check the same identities in float64 to $10^{-9}$, as well as the Eckart–Young case, the invariance within a span and a DCT cross-check.
+The ceiling is a theorem, and no trained FUTON passes it in any of the 522 settings. In 15 of them, all on Kodak at full rank, $R \ge 512$ at $N/8$ and $R = 1024$ at $N/4$, where the ceiling is the truncation itself and the full-rank FUTON reaches it, Adam's error lies below it by a relative $2.3 \cdot 10^{-8}$ at most, the float32 rounding of its forward pass. The certified FUTON's side is a construction, not a limit on training, and yet training respects it too: Adam's FUTON never ends more than 0.02 dB below the certified one, on any image or volume. In every setting, training lands in the bracket, to within 0.02 dB. The tests check that every certified FUTON attains its upper bound, in float64 to a relative $10^{-9}$, as well as the Eckart–Young case, the invariance within a span and a DCT cross-check.
 
-### Images: the best FUTON is pinned down
+### Images: training, located
 
-For an image's coefficient tensor, of order three, the interval that holds the best PSNR has a median width of 0.01 dB over the images and settings, and 90 % of the intervals are narrower than 0.28 dB. It widens with $K$, to a median of 0.00, 0.01 and 0.11 dB at $N/8$, $N/4$ and $N/2$, and closes as $R$ reaches the truncation: the certified FUTON reaches it on every image from $R = 256$ on at $N/8$, from 512 on at $N/4$ and at 1024 at $N/2$. Adam's FUTON lies at or below the certified one in 76 % of the image settings, and the certified FUTON is ahead by 0.01 dB on average and by up to 0.23 dB; where Adam is ahead, it is by at most 0.04 dB, inside the interval.
+For an image's coefficient tensor, of order three, the bracket is narrow: a median 0.05 dB over the images and settings, at most 0.1 dB in 56 % of them and at most 0.5 dB in 78 %. It widens with $K$, to a median of 0.00, 0.05 and 0.37 dB at $N/8$, $N/4$ and $N/2$, and closes as $R$ reaches the truncation: the certified FUTON reaches it on every image from $R = 256$ on at $N/8$, from 512 on at $N/4$ and at 1024 at $N/2$. Inside the bracket, Adam lands at a steady place, about two thirds of the way from the certified FUTON to the ceiling: a median 0.66 of the way, between 0.60 and 0.70 in half the settings where the bracket is open. At $N/2$ that is 0.24 dB above the certified FUTON and 0.11 dB below the ceiling, at the median. Before anything is trained, the bound thus says what Adam will reach to within a tenth of a decibel in over half the settings, and to within a few tenths at the largest $K$.
 
-### Volumes: the upper bound is the certificate
+### Volumes: a wider bracket
 
-With three axes, every flattening of the coefficient tensor has rank at most the largest $K_c$, so once $R$ passes it the lower bound falls back to the truncation, although the CP misfit itself need not vanish: the interval has a median width of 0.16 dB at $N/4$, where the certified FUTON reaches the truncation on four of the five volumes at $R = 512$ and on all of them at 1024, and 2.12 dB at $N/2$, while at $N/8$ the truncation alone caps the volumes at 17.6 dB on average, which the certified FUTON reaches to within 0.87 dB at $R = 32$, 0.02 dB at 128 and 0.001 dB from 256 on. The certified FUTON is at least as good as Adam's in every setting, by 0.26 dB on average and up to 0.93 dB.
+With three axes, every flattening of the coefficient tensor has rank at most the largest $K_c$, so once $R$ passes it the ceiling falls back to the truncation, although the CP misfit itself need not vanish, and the certified FUTON, the heaviest terms of nested SVDs, trails training further than on the images. The bracket is a median 1.11 dB wide at $N/4$ and 3.87 dB at $N/2$, where Adam lands a median 0.72 and 1.13 dB above the certified FUTON and the ceiling is the looser side. At $N/8$ the truncation alone caps the volumes at 17.6 dB on average, which the certified FUTON reaches to within 1.34 dB at $R = 32$, 0.14 dB at 128 and 0.01 dB at 256, and exactly from 512 on. On the volumes the bracket is a guarantee more than a forecast: a PSNR that a FUTON of the size reaches without training, and one that none passes.
 
 <figure markdown="span">
   ![PSNR above Adam](../assets/bound_gap.svg){ width="620" }
-  <figcaption>PSNR above Adam's at K = N/2, averaged over the 24 Kodak images (left) and the five occupancy volumes (right), per rank, from 32 to 1024, with one standard error of the difference: the ceiling; the certified FUTON in its ALS form (filled) and its SVD form (open); and, shaded between the ALS form and the ceiling, the region where the best FUTON lies.</figcaption>
+  <figcaption>PSNR above Adam's at K = N/2, averaged over the 24 Kodak images (left) and the five occupancy volumes (right), per rank, from 32 to 1024, with one standard error of the difference: the ceiling, the certified FUTON, and, shaded between them, the bracket that holds the best FUTON, and in which Adam's lands.</figcaption>
 </figure>
 
 ### Where Adam's error goes
 
-The theorem splits every FUTON's error into the truncation and the CP misfit, and the bounds split the misfit further: up to the ceiling it is forced by $R$, from the ceiling to the certified FUTON it is open, and beyond the certified FUTON it is left by training. As shares of Adam's error at $K = N/2$, the truncation is 33 % at $R = 32$ and all but 0.1 % at 1024 on Kodak, the part that $R$ forces falls from 60 % to nothing, at most 6 % stays open, and training leaves 1 % or less. On the volumes the truncation is 25 % at 32 and 93 % at 1024, the open part reaches 48 %, since the lower bound falls to the truncation there, and training leaves 13 % at 32 and 5 % at 1024.
+The theorem splits every FUTON's error into the truncation, which $K$ forces, and the CP misfit, and the ceiling splits the misfit further: up to the ceiling it is forced by $R$, and above it the bounds leave it open, between the rank and training. As shares of Adam's error at $K = N/2$, the truncation is 33 % at $R = 32$ and all but 0.1 % at 1024 on Kodak, the part that $R$ forces falls from 60 % to nothing, and at most 7 % stays open: on images, Adam's error is almost entirely accounted for before training. On the volumes the truncation is 25 % at 32 and 93 % at 1024, $R$ forces 16 % at 32 and nothing from 128 on, since the ceiling falls to the truncation there, and the open part falls from 58 % to 7 %.
 
 <figure markdown="span">
   ![Where Adam's error goes](../assets/bound_decomposition.svg){ width="620" }
-  <figcaption>Adam's error at K = N/2, in percent, as the theorem splits it, averaged over the 24 Kodak images (left) and the five occupancy volumes (right), per rank, from 32 to 1024: the truncation, which K forces; the part of the CP misfit up to the ceiling, which R forces; the part from the ceiling to the certified FUTON, which the bound leaves open; and the rest, which training leaves.</figcaption>
+  <figcaption>Adam's error at K = N/2, in percent, as the theorem splits it, averaged over the 24 Kodak images (left) and the five occupancy volumes (right), per rank, from 32 to 1024: the truncation, which K forces; the part of the CP misfit up to the ceiling, which R forces; and the rest, above the ceiling, which the bounds leave open.</figcaption>
 </figure>
 
-### Is training the limit?
+### How close is training to the best FUTON?
 
-On every signal at $K = N/2$ and the benchmark's rank $R$, 280 on Kodak and 435 to 620 on the volumes, Adam for five times the steps and alternating least squares on the whole grid (`inro.LeastSquares` without momentum, from a random start), against the certified FUTON in its ALS form and the ceiling; means over each dataset, ± one within-signal standard error:
+The ceiling also grades training: no FUTON of the size passes it, so a trained FUTON's distance to it is the most that a better optimizer could add. On every signal at $K = N/2$ and the benchmark's rank $R$, 280 on Kodak and 435 to 620 on the volumes, Adam at the benchmark's 1000 steps and at five times as many, and alternating least squares on the whole grid (`inro.LeastSquares` without momentum, from a random start), against the certified FUTON and the ceiling; means over each dataset, ± one within-signal standard error:
 
-| Dataset | R | Certified (ALS) | Ceiling | Adam, 1000 steps | Adam, 5000 steps | ALS, random start, 500 sweeps | ALS, random start, 2000 sweeps |
+| Dataset | R | Certified | Ceiling | Adam, 1000 steps | Adam, 5000 steps | ALS, random start, 500 sweeps | ALS, random start, 2000 sweeps |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Kodak | 280 | 29.77 ± 0.00 | 29.84 ± 0.01 | 29.75 ± 0.00 | 29.80 ± 0.00 | 29.76 ± 0.00 | 29.76 ± 0.00 |
-| Occupancy | 435–620 | 23.56 ± 0.03 | 24.08 ± 0.22 | 23.15 ± 0.11 | 23.41 ± 0.06 | 23.52 ± 0.03 | 23.57 ± 0.01 |
+| Kodak | 280 | 29.56 ± 0.03 | 29.84 ± 0.01 | 29.75 ± 0.00 | 29.80 ± 0.01 | 29.76 ± 0.00 | 29.76 ± 0.01 |
+| Occupancy | 435–620 | 22.23 ± 0.21 | 24.08 ± 0.26 | 23.15 ± 0.08 | 23.41 ± 0.02 | 23.52 ± 0.03 | 23.57 ± 0.03 |
 
-Five times the steps raise Adam's mean from 29.75 to 29.80 dB on Kodak, past the certified mean of 29.77 dB on every image, by 0.01 to 0.05 dB, inside the interval. On the volumes they raise it from 23.15 to 23.41 dB, still short of the certified FUTON on every shape, by 0.08 to 0.24 dB. Least squares on the whole grid, from a random start, reaches 29.76 dB on Kodak after 500 and 2000 sweeps alike, and 23.52 and 23.57 dB on the volumes. After 2000 sweeps it passes the certified FUTON on 7 of the 24 images, by at most 0.01 dB, and falls at most 0.06 dB short on the other 17; on the volumes it passes it on two of the five, by at most 0.07 dB, inside the interval, as item (3) allows, and falls at most 0.04 dB short on the other three. None reaches the ceiling on the volumes, 0.51 dB above the best of them on average, where the lower bound is loose.
+On Kodak the best FUTON at the benchmark's $K$ and rank lies between 29.80 dB, which Adam reaches in five times the steps, and the ceiling's 29.84 dB. The benchmark's own 1000 steps end within 0.09 dB of the ceiling on average and within 0.18 dB on every image, and the longer run within 0.09 dB on every image; least squares from a random start reaches 29.76 dB after 500 and 2000 sweeps alike. Training at the benchmark's settings is thus within a tenth of a decibel, on average, of the best FUTON it could reach. On the volumes the best FUTON lies between 23.57 dB, which least squares reaches after 2000 sweeps, and the ceiling's 24.08 dB, 0.51 dB above it on average, where the ceiling is loose; Adam's 1000 steps end within 0.93 dB of it. Every trained FUTON passes the certified one, 29.56 and 22.23 dB, on every signal, by up to 0.65 dB on the images and by 0.62 to 2.13 dB on the volumes.
 
-### Design for a target PSNR
+### Sizing a FUTON for a target PSNR
 
-The corollary turns the bound into a design rule: among the candidate settings, take the smallest, by parameter count, whose certified PSNR reaches the target. The table compares that pick, per signal, with an oracle that trains every setting and takes the smallest that Adam reaches, and counts over each dataset. *Reached* counts the signals for which some setting reaches the target, by Adam, by the bound and by the ceiling; the next columns say how often the bound's pick has the same, a smaller or a larger parameter count than the oracle's, over the signals both reach, and the last the median parameter count of each pick.
+The corollary turns the bracket into one on size: among the candidate settings, no FUTON smaller than the smallest whose ceiling reaches a target PSNR reaches it, and the smallest whose certified PSNR reaches it does, with its model. The table sets both against an oracle that trains every setting and takes the smallest that Adam reaches, and counts over each dataset. *Reached* counts the signals for which some setting reaches the target, by Adam, by the bound and by the ceiling; the next columns say how often the certified pick has the oracle's parameter count or a larger one, over the signals both reach, and the last the median parameter count of the ceiling's, the oracle's and the certified pick.
 
-| Dataset | Target (dB) | Reached by Adam, the bound, the ceiling | Same pick | Smaller | Larger | #Params, bound (k) | #Params, Adam (k) |
+| Dataset | Target (dB) | Reached by Adam, the bound, the ceiling | Same pick | Larger | #Params, ceiling (k) | #Params, Adam (k) | #Params, bound (k) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Kodak | 22 | 24/24, 24/24, 24/24 | 100% | 0% | 0% | 5.2 | 5.2 |
-|  | 24 | 23/24, 23/24, 23/24 | 100% | 0% | 0% | 10.3 | 10.3 |
-|  | 26 | 22/24, 22/24, 22/24 | 100% | 0% | 0% | 20.7 | 20.7 |
-|  | 28 | 18/24, 18/24, 18/24 | 100% | 0% | 0% | 61.7 | 61.7 |
-|  | 30 | 13/24, 13/24, 13/24 | 100% | 0% | 0% | 82.3 | 82.3 |
-| Occupancy | 19 | 5/5, 5/5, 5/5 | 80% | 20% | 0% | 7.0 | 7.0 |
-|  | 20 | 5/5, 5/5, 5/5 | 80% | 20% | 0% | 14.1 | 14.1 |
-|  | 21 | 5/5, 5/5, 5/5 | 60% | 40% | 0% | 28.4 | 31.0 |
-|  | 22 | 4/5, 4/5, 4/5 | 50% | 50% | 0% | 44.0 | 59.6 |
-|  | 23 | 4/5, 4/5, 4/5 | 50% | 50% | 0% | 88.1 | 119.3 |
+| Kodak | 22 | 24/24, 24/24, 24/24 | 88% | 12% | 5.2 | 5.2 | 5.2 |
+|  | 24 | 23/24, 23/24, 23/24 | 70% | 30% | 5.2 | 10.3 | 10.3 |
+|  | 26 | 22/24, 22/24, 22/24 | 77% | 23% | 20.7 | 20.7 | 30.9 |
+|  | 28 | 18/24, 18/24, 18/24 | 67% | 33% | 41.2 | 61.7 | 61.8 |
+|  | 30 | 13/24, 13/24, 13/24 | 77% | 23% | 82.3 | 82.3 | 82.3 |
+| Occupancy | 19 | 5/5, 5/5, 5/5 | 0% | 100% | 3.9 | 7.0 | 14.1 |
+|  | 20 | 5/5, 5/5, 5/5 | 20% | 80% | 3.9 | 14.1 | 28.2 |
+|  | 21 | 5/5, 5/5, 5/5 | 0% | 100% | 7.7 | 31.0 | 62.0 |
+|  | 22 | 4/5, 4/5, 4/5 | 0% | 100% | 11.0 | 59.6 | 119.3 |
+|  | 23 | 4/5, 3/5, 4/5 | 33% | 67% | 14.9 | 119.3 | 153.6 |
 
-The bound's pick is never larger than the oracle's: it is the same on every image at every target, and on the volumes it is smaller for one of the five shapes up to 20 dB, for two at 21 dB and for two of the four that reach 22 and 23 dB, and it comes with its model. Read along a budget instead, the certified mean ranks the spectral resolutions as Adam's results do at every parameter count: on Kodak, $N/8$ is the only setting at about 5k parameters, $N/4$ leads at about 10k and 21k and $N/2$ from about 41k on; on the volumes, $N/8$ is the only one at about 2k parameters, $N/4$ leads at about 4k, 8k and 16k and $N/2$ from about 31k on. Either way, the $(K, R)$ split is settled before anything is trained.
+The oracle's pick lies between the two on every signal at every target, on both datasets, and the certified pick is never smaller than it. On Kodak the bracket on size is tight: the ceiling's pick and the certified one coincide for 56 % of the images and targets, so the size a target needs is known before anything is trained; the certified pick is the oracle's for 76 % and at most twice it otherwise, and has about its median size at every target but 26 dB. On the volumes the ceiling's pick is a median eight times smaller than the certified one, and the certified pick, safe but generous, holds about twice the oracle's parameters up to 22 dB; at 23 dB it reaches three of the four shapes that Adam does. Read along a budget instead, the certified mean ranks the spectral resolutions on Kodak as Adam's results do at every parameter count: $N/8$ is the only setting at about 5k parameters, $N/4$ leads at about 10k and 21k and $N/2$ from about 41k on. On the volumes it agrees at about 2k, 8k and 15k and from 62k on, and lags one step at about 4k and 31k, where Adam already leads with the next $K$.
 
 ### Cost
 
-On the A100, the bound for all six ranks of a $K$ takes 0.5 to 2.0 s per image and 1.1 to 8.4 s per volume on average at $K \le N/2$, where one Adam run takes 1.7 to 1.9 s and 2.3 to 5.4 s. Over every setting of a signal, the design above costs 3.5 s per image against 31 s of training, and 13 s per volume against 45 s: 3.5 to 9 times less, with the model that reaches the target included. Past $N/2$ the refinement outgrows training: at $K = N$ and $2N$ the bound takes 14 s per image and 18 to 19 s per volume, up to 29 s on one volume, against 10 and 15 s for the six Adam runs, which is where the SVD form pays.
+The bound computes the truncation, the ceiling and the certified FUTON for all six ranks of a $K$ in one call. On the A100 that takes 0.02 to 0.17 s per image and 0.02 to 0.64 s per volume on average at $K \le N/2$, where one Adam run takes 1.7 to 1.9 s and 2.3 to 5.4 s. Sizing a signal over every candidate setting, as above, costs 0.26 s per image against 31 s of training, and 0.74 s per volume against 45 s: 60 to 120 times less. The bound grows with $K$, as the coefficient tensor does, and stays below training: at $K = N$ and $2N$ it takes 0.8 to 1.0 s per image and 3.5 to 3.8 s per volume, at most a quarter of the six Adam runs, while the certified FUTON trails training further there:
 
-### The SVD form
-
-The refinement is what costs. The certified FUTON in its SVD form, `sweeps=0`, takes 0.02 to 0.97 s per image and 0.02 to 3.8 s per volume for all six ranks, at most about a quarter of the six Adam runs it stands in for, and certifies a median 0.38 dB below the ALS form on images and 1.57 dB below on volumes, at most 1.39 and 2.24 dB at $K \le N/2$, and up to 14.93 and 3.99 dB at $K = N$ and $2N$, where the sweeps take the certified FUTON furthest from its starting terms. It is a valid certificate at once; the ALS form is the tighter one.
-
-| Dataset | $K$ | SVD (s) | ALS (s) | Adam (s) | SVD, dB below ALS: median | max |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Kodak | N/8 | 0.02 | 0.5 | 10 | 0.00 | 1.03 |
-|  | N/4 | 0.07 | 1.0 | 10 | 0.03 | 1.26 |
-|  | N/2 | 0.17 | 2.0 | 10 | 0.25 | 1.39 |
-|  | N | 0.79 | 13.7 | 10 | 1.74 | 14.93 |
-|  | 2N | 0.97 | 13.9 | 10 | 1.74 | 14.65 |
-| Occupancy | N/8 | 0.02 | 1.1 | 15 | 0.00 | 1.39 |
-|  | N/4 | 0.08 | 3.4 | 15 | 0.92 | 1.91 |
-|  | N/2 | 0.64 | 8.4 | 15 | 1.61 | 2.24 |
-|  | N | 3.50 | 19.1 | 15 | 2.11 | 3.99 |
-|  | 2N | 3.75 | 18.0 | 15 | 2.11 | 3.97 |
+| Dataset | $K$ | Bound (s) | Adam (s) | Certified, dB below Adam: median | max |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Kodak | N/8 | 0.02 | 10 | 0.00 | 0.93 |
+|  | N/4 | 0.07 | 10 | 0.03 | 1.11 |
+|  | N/2 | 0.17 | 10 | 0.24 | 1.28 |
+|  | N | 0.79 | 10 | 0.85 | 5.83 |
+|  | 2N | 0.97 | 10 | 0.81 | 5.25 |
+| Occupancy | N/8 | 0.02 | 15 | 0.00 | 0.94 |
+|  | N/4 | 0.08 | 15 | 0.72 | 1.25 |
+|  | N/2 | 0.64 | 15 | 1.13 | 1.44 |
+|  | N | 3.50 | 15 | 1.35 | 2.07 |
+|  | 2N | 3.75 | 15 | 1.38 | 2.17 |
 
 <figure markdown="span">
-  ![Seconds per K](../assets/bound_cost.svg){ width="300" }
-  <figcaption>Seconds per signal for the six ranks of each spectral resolution, from N/8 to 2N, averaged over each dataset: the bound with the certified FUTON in its SVD form and in its ALS form, and the six Adam runs.</figcaption>
+  ![Times faster than training, per K](../assets/bound_cost.svg){ width="300" }
+  <figcaption>How many times faster the bound, certified FUTON included, is than the six Adam runs it stands in for, one per rank, per spectral resolution from N/8 to 2N, from the seconds per signal averaged over each dataset.</figcaption>
 </figure>
 
 ## Related results
@@ -369,5 +344,6 @@ The ingredients are classical; the use is in combining them for this model, wher
 
 - **The whole grid.** The theorem needs the signal on its whole grid, since the coefficient tensor is a sum over every sample: it covers representation, not radiance fields or inverse problems, where the signal is observed through a renderer or an operator, and its grid norm says nothing about points off the grid.
 - **A linear head.** It covers the paper's model, a linear head without bias or output activation; the remark above says what transfers to the benchmarks' heads, and the lower bound does not.
-- **Three or more axes.** For three or more axes the lower bound falls to the truncation once $R$ passes the largest $K_c$, so the bracket is wide there and only the certified error is informative; a tighter lower bound for that regime is open, as is how far the certified error is from the infimum.
+- **Three or more axes.** For three or more axes the ceiling falls to the truncation once $R$ passes the largest $K_c$, and the certified FUTON trails training by a median 0.67 dB on the volumes, so the bracket is wide there; a tighter lower bound for that regime is open.
+- **A conservative certificate.** The certified FUTON keeps the heaviest terms of one expansion, and training passes it by a median 0.03 dB on the images and 0.67 dB on the volumes. Item (3) takes any tensor of rank at most $R$, so a search that improves on those terms, its result taken exactly, tightens the certificate, at the cost of the search.
 - **Candidates.** The design corollary chooses among the candidate settings it is given; a finer grid of $K$ and $R$ costs one bound each.

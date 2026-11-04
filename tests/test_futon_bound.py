@@ -97,6 +97,19 @@ def test_every_futon_is_above_the_lower_bound():
     assert grid_error(model, sizes, target) >= float(bound.lower[0])
 
 
+def test_sweeps_only_tighten_the_svd_form():
+    """Refine the default, the SVD form, by alternating least squares, never worse."""
+    sizes, channels = (10, 9, 7), 2
+    target = signal(sizes, channels, seed=9)
+    generator = torch.Generator().manual_seed(10)
+    phis = [torch.randn(n, k, dtype=DOUBLE, generator=generator)
+            for n, k in zip(sizes, (6, 5, 4))]  # fmt: skip
+    svd = inro.futon_bound(target, phis, ranks=[2, 4])
+    refined = inro.futon_bound(target, phis, ranks=[2, 4], sweeps=20)
+    assert torch.equal(svd.lower, refined.lower)
+    assert torch.all(refined.upper <= svd.upper + 1e-12)
+
+
 def test_matrix_case_is_exact():
     """Make the bounds meet at the truncated SVD (Eckart and Young) on a full span."""
     sizes, rank = (9, 7), 3
