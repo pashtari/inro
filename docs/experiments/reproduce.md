@@ -1,6 +1,6 @@
 # Reproducing the paper
 
-Every number of the paper comes from the training scripts. This page is the full pipeline, from an empty `data/` folder to the runs in `logs/`.
+Every number of the paper comes from the scripts in `scripts/`. This page is the full pipeline, from an empty `data/` folder to the runs in `logs/`.
 { .inro-lead }
 
 The scripts and configs live in the repository, so start from a clone: `git clone https://github.com/pashtari/inro.git`, then `pip install -e ".[3d,nerf]"`.
@@ -9,7 +9,8 @@ The scripts and configs live in the repository, so start from a clone: `git clon
   <li><strong>1. Data</strong><code>scripts/download_*.py</code> &rarr; <code>data/</code></li>
   <li><strong>2. Training</strong><code>scripts/train_*.py</code> &rarr; <code>logs/</code></li>
   <li><strong>3. Ablations</strong><code>configs/ablation-futon/</code> &rarr; <code>logs/</code></li>
-  <li><strong>4. Results</strong><code>logs/**/results.json</code></li>
+  <li><strong>4. Analyses</strong><code>scripts/futon_*.py</code> &rarr; <code>logs/</code></li>
+  <li><strong>5. Results</strong><code>logs/**/results.json</code></li>
 </ol>
 
 ## 1. Data
@@ -91,7 +92,18 @@ done
 
     Runs that another experiment already holds are copied rather than repeated, each copy's `results.json` naming its `source`: the default model of the bandwidth and rank studies, for one, is the benchmark's FUTON.
 
-## 4. Results
+## 4. Analyses
+
+Two scripts study FUTON itself, from the signals rather than from trained runs:
+
+```bash
+python scripts/futon_coefficients.py  # kodim23's coefficient tensor at K = 32, in full and at rank 4 -> logs/coefficients/
+python scripts/futon_bound.py         # the error bound against Adam, on the 24 images and 5 volumes -> logs/bound/
+```
+
+The first computes the tensor of the [FUTON page](../concepts/futon.md#from-a-series-to-a-network)'s figure in seconds on a CPU, without training: the image's generalized Fourier coefficients in full, and the certified FUTON at each rank (`--image`, `--components` and `--ranks` choose others). The second runs the [error bound](../concepts/error-bound.md#experiment)'s experiment, which trains each of its settings once with Adam to compare.
+
+## 5. Results
 
 Every run's `results.json` holds its metrics and costs, so the runs can be read directly:
 
