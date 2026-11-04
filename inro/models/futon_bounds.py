@@ -98,7 +98,7 @@ def futon_bound(
     signal: Tensor,
     features: Sequence[Tensor],
     ranks: int | Sequence[int],
-    sweeps: int = 500,
+    sweeps: int = 0,
     tol: float = 3e-5,
 ) -> FUTONBound:
     """Bound the best grid error of a FUTON with a linear head on a signal.
@@ -118,8 +118,10 @@ def futon_bound(
         ranks: CP ranks ``R`` to bound.
         sweeps: Maximum number of alternating least-squares sweeps that refine each
             upper bound, in float32, from its SVD form, the ``R`` heaviest terms of the
-            nested SVDs; ``0`` keeps the SVD form.
-        tol: Fraction of the bound below which a sweep's decrease stops the sweeps.
+            nested SVDs. The default, ``0``, returns the SVD form; a sweep never
+            raises the bound.
+        tol: Fraction of the bound below which a sweep's decrease stops the sweeps,
+            when there are any.
 
     Returns:
         The bounds and the factors that attain the upper ones, on the CPU.
@@ -133,7 +135,7 @@ def futon_bound(
         >>> basis = SincBasis(2, num_components=16)
         >>> grid = torch.linspace(-1, 1, 32)
         >>> features = [basis.axis_features(grid, c) for c in range(2)]
-        >>> bound = futon_bound(signal, features, ranks=[4, 8], sweeps=10)
+        >>> bound = futon_bound(signal, features, ranks=[4, 8])
         >>> psnr = 10 * torch.log10(4 / bound.upper)  # guaranteed, in dB
         >>> psnr.shape
         torch.Size([2])
