@@ -65,7 +65,7 @@ result = inro.train(
     log_interval=50,
     eval_interval=50,
     save_reconstruction=False,
-    log_dir="logs/tutorial/lucy/FUTON-cosine",
+    log_dir="logs/tutorial/lucy/FUTON",
 )
 print(result["history"][-1]["eval"]["iou"])  # (2)!
 ```
@@ -93,7 +93,7 @@ eval_set.save(occupancy, "lucy_futon", up=2)    # lucy_futon.dae and .png
 
 ```bash
 python scripts/train_occupancy.py                                       # all shapes, all models
-python scripts/train_occupancy.py --data data/occupancy/lucy.ply --models FUTON-cosine
+python scripts/train_occupancy.py --data data/occupancy/lucy.ply --models FUTON
 ```
 
 FUTON's ablations run on images; the [ablations page](../experiments/ablations.md) reports them.

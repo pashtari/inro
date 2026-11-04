@@ -61,14 +61,13 @@ print(inro.__version__, torch.cuda.is_available())
 
 ## Benchmark data
 
-The experiments use four public datasets. The scripts, in the repository, download them into `data/`, which is ignored by git.
+The experiments use three public datasets. The scripts, in the repository, download them into `data/`, which is ignored by git.
 
 | Dataset | Script | Content | Size | Subset |
 | --- | --- | --- | --- | --- |
 | Kodak | `scripts/download_kodak.py` | 24 images, 768 × 512 | about 30 MB | `--images 1 17 23` |
 | Stanford | `scripts/download_meshes.py` | 5 meshes | about 3 GB | `--meshes armadillo thai_statue` |
 | Blender | `scripts/download_blender.py` | 8 NeRF synthetic scenes | about 2.4 GB | `--scenes lego ship` |
-| DIV2K | `scripts/download_div2k.py` | 100 validation images and their 4× downsamplings | about 450 MB | two archives |
 
 Each script also takes `--output-dir` and `--force`. Interrupted downloads resume, and existing files are kept. The layout is what the training scripts and notebooks expect:
 
@@ -76,8 +75,7 @@ Each script also takes `--output-dir` and `--force`. Interrupted downloads resum
 data/
 ├── Kodak/kodim01.png ... kodim24.png
 ├── occupancy/armadillo.ply  dragon.ply  happy_buddha.ply  lucy.ply  thai_statue.ply
-├── nerf/blender/<scene>/transforms_{train,val,test}.json + images
-└── DIV2K/DIV2K_valid_HR/0801.png ... 0900.png  and  DIV2K_valid_LR_bicubic/X4/0801x4.png ... 0900x4.png
+└── nerf/blender/<scene>/transforms_{train,val,test}.json + images
 ```
 
 Occupancy volumes are voxelized on first use and cached beside the mesh in `data/occupancy/.cache/<name>_<resolution>.pt`.

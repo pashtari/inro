@@ -7,7 +7,7 @@ The problems that come up first, and what to do about them.
 
 ??? question "The fit is poor or the loss does not move"
 
-    Coordinates must lie in $[-1, 1]$ on every axis. The coordinate datasets generate them that way, and FUTON's bases, the hash and feature grids, and `GridINR`'s patches are all defined on that domain. Do not pre-normalize to $[0, 1]$. Targets from the datasets are in $[-1, 1]$ too (occupancy in $\{-1, 1\}$), which is why the benchmark models end in `output_activation=torch.tanh` and why the default loss reports PSNR for that range.
+    Coordinates must lie in $[-1, 1]$ on every axis. The coordinate datasets generate them that way, and FUTON's bases and the hash and feature grids are all defined on that domain. Do not pre-normalize to $[0, 1]$. Targets from the datasets are in $[-1, 1]$ too (occupancy in $\{-1, 1\}$), which is why the benchmark models end in `output_activation=torch.tanh` and why the default loss reports PSNR for that range.
 
 ??? question "`ValueError: radius must be >= 1 and num_components >= 2 * radius`"
 
@@ -55,7 +55,7 @@ The problems that come up first, and what to do about them.
 
 ??? question "A model diverges"
 
-    Learning rates in the configs come from the grid {3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4}, each the best of the grid on two or three signals of the task, as each config's header says. Sine networks (SIREN, FINER) are the most sensitive; FUTON trains at 1e-2 to 1e-1 across tasks.
+    Learning rates in the configs come from the grid {3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4}, each the best of the grid on two signals of the task, as each config's header says. Sine networks (SIREN, FINER) are the most sensitive; FUTON trains at 1e-2 to 1e-1 across tasks.
 
 ??? question "Training times differ from the tables"
 
@@ -70,7 +70,3 @@ The problems that come up first, and what to do about them.
 ??? question "Loading an `MLP` checkpoint"
 
     `MLP.layers` contains only weight layers, so a network with `hidden_layers=h` has keys `layers.0` to `layers.h`; a shared activation with parameters (for example `nn.PReLU`) lives under `activation.*`.
-
-??? question "Quantized checkpoints"
-
-    With `inro.train(..., quantize=True)`, `checkpoint.pt` holds the quantized weights as an ordinary state dict, while the returned `model_dict` holds integer codes with per-tensor scales; restore those with `inro.uniform_dequantize(model, model_dict)`.

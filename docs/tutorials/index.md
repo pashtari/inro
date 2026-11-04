@@ -29,27 +29,11 @@ Each tutorial is a complete, runnable workflow for one task, at the benchmarks' 
 
     *Needs a Blender scene.*
 
--   :material-zip-box-outline:{ .lg .middle } **[Image compression](compression.md)**
-
-    ---
-
-    FUTON as a codec: rate-distortion training, quantization and bits per pixel.
-
-    *Needs an image.*
-
--   :material-puzzle-outline:{ .lg .middle } **[Custom components](custom-components.md)**
-
-    ---
-
-    Your own basis, combiner, head, loss, metric and dataset.
-
-    *Needs nothing.*
-
 -   :material-notebook-outline:{ .lg .middle } **[Notebooks](notebooks.md)**
 
     ---
 
-    Five notebooks that run one signal end to end, with every plot.
+    Three notebooks that run one signal end to end, with every plot.
 
     *Needs the data.*
 

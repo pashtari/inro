@@ -53,7 +53,7 @@ The public API lives in three namespaces: everything for fitting coordinate/valu
 
     ---
 
-    The codecs, their evaluation, and arithmetic coding.
+    FUTON as a codec, PIL baselines, their evaluation, and arithmetic coding.
 
 -   :material-rotate-orbit:{ .lg .middle } **[Radiance fields](nerf.md)**
 
@@ -66,6 +66,12 @@ The public API lives in three namespaces: everything for fitting coordinate/valu
     ---
 
     Module specs, parameter counts, logging, serialization and the seaborn line plot.
+
+-   :material-puzzle-outline:{ .lg .middle } **[Custom components](custom-components.md)**
+
+    ---
+
+    Your own basis, combiner, head, loss, metric, dataset and model, each with its contract.
 
 </div>
 

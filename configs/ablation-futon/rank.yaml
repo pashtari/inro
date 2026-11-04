@@ -1,5 +1,5 @@
 # FUTON ablation on the image task: the CP rank beyond the budget. The
-# benchmark's FUTON (cosine), K = (H / 2, W / 2) components per axis and a
+# benchmark's FUTON, K = (H / 2, W / 2) components per axis and a
 # one-layer MLP head 64 wide, at ranks 70, 140, 280 (the benchmark's), 560
 # and 1120: 49,539 to 788,739 parameters, the size growing with the rank. Each
 # rank trains at the rate the benchmark's rule picks on kodim01 and kodim17:
@@ -17,7 +17,7 @@ train:
   seed: 0
 
 models:
-  FUTON-cosine-R70:
+  FUTON-R70:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -26,7 +26,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine-R140:
+  FUTON-R140:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -35,7 +35,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine:
+  FUTON:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -44,7 +44,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine-R560:
+  FUTON-R560:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -53,7 +53,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine-R1120:
+  FUTON-R1120:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]

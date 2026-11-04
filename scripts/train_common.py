@@ -12,7 +12,7 @@ directory, and ``--set`` overrides a single value. Runs are keyed by model
 name, so give variants their own names or their own ``--log-dir``::
 
     --config configs/ablation-futon/basis.yaml  # -> logs/ablation-futon/basis
-    --set models.FUTON-sinc.train.lr=3e-2 --log-dir logs/sinc-lr
+    --set models.FUTON.train.lr=3e-2 --log-dir logs/futon-lr
 
 To collect results::
 

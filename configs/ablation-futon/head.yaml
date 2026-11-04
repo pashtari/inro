@@ -2,7 +2,7 @@
 # benchmark's one-layer MLP head 64 wide at CP rank 280 (197,379
 # parameters) against MLPs 128 and 256 wide (-w128, -w256) and the paper's
 # linear head (-linear), each at the largest rank, a multiple of 5, that
-# keeps FUTON smaller than every baseline (F-INR, 198,806): 255, 220 and 305.
+# keeps FUTON smaller than every baseline (F-INR (SIREN), 198,806): 255, 220 and 305.
 #     python scripts/train_image.py --config configs/ablation-futon/head.yaml
 # The data and training settings repeat configs/image.yaml.
 
@@ -16,7 +16,7 @@ train:
   seed: 0
 
 models:
-  FUTON-cosine:
+  FUTON:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -25,7 +25,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine-w128:
+  FUTON-w128:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -34,7 +34,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine-w256:
+  FUTON-w256:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]
@@ -43,7 +43,7 @@ models:
       output_activation: tanh
     train: {lr: 1.0e-1}
 
-  FUTON-cosine-linear:
+  FUTON-linear:
     class: FUTON
     kwargs:
       basis: [cosine, {num_components: [H // 2, W // 2], grid_size: [H, W]}]

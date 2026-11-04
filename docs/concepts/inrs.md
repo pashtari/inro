@@ -45,7 +45,6 @@ flowchart TB
     losses["<b>Losses</b>"] -.-> train
     train --> evaluate["<b>inro.evaluate</b><br/>chunked_inference"]
     evaluate --> metrics["<b>Metrics</b><br/>psnr, ssim, lpips, iou, ..."]
-    train -. quantize .-> compression["<b>inro.compression</b><br/>encode_futon, decode_futon"]
     models --> field["<b>inro.nerf</b><br/>RadianceField, renderers, train, evaluate"]
 ```
 
@@ -63,7 +62,7 @@ model(torch.rand(10, 2) * 2 - 1).shape      # (10, 3)
 model(torch.rand(4, 5, 2) * 2 - 1).shape    # (4, 5, 3)
 ```
 
-The constructors share `in_features`, `out_features` and, where they apply, `hidden_features`, `hidden_layers` and `output_activation`. The [model zoo](models.md) lists them all. The two Deep Image Prior networks are the exception: they map a noise image `(B, channels, H, W)` to an image and are paired with `DIPImageDataset`.
+The constructors share `in_features`, `out_features` and, where they apply, `hidden_features`, `hidden_layers` and `output_activation`. The [model zoo](models.md) lists them all.
 
 ## Datasets
 
@@ -76,7 +75,7 @@ A dataset yields dictionaries with four keys:
 | `target` | The values to fit, in the model's output range |
 | `_original` | The reference signal in its native form, used by the metrics; keys with a leading underscore stay on the CPU |
 
-`ImageCoordinateDataset`, `OccupancyCoordinateDataset`, `MaskedImageCoordinateDataset`, `SuperResolutionDataset`, `MRICoordinateDataset` and `DIPImageDataset` follow this scheme; the [conventions page](conventions.md) tabulates their shapes.
+`ImageCoordinateDataset` and `OccupancyCoordinateDataset` follow this scheme; the [conventions page](conventions.md) tabulates their shapes.
 
 - **One signal, one item.** `len(dataset) == 1`, and random subsampling happens on access: with `subsample=0.1`, every `dataset[0]` returns a fresh random tenth of the coordinates and their values, flattened.
 - **Benchmarks.** The occupancy benchmark trains this way, on $2^{18}$ fresh voxels per step; the image benchmark takes the whole image at every step.
@@ -97,14 +96,9 @@ A dataset yields dictionaries with four keys:
 | --- | --- | --- |
 | **Optimizer** | Adam. Every benchmark trains every model with PyTorch's defaults, `(0.9, 0.999)` and `1e-8`, so that the optimizer favors none of them | `lr`, `weight_decay`, `adam_betas`, `adam_eps` |
 | **Schedule** | Steps of one batch each, with `CosineAnnealingLR` down to `lr / 100` | `num_steps` |
-| **Loss** | `loss_fn(batch, model) -> (loss, metrics)`; by default the mean squared error, logging the PSNR for targets in $[-1, 1]$. `inro.rate_distortion_loss`, `inro.sdf_loss` and `inro.super_resolution_loss` have the same signature, and so can [yours](../tutorials/custom-components.md) | `loss_fn` |
-| **Evaluation** | `inro.evaluate` reconstructs each item in chunks, maps the output through `postprocess`, and calls each metric as `fn(reconstruction, original)`; rate metrics as `fn(encoded_bytes, original)`, on the parameters serialized with `inro.encode_dict` | `eval_interval`, `metrics`, `rate_metrics`, `chunk_size` |
-| **Quantization** | Evaluates a uniformly quantized copy, optionally fake-quantizes during training, and quantizes the final model in place; see the [compression tutorial](../tutorials/compression.md) | `quantize`, `quant_max`, `quant_interval` |
+| **Loss** | `loss_fn(batch, model) -> (loss, metrics)`; by default the mean squared error, logging the PSNR for targets in $[-1, 1]$ | `loss_fn` |
+| **Evaluation** | `inro.evaluate` reconstructs each item in chunks, maps the output through `postprocess`, and calls each metric as `fn(reconstruction, original)` | `eval_interval`, `metrics`, `chunk_size` |
 | **Logging** | Records the training metrics of the step's batch, printed above a progress bar, and writes `log.txt`, `log.json`, each evaluation's reconstruction and `checkpoint.pt` | `log_interval`, `log_dir`, `ckpt_path` |
-
-!!! tip "Solvers"
-
-    A FUTON with a CP combiner and a linear head, both without bias, can be fitted by block coordinate descent instead of a gradient step: pass `optimizer=inro.LeastSquares(model, momentum=...)` or `inro.MultiplicativeUpdate(model, momentum=...)`. Each batch is swept once, and a sweep costs about the same whole or subsampled, so a whole grid with `momentum=0` is the fast setting. On subsamples, `momentum` averages the blocks' problems over the batches. The newest batch's weight, `1 - momentum`, is the solver's learning rate, and the cosine schedule anneals it as it does Adam's; without momentum it stays one. `optimizer.compile(batch)` compiles the sweep. See the [solvers' reference](../api/futon.md#solvers).
 
 The return value is `{"config", "model_dict", "history"}`: the run's settings, the final parameters, and one record per logged step with `elapsed`, the seconds spent training so far, the training metrics of the step's batch and, when the step was evaluated, the mean evaluation metrics under `"eval"`. The records are plain dictionaries, so `pd.DataFrame(result["history"])` gives a learning curve.
 

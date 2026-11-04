@@ -30,7 +30,7 @@ Coordinates live in $[-1, 1]$ on every axis, both endpoints included. `inro.crea
   <circle cx="294" cy="176" r="3.5" fill="#ee6a36"/><text x="286" y="168" font-size="12" text-anchor="end">(1, 1)</text>
 </svg>
 
-FUTON's bases, the hash and feature grids, and `GridINR` patches are defined on this domain, so do not pre-normalize to $[0, 1]$. Models accept any leading shape; the taps of FUTON's local bases need a flat `(N, C)` batch, which `FUTON.forward` produces internally.
+FUTON's bases and the hash and feature grids are defined on this domain, so do not pre-normalize to $[0, 1]$. Models accept any leading shape; the taps of FUTON's local bases need a flat `(N, C)` batch, which `FUTON.forward` produces internally.
 
 ## Values
 
@@ -39,11 +39,7 @@ Targets are in the model's output range, and the reference signal keeps its nati
 | Dataset | `input` | `target` | `_original` |
 | --- | --- | --- | --- |
 | `ImageCoordinateDataset` | `(H, W, 2)` | `(H, W, channels)` float in $[-1, 1]$ | `(channels, H, W)` `uint8` |
-| `MaskedImageCoordinateDataset` | `(H, W, 2 + side_channels)` | `(H, W, channels)` in $[-1, 1]$, plus `side`, `mask`, `boundary` | `(channels, H, W)` `uint8` |
-| `SuperResolutionDataset` | `(B, L, L, 2)`, the high-resolution coordinates under `B` blocks of low-resolution pixels | `(B, S, S, channels)` low-resolution pixels in $[-1, 1]$, plus the kernel rows `weight_y`, `weight_x` `(B, S, L)` | `(channels, h, w)` `uint8`, the low-resolution image |
 | `OccupancyCoordinateDataset` | `(depth, H, W, 3)` | `(depth, H, W, 1)` in $\{-1, 1\}$ | `(1, depth, H, W)` float in $\{0, 1\}$ |
-| `MRICoordinateDataset` | `(H', W', 2)` | complex `(coils, H, W)` masked k-space, plus `mask`, `scale_factor`, `zero_filled` | RSS image `(H', W')`, absent when none is loaded |
-| `DIPImageDataset` | noise `(noise_channels, H, W)` | `(channels, H, W)` float in $[0, 1]$ | `(channels, H, W)` `uint8` |
 | `nerf.BlenderDataset` | rays `(H, W, 3)` origins and directions | `(H, W, 4)` RGBA in $[0, 1]$ | |
 
 - **Subsampling** (`subsample`, `max_samples`) flattens `input` and `target` to `(N, ...)` with shared random indices.
@@ -61,9 +57,6 @@ In `inro.train` and `inro.evaluate`, metrics are called as `fn(reconstruction, o
 | `inro.psnr`, `inro.ssim`, `inro.ms_ssim` | two `(channels, H, W)` images | `data_range` from the target: 255 for `uint8`, 1 for floating point |
 | `inro.lpips` | two `(3, H, W)` images | VGG by default, `net="alex"` for AlexNet; its weights are downloaded once |
 | `inro.iou` | two volumes | Thresholds both at zero, so it works on the `{0, 1}` original and on raw model output alike |
-| `inro.nmse` | two volumes or images | fastMRI's normalized MSE |
-| `inro.bits_per_pixel(encoded, image)` | a byte string and a `(channels, *spatial)` image | The string's size over the image's spatial size |
-| `inro.super_resolution_metrics(border)` | two `(3, H, W)` images | Super-resolution's protocol: PSNR and SSIM on `inro.luma`, BT.601's Y as MATLAB's `rgb2ycbcr` computes it, and LPIPS on RGB, all without a border of `border` pixels |
 
 ## Widths, depths and activations
 
@@ -72,9 +65,8 @@ In `inro.train` and `inro.evaluate`, metrics are called as `fn(reconstruction, o
 ## Checkpoints
 
 - `inro.train` saves the model's state dict as `checkpoint.pt` in `log_dir` and returns it as `model_dict`.
-- With `quantize=True`, the checkpoint holds the quantized weights and `model_dict` a dictionary of integer codes and per-tensor scales, which `inro.uniform_dequantize` loads back.
 - `inro.nerf.train` saves the field's state dict, including the `aabb` buffer.
-- `MLP.layers` holds only weight layers (`layers.0` to `layers.h`), and grid models keep their decoder under `decoder.layers.*`.
+- `MLP.layers` holds only weight layers (`layers.0` to `layers.h`). FUTON keeps its head under `head.*` (`head.layers.*` for an MLP), and the grid models their decoder under `decoder.layers.*`.
 
 ## Seeds and devices
 

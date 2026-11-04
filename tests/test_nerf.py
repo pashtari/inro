@@ -32,7 +32,7 @@ DENSITY_NETS = {
 }
 # Other bases at FUTON's size: the sinc of the basis ablation, and local bases, which
 # take their taps along the rays.
-FUTON_CLASS, FUTON_KWARGS = DENSITY_NETS["FUTON-cosine"]
+FUTON_CLASS, FUTON_KWARGS = DENSITY_NETS["FUTON"]
 DENSITY_NETS |= {
     "FUTON-sinc": (
         FUTON_CLASS,

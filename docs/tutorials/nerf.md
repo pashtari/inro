@@ -5,7 +5,7 @@
 
 <figure markdown="span">
   ![Orbit around the lego scene](../assets/orbit_lego.gif){ width="720" }
-  <figcaption>The lego scene rendered in orbit by SIREN, Instant-NGP and FUTON (cosine) at equal parameter count (about 75k), with the test-view PSNR.</figcaption>
+  <figcaption>The lego scene rendered in orbit by SIREN, Instant-NGP and FUTON at equal parameter count (about 75k), with the test-view PSNR.</figcaption>
 </figure>
 
 <ol class="inro-flow">
@@ -70,7 +70,7 @@ result = inro.nerf.train(
     num_rays=4096,
     lr=1e-2,
     eval_interval=2500,
-    log_dir="logs/tutorial/lego/FUTON-cosine",
+    log_dir="logs/tutorial/lego/FUTON",
 )
 ```
 
@@ -109,5 +109,5 @@ imageio.mimsave("lego_orbit.gif", frames, duration=0.083, loop=0)
 `scripts/train_nerf.py` trains every model of the config on every scene under `data/nerf/blender/`, evaluates on the 200 test views, each rendered whole in one pass, and saves two rendered test views per run. The NeRF sweep is the long one: about five minutes per model and scene on an A100, 112 runs in all.
 
 ```bash
-python scripts/train_nerf.py --data data/nerf/blender/lego --models FUTON-cosine
+python scripts/train_nerf.py --data data/nerf/blender/lego --models FUTON
 ```

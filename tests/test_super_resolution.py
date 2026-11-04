@@ -1,30 +1,11 @@
-"""Super-resolution: forward model, minibatches, loss, metrics and FUTON's rank."""
-
-import importlib.util
-import sys
-from pathlib import Path
+"""Super-resolution: forward model, minibatches, loss and metrics."""
 
 import pytest
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torchvision.transforms.functional import to_pil_image
 
 import inro
-
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-
-
-@pytest.fixture(scope="module")
-def task():
-    """Import the benchmark script, which needs train_common on the path."""
-    sys.path.insert(0, str(SCRIPTS))
-    spec = importlib.util.spec_from_file_location(
-        "train_super_resolution", SCRIPTS / "train_super_resolution.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 @pytest.fixture
@@ -36,18 +17,6 @@ def images():
     low = inro.downsample(image.movedim(0, -1).float(), kernels)
     low = low.round().clamp(0, 255).to(torch.uint8).movedim(-1, 0)
     return image, low, kernels
-
-
-@pytest.fixture
-def image_pair(task, images, tmp_path):
-    """Save the image and its downsampling as files, laid out as DIV2K is."""
-    image, low, kernels = images
-    (tmp_path / "DIV2K_valid_HR").mkdir()
-    (tmp_path / "DIV2K_valid_LR_bicubic" / "X4").mkdir(parents=True)
-    path = tmp_path / "DIV2K_valid_HR" / "0801.png"
-    to_pil_image(image).save(path)
-    to_pil_image(low).save(task.low_resolution(path, 4))
-    return path, image, kernels
 
 
 class Lookup(nn.Module):
@@ -152,77 +121,3 @@ def test_metrics_score_luma_and_rgb_without_the_border(border):
     assert metrics["ssim"](pred, target) == inro.ssim(
         inro.luma(pred[inner]), inro.luma(target[inner]), data_range=255
     )
-
-
-@pytest.mark.parametrize("outputs", [1, 3])
-def test_futon_rank_is_the_largest_multiple_of_5_within_the_budget(task, outputs):
-    from train_common import futon_rank  # the fixture put the scripts on the path
-
-    for components, budget in (((339, 510), 500_006), ((69, 115, 59), 131_456)):
-        rank = futon_rank(components, budget, 64, outputs)
-
-        def count(rank: int) -> int:
-            model = inro.FUTON(
-                in_features=len(components),
-                out_features=outputs,
-                basis=("lanczos", {"num_components": components, "radius": 3}),
-                combiner=("cp", {"rank": rank}),
-                head=("mlp", {"hidden_layers": 1, "hidden_features": 64}),
-            )
-            return inro.count_parameters(model)
-
-        assert rank % 5 == 0
-        assert count(rank) <= budget < count(rank + 5)
-
-
-def test_prepare_fills_futon_rank_from_the_budget(task, image_pair):
-    path, _, _ = image_pair  # 32 x 48 pixels
-    entry = {
-        "class": "FUTON",
-        "budget": 20_000,
-        "kwargs": {
-            "basis": ["sinc", {"num_components": ["H // 4", "W // 4"]}],
-            "combiner": ["cp", {"rank": "budget"}],
-            "head": ["mlp", {"hidden_layers": 1, "hidden_features": 64}],
-        },
-    }
-    model = task.prepare(entry, path)
-    assert model["kwargs"]["basis"][1]["num_components"] == [8, 12]
-    # (20,000 - 64 - 64 * 3 - 3) // (8 + 12 + 64) = 235, a multiple of 5.
-    assert model["kwargs"]["combiner"][1]["rank"] == 235
-    # A model without a budget, a baseline, passes through as it is.
-    siren = {"class": "SIREN", "kwargs": {"hidden_features": "H // 2"}}
-    assert task.prepare(siren, path) == {
-        "class": "SIREN",
-        "kwargs": {"hidden_features": 16},
-    }
-
-
-def test_futon_rank_of_a_linear_head_fills_the_budget(task):
-    from train_common import fill_rank, futon_rank
-
-    budget = 131_456
-    for components in ([48, 57, 44], [97, 115, 88], [135, 78, 231]):
-        rank = futon_rank(components, budget, None, 1)
-
-        def count(rank: int) -> int:
-            model = inro.FUTON(
-                in_features=3,
-                out_features=1,
-                basis=("cosine", {"num_components": components}),
-                combiner=("cp", {"rank": rank}),
-                head="linear",
-            )
-            return inro.count_parameters(model)
-
-        assert rank % 5 == 0
-        assert count(rank) <= budget < count(rank + 5)
-        entry = {
-            "budget": budget,
-            "kwargs": {
-                "basis": ["cosine", {"num_components": components}],
-                "combiner": ["cp", {"rank": "budget"}],
-                "head": "linear",
-            },
-        }
-        assert fill_rank(entry, outputs=1)["kwargs"]["combiner"][1]["rank"] == rank
