@@ -54,10 +54,9 @@ print(inro.__version__, torch.cuda.is_available())
 | `dev` | black, pytest, pyinstrument | Formatting, the test suite and profiling |
 | `docs` | mkdocs-material, mkdocs-glightbox, mkdocstrings | Building this site |
 
-!!! note "Two versions that matter"
+!!! note "nerfacc and the CUDA toolkit"
 
-    - **trimesh** is pinned to 5.1.1, which voxelized the benchmark's meshes: other versions move the grids, and IoU by up to 0.2 points.
-    - **nerfacc** compiles a CUDA extension the first time it is used and needs a CUDA toolkit for that. Without one, `inro.nerf.is_nerfacc_available()` is `False` and `inro.nerf.create_renderer()` falls back to the built-in PyTorch renderer, which produces the same images more slowly.
+    **nerfacc** compiles a CUDA extension the first time it is used and needs a CUDA toolkit for that. Without one, `inro.nerf.is_nerfacc_available()` is `False` and `inro.nerf.create_renderer()` falls back to the built-in PyTorch renderer, which produces the same images more slowly.
 
 ## Benchmark data
 
@@ -78,7 +77,7 @@ data/
 └── nerf/blender/<scene>/transforms_{train,val,test}.json + images
 ```
 
-Occupancy volumes are voxelized on first use and cached beside the mesh in `data/occupancy/.cache/<name>_<resolution>.pt`.
+Occupancy volumes are voxelized on first use and cached beside the mesh in `data/occupancy/.cache/<name>_<resolution>_centers.pt`.
 
 ## Development
 

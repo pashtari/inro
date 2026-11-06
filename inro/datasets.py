@@ -15,7 +15,7 @@ import math
 import os
 import random
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -592,15 +592,20 @@ class SuperResolutionDataset(ImageCoordinateDataset):
 class OccupancyCoordinateDataset(ImageCoordinateDataset):
     """Voxelized shape as coordinate-occupancy pairs.
 
-    Normalization and voxelization follow FINER and BACON. The volume is cropped to its
-    occupied bounds and cached beside the source in ``.cache/<stem>_<resolution>.pt``,
-    which is reused even if the source changes. Subsampling flattens ``input`` and
-    ``target`` to ``(N, 3)`` and ``(N, 1)`` with shared indices.
+    The shape is centered and scaled into ``[-0.45, 0.45]^3``, as in BACON and FINER.
+    Voxel centers lie at multiples of ``1 / resolution``, and each holds whether it
+    lies inside the shape; the volume is cropped to its occupied bounds, as in WIRE.
+    A mesh's inside is decided by rays: a center is inside when most of five rays from
+    it cross the surface an odd number of times, which tolerates the small holes of
+    scanned meshes. A point cloud's is the sign of BACON's signed distance. The volume
+    is cached beside the source in ``.cache/<stem>_<resolution>_centers.pt``, which is
+    reused even if the source changes. Subsampling flattens ``input`` and ``target`` to
+    ``(N, 3)`` and ``(N, 1)`` with shared indices.
 
     Args:
         path: ``.xyz`` point cloud (columns ``x y z nx ny nz``) or a mesh readable by
             trimesh.
-        resolution: Samples per unit length after normalization into
+        resolution: Voxels per unit length after normalization into
             ``[-0.45, 0.45]^3``.
         grid_size: Size of the coordinate grid; ``None`` uses the signal's size. Any
             other size serves evaluation at that resolution, without subsampling.
@@ -619,10 +624,11 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
         >>> dataset = OccupancyCoordinateDataset("lucy.ply")  # doctest: +SKIP
 
     References:
-        Liu et al., "FINER: Flexible Spectral-bias Tuning in Implicit NEural
-        Representation by Variable-periodic Activation Functions", CVPR 2024.
         Lindell et al., "BACON: Band-limited Coordinate Networks for Multiscale Scene
         Representation", CVPR 2022.
+        Saragadam et al., "WIRE: Wavelet Implicit Neural Representations", CVPR 2023.
+        Liu et al., "FINER: Flexible Spectral-bias Tuning in Implicit NEural
+        Representation by Variable-periodic Activation Functions", CVPR 2024.
     """
 
     def __init__(
@@ -647,99 +653,123 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
     def load(self, path: str | os.PathLike[str], resolution: int) -> Tensor:
         """Load, or build and cache, a float occupancy volume.
 
-        Point clouds use a KD-tree SDF and meshes trimesh (``3d`` extra).
+        Meshes need the ``3d`` extra (trimesh reads them, Open3D casts the rays).
 
         Args:
             path: ``.xyz`` point cloud (columns ``x y z nx ny nz``) or a mesh readable
                 by trimesh.
-            resolution: Samples per unit length after normalization into
+            resolution: Voxels per unit length after normalization into
                 ``[-0.45, 0.45]^3``.
 
         Returns:
             Occupancy ``(1, depth, H, W)``, cropped to its occupied bounds.
         """
         path = Path(path)
-        cache_path = path.parent / ".cache" / f"{path.stem}_{resolution}.pt"
-
+        cache_path = path.parent / ".cache" / f"{path.stem}_{resolution}_centers.pt"
         if cache_path.exists():
-            return torch.load(cache_path, weights_only=True)
+            return torch.load(cache_path, weights_only=True).float()
 
         if path.suffix.lower() == ".xyz":
-            grid = self._voxelize_pointcloud(path, resolution)
+            vertices, inside = self._point_cloud(path)
         else:
-            grid = self._voxelize_mesh(path, resolution)
-
-        occupied = torch.where(grid > 0)
-        grid = grid[
-            occupied[0].min() : occupied[0].max() + 1,
-            occupied[1].min() : occupied[1].max() + 1,
-            occupied[2].min() : occupied[2].max() + 1,
-        ].unsqueeze(0)
+            vertices, inside = self._mesh(path)
+        grid = self._voxelize(vertices, inside, resolution)
 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(grid, cache_path)
-        return grid
+        return grid.float()
 
     @staticmethod
-    def _voxelize_pointcloud(path: Path, resolution: int) -> Tensor:
-        """Approximate occupancy from ``x y z nx ny nz`` points using a KD-tree SDF.
+    def _normalize(vertices: np.ndarray) -> np.ndarray:
+        """Center on the mean and scale the largest extent to fill ``[-0.45, 0.45]``."""
+        vertices = vertices - vertices.mean(axis=0)
+        low, high = vertices.min(), vertices.max()
+        return (vertices - low) / (high - low) * 0.9 - 0.45
 
-        Points are centered and globally scaled into ``[-0.45, 0.45]^3``. A query's SDF
-        is its offset from the nearest point, projected onto the mean normal of its
-        three nearest neighbors; negative values are occupied.
+    @staticmethod
+    def _voxelize(
+        vertices: np.ndarray,
+        inside: Callable[[np.ndarray], np.ndarray],
+        resolution: int,
+    ) -> Tensor:
+        """Mark the voxel centers ``inside`` the shape, cropped to the occupied ones.
+
+        The centers, at multiples of ``1 / resolution``, span the shape's bounds and are
+        tested a few slabs at a time, which bounds memory at any resolution.
+
+        Returns:
+            Occupancy ``(1, depth, H, W)`` as ``uint8``.
+        """
+        low = np.floor(vertices.min(axis=0) * resolution).astype(int)
+        high = np.ceil(vertices.max(axis=0) * resolution).astype(int)
+        axes = [np.arange(lo, hi + 1) / resolution for lo, hi in zip(low, high)]
+        plane = np.stack(np.meshgrid(axes[1], axes[2], indexing="ij"), axis=-1)
+        plane = plane.reshape(-1, 2)
+        grid = np.zeros([len(axis) for axis in axes], dtype=np.uint8)
+        slabs = max(1, 2**21 // len(plane))
+        for start in range(0, len(axes[0]), slabs):
+            x = axes[0][start : start + slabs]
+            points = np.column_stack(
+                [np.repeat(x, len(plane)), np.tile(plane, (len(x), 1))]
+            )
+            occupied = inside(points.astype(np.float32))
+            grid[start : start + len(x)] = occupied.reshape(len(x), *grid.shape[1:])
+
+        bounds = []
+        for axis in range(3):
+            filled = np.flatnonzero(grid.any(axis=tuple({0, 1, 2} - {axis})))
+            bounds.append(slice(filled[0], filled[-1] + 1))
+        return torch.from_numpy(np.ascontiguousarray(grid[tuple(bounds)]))[None]
+
+    @staticmethod
+    def _mesh(path: Path) -> tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
+        """Return a mesh's normalized vertices and its inside test, by five rays."""
+        import trimesh
+
+        os.environ.setdefault("OPEN3D_DISABLE_WEB_VISUALIZER", "true")
+        import open3d as o3d
+
+        mesh = trimesh.load(str(path), force="mesh")
+        vertices = OccupancyCoordinateDataset._normalize(mesh.vertices)
+        geometry = o3d.t.geometry.TriangleMesh()
+        geometry.vertex.positions = o3d.core.Tensor(vertices.astype(np.float32))
+        geometry.triangle.indices = o3d.core.Tensor(mesh.faces.astype(np.int32))
+        scene = o3d.t.geometry.RaycastingScene()
+        scene.add_triangles(geometry)
+
+        def inside(points: np.ndarray) -> np.ndarray:
+            occupancy = scene.compute_occupancy(o3d.core.Tensor(points), nsamples=5)
+            return occupancy.numpy() > 0
+
+        return vertices, inside
+
+    @staticmethod
+    def _point_cloud(
+        path: Path,
+    ) -> tuple[np.ndarray, Callable[[np.ndarray], np.ndarray]]:
+        """Return a point cloud's normalized points and its inside test, BACON's.
+
+        A query's signed distance is its offset from the nearest point, projected onto
+        the mean normal of its three nearest neighbors; negative values are inside.
         """
         from scipy.spatial import cKDTree
 
-        pointcloud = np.genfromtxt(path)
-        vertices, normals = pointcloud[:, :3], pointcloud[:, 3:]
-
+        cloud = np.genfromtxt(path)
+        vertices = OccupancyCoordinateDataset._normalize(cloud[:, :3])
+        normals = cloud[:, 3:]
         norms = np.linalg.norm(normals, axis=-1, keepdims=True)
         norms[norms == 0] = 1.0
         normals = normals / norms
-
-        # Leave a margin around the shape so its boundary stays inside the grid.
-        vertices -= vertices.mean(axis=0)
-        coord_max, coord_min = vertices.max(), vertices.min()
-        vertices = (vertices - coord_min) / (coord_max - coord_min) * 0.9 - 0.45
-
         tree = cKDTree(vertices)
 
-        axis = np.linspace(-0.5, 0.5, resolution)
-        x, y, z = np.meshgrid(axis, axis, axis, indexing="ij")
-        query_points = np.stack([x, y, z], axis=-1).reshape(-1, 3)
-
-        # Bound memory while querying the three nearest surface normals.
-        batch_size = 200_000
-        sdf = np.empty(query_points.shape[0], dtype=np.float32)
-        for i in range(0, len(query_points), batch_size):
-            batch = query_points[i : i + batch_size]
-            _, neighbor_indices = tree.query(batch, k=3)
-            nearest_points = vertices[neighbor_indices[:, 0]]
-            mean_normals = normals[neighbor_indices].mean(axis=1)
+        def inside(points: np.ndarray) -> np.ndarray:
+            _, neighbors = tree.query(points, k=3, workers=-1)
+            mean_normals = normals[neighbors].mean(axis=1)
             mean_normals /= np.linalg.norm(mean_normals, axis=-1, keepdims=True) + 1e-10
-            sdf[i : i + batch_size] = ((batch - nearest_points) * mean_normals).sum(
-                axis=-1
-            )
+            offsets = points - vertices[neighbors[:, 0]]
+            return (offsets * mean_normals).sum(axis=-1) < 0
 
-        occupancy = (
-            (sdf < 0).astype(np.float32).reshape(resolution, resolution, resolution)
-        )
-        return torch.from_numpy(occupancy)
-
-    @staticmethod
-    def _voxelize_mesh(path: Path, resolution: int) -> Tensor:
-        """Center and scale a mesh into ``[-0.45, 0.45]^3``, then voxelize and fill."""
-        import trimesh
-
-        mesh = trimesh.load(str(path), force="mesh")
-        vertices = mesh.vertices.copy()
-        vertices -= vertices.mean(axis=0)
-        coord_max, coord_min = vertices.max(), vertices.min()
-        vertices = (vertices - coord_min) / (coord_max - coord_min) * 0.9 - 0.45
-        mesh.vertices = vertices
-
-        voxels = mesh.voxelized(pitch=1.0 / resolution).fill()
-        return torch.from_numpy(voxels.matrix.astype(np.float32))
+        return vertices, inside
 
     def save(
         self,
@@ -806,8 +836,14 @@ class OccupancyCoordinateDataset(ImageCoordinateDataset):
         extent = np.array(volume.shape, dtype=float)
         center = (extent - 1) / 2
         sideways = min({0, 1, 2} - {up}, key=lambda axis: extent[axis])
-        eye = center + np.eye(3)[sideways] * 1.1 * np.linalg.norm(extent)
-        renderer.setup_camera(45.0, center, eye, np.eye(3)[up])
+        across = ({0, 1, 2} - {up, sideways}).pop()
+        # Far enough that the grid's nearest face, 4 % larger, fills the 45-degree
+        # view along its longer side: a tall shape is never cut at the frame.
+        fov = 45.0
+        half = 1.04 * max(extent[up], extent[across]) / 2
+        distance = half / math.tan(math.radians(fov / 2)) + extent[sideways] / 2
+        eye = center + np.eye(3)[sideways] * distance
+        renderer.setup_camera(fov, center, eye, np.eye(3)[up])
         o3d.io.write_image(str(png_path), renderer.render_to_image())
 
     @staticmethod
