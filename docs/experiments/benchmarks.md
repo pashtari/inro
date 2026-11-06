@@ -11,8 +11,8 @@ Thirteen models on three tasks, at equal parameter count per task.
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Occupancy, Stanford</p>
-    <p class="inro-tile__gain">+0.06 %</p>
-    <p class="inro-tile__note">FUTON, 99.97 % IoU, against RFF's 99.91 %, in 1.7 s against 11.7 s.</p>
+    <p class="inro-tile__gain">+0.21 points</p>
+    <p class="inro-tile__note">FUTON, 99.90 % IoU, against GA-Planes' 99.69 %, in 5.4 s against 62.2 s.</p>
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Radiance fields, Blender</p>
@@ -26,21 +26,21 @@ Thirteen models on three tasks, at equal parameter count per task.
 === "Accuracy"
 
     - **Images.** FUTON leads PSNR, SSIM and LPIPS, by 0.90 dB over MFN, the strongest baseline, and is ahead of every baseline on 21 of the 24 images.
-    - **Volumes.** It has the best mean IoU, 99.97 % against 99.91 % for RFF, and the best IoU on four of the five shapes; on the armadillo RFF leads, 99.97 % against 99.95 %. It passes 99.8 % on every shape after 0.8 s of training, where GA-Planes, the only other model to get there, takes 11.4 s.
+    - **Volumes.** It has the best mean IoU, 99.90 % against 99.69 % for GA-Planes, and the best IoU on every shape. It reaches 99.5 % IoU first, in 3.2 s of training against 7.2 s for Instant-NGP and 44.5 s for GA-Planes, read off the mean learning curves.
     - **Radiance fields.** It leads FINER by 0.60 dB and five of the eight scenes.
 
 === "Training speed"
 
-    - **The fastest.** FUTON is the fastest model to train on volumes, 1.7 s against Instant-NGP's 2.6 s. Instant-NGP is the fastest on the other two tasks: 3.6 s against FUTON's 4.1 s on images and 147 s against 152 s on radiance fields.
-    - **FUTON's place.** It follows Instant-NGP on images and radiance fields.
-    - **Memory.** FUTON's training memory is the lowest on every task: 0.36 GB on images, 0.11 GB on volumes and 1.88 GB on radiance fields.
+    - **The fastest.** FUTON is the fastest model to train on volumes, in 5.4 s against Instant-NGP's 9.4 s, and Instant-NGP on images and radiance fields: 3.6 s against FUTON's 4.1 s and 147 s against 152 s.
+    - **FUTON's place.** It follows Instant-NGP closely on images and radiance fields and leads it on volumes: it reaches Instant-NGP's final IoU 2.7 times sooner, in 3.4 s, and ends at 99.90 % against 99.58 %.
+    - **Memory.** FUTON's training memory is the lowest on every task: 0.36 GB on images, 0.28 GB on volumes and 1.88 GB on radiance fields.
     - **Implementations.** The hash grid is a PyTorch port of tiny-cuda-nn's, without the fused CUDA kernels, gathering every level in one batched pass; FUTON is plain PyTorch, and every model is compiled.
 
 === "Inference"
 
-    - **Images and volumes.** FUTON is the fastest on both: 229 megapixels per second against Instant-NGP's 198 on images, and 462 megavoxels per second against TensoRF's 191 on volumes.
+    - **Images and volumes.** FUTON is the fastest on both: 229 megapixels per second against Instant-NGP's 198 on images, and 537 megavoxels per second against TensoRF's 202 on volumes.
     - **Radiance fields.** A radiance field renders a whole view in one pass in 20 to 30 ms, 34 to 50 frames per second, and FUTON is the fastest, at 49.6 against 47.2 for TensoRF, 45.7 for GA-Planes and 44.0 for Instant-NGP.
-    - **Memory.** FUTON infers in the least memory on images and volumes, 0.20 GB and 86 MB, and renders a radiance field in the least, 2.04 GB, which TensoRF and GA-Planes match: nearly all of that is the ray marcher's buffers for the view's 40,000 rays.
+    - **Memory.** FUTON infers in the least memory on images, 201 MB, and on volumes, 0.61 GB against TensoRF's 1.19 GB; it renders a radiance field in the least, 2.04 GB, which TensoRF and GA-Planes match: nearly all of that is the ray marcher's buffers for the view's 40,000 rays.
 
 ## How to read the tables
 
@@ -48,7 +48,7 @@ The tables come from the runs' `results.json`, and the figures are the paper's.
 
 - **Marks.** Bold marks the best value in a column and italics the second.
 - **Errors.** ± is one standard error over the signals, after removing each signal's own level (a paired standard error). IoU, which saturates near 100 % on every shape, takes the plain standard error over the shapes.
-- **Costs.** Accuracy and costs come from the same runs. Every model is compiled with `torch.compile` and trained on an A100 after an untimed warm-up pass that compiles it. The training time counts the training steps alone; inference throughput and memory are the medians over a run's evaluations, for a radiance field over its 200 test views, each rendered whole in one pass, and training memory is the run's peak. Each cost in the tables and figures is the median over a task's signals.
+- **Costs.** Accuracy and costs come from the same runs. Every model is compiled with `torch.compile` and trained on an A100 after an untimed warm-up pass that compiles it. The training time counts the training steps alone; inference throughput is the signal's size over the median of a run's evaluation times, and inference memory the median of their peaks, for a radiance field over its 200 test views, each rendered whole in one pass, and training memory is the run's peak. Each cost in the tables and figures is the median over a task's signals.
 
 ??? note "Notes on the rows"
 
@@ -76,31 +76,33 @@ The tables come from the runs' `results.json`, and the figures are the paper's.
 
 <p class="inro-caption">PSNR against training time for FUTON and the strongest model of each family, the band one within-image standard error; every model's final PSNR against its training time; and against its inference throughput.</p>
 
-| Model | #Params (k) | Training time (s) ↓ | Training memory (GB) ↓ | Inference throughput (MPix/s) ↑ | Inference memory (GB) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
+| Model | #Params (k) | Training time (s) ↓ | Training memory (GB) ↓ | Inference throughput (MPix/s) ↑ | Inference memory (MB) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| RFF | 199.7 | 29.8 | 2.08 | 30.7 | 1.21 | 31.28 ± 0.17 | 0.846 ± 0.007 | 0.271 ± 0.007 |
-| PE-MLP | 209.2 | 32.8 | 2.11 | 33.2 | 0.81 | 27.86 ± 0.16 | 0.726 ± 0.015 | 0.431 ± 0.008 |
-| MFN | 204.3 | 57.3 | 7.67 | 26.8 | 3.22 | _36.72_ ± 0.17 | _0.938_ ± 0.003 | 0.129 ± 0.003 |
-| SIREN | 198.9 | 35.7 | 3.25 | 34.4 | 0.81 | 33.57 ± 0.15 | 0.906 ± 0.003 | 0.192 ± 0.004 |
-| FreSh (SIREN) | 198.9 | 39.3 | 3.25 | 34.5 | 0.81 | 34.88 ± 0.15 | 0.922 ± 0.003 | 0.150 ± 0.003 |
-| Gauss | 198.9 | 36.6 | 3.64 | 34.3 | 0.81 | 32.33 ± 0.19 | 0.877 ± 0.005 | 0.213 ± 0.004 |
-| WIRE | 199.3 | 42.2 | 4.00 | 31.5 | 0.86 | 30.17 ± 0.46 | 0.807 ± 0.017 | 0.260 ± 0.010 |
-| FINER | 198.9 | 35.7 | 3.25 | 34.3 | 0.81 | 35.96 ± 0.14 | _0.938_ ± 0.003 | _0.120_ ± 0.002 |
-| Instant-NGP | 205.1 | **3.6** | _0.72_ | _198.3_ | _0.50_ | 36.05 ± 0.20 | 0.932 ± 0.002 | 0.142 ± 0.004 |
-| TensoRF | 202.0 | 27.8 | 1.79 | 55.2 | 0.81 | 35.48 ± 0.13 | 0.920 ± 0.002 | 0.161 ± 0.003 |
-| GA-Planes | 199.9 | 19.0 | 1.32 | 68.1 | 0.81 | 32.23 ± 0.20 | 0.878 ± 0.004 | 0.227 ± 0.005 |
-| F-INR (SIREN) | 198.8 | 7.1 | 2.70 | 136.3 | 1.34 | 29.35 ± 0.13 | 0.786 ± 0.007 | 0.343 ± 0.005 |
-| FUTON | 197.4 | _4.1_ | **0.36** | **228.7** | **0.20** | **37.63** ± 0.55 | **0.955** ± 0.004 | **0.098** ± 0.004 |
+| RFF | 199.7 | 29.8 | 2.08 | 30.7 | 1208 | 31.28 ± 0.17 | 0.846 ± 0.007 | 0.271 ± 0.007 |
+| PE-MLP | 209.2 | 32.8 | 2.11 | 33.2 | 805 | 27.86 ± 0.16 | 0.726 ± 0.015 | 0.431 ± 0.008 |
+| MFN | 204.3 | 57.3 | 7.67 | 26.8 | 3224 | _36.72_ ± 0.17 | _0.938_ ± 0.003 | 0.129 ± 0.003 |
+| SIREN | 198.9 | 35.7 | 3.25 | 34.4 | 805 | 33.57 ± 0.15 | 0.906 ± 0.003 | 0.192 ± 0.004 |
+| FreSh (SIREN) | 198.9 | 39.3 | 3.25 | 34.5 | 805 | 34.88 ± 0.15 | 0.922 ± 0.003 | 0.150 ± 0.003 |
+| Gauss | 198.9 | 36.6 | 3.64 | 34.3 | 805 | 32.33 ± 0.19 | 0.877 ± 0.005 | 0.213 ± 0.004 |
+| WIRE | 199.3 | 42.2 | 4.00 | 31.5 | 856 | 30.17 ± 0.46 | 0.807 ± 0.017 | 0.260 ± 0.010 |
+| FINER | 198.9 | 35.7 | 3.25 | 34.3 | 805 | 35.96 ± 0.14 | _0.938_ ± 0.003 | _0.120_ ± 0.002 |
+| Instant-NGP | 205.1 | **3.6** | _0.72_ | _198.3_ | _503_ | 36.05 ± 0.20 | 0.932 ± 0.002 | 0.142 ± 0.004 |
+| TensoRF | 202.0 | 27.8 | 1.79 | 55.2 | 805 | 35.48 ± 0.13 | 0.920 ± 0.002 | 0.161 ± 0.003 |
+| GA-Planes | 199.9 | 19.0 | 1.32 | 68.1 | 805 | 32.23 ± 0.20 | 0.878 ± 0.004 | 0.227 ± 0.005 |
+| F-INR (SIREN) | 198.8 | 7.1 | 2.70 | 136.3 | 1338 | 29.35 ± 0.13 | 0.786 ± 0.007 | 0.343 ± 0.005 |
+| FUTON | 197.4 | _4.1_ | **0.36** | **228.7** | **201** | **37.63** ± 0.55 | **0.955** ± 0.004 | **0.098** ± 0.004 |
 
 <figure markdown="span">
   ![kodim19](../assets/qualitative_kodim19.png)
   ![kodim01](../assets/qualitative_kodim01.png)
-  <figcaption>kodim19 and kodim01: two regions of fine detail magnified for the ground truth and every featured model, above each model's |error| there on one scale per figure, with each model's PSNR over the whole image.</figcaption>
+  ![kodim21](../assets/qualitative_kodim21.png)
+  ![kodim23](../assets/qualitative_kodim23.png)
+  <figcaption>kodim19, kodim01, kodim21 and kodim23: the ground truth and every featured model's reconstruction with its PSNR over the whole image, and two regions of fine detail magnified beneath each.</figcaption>
 </figure>
 
 ## Occupancy
 
-Five Stanford shapes voxelized at 256 samples per unit length and cropped to their bounds (2.1 to 7.9 million voxels, the longest side 231), about 131k parameters per model, 1000 steps, each on $2^{18}$ random voxels, scored by IoU on every voxel.
+Five Stanford shapes, each voxel center at 512 per unit length marked inside or outside the scan, cropped to their bounds (16.6 to 62.3 million voxels, the longest side 461), about 131k parameters per model, 1000 steps, each on $2^{20}$ random voxels, scored by IoU on every voxel, evaluated $2^{20}$ voxels per forward pass.
 
 <div class="inro-panels" markdown>
 
@@ -114,32 +116,36 @@ Five Stanford shapes voxelized at 256 samples per unit length and cropped to the
 
 --8<-- "docs/_overrides/snippets/legend.html"
 
-<p class="inro-caption">IoU against training time for the featured models; every model's final IoU against its training time; and against its inference throughput, in megavoxels per second.</p>
+<p class="inro-caption">IoU against training time for the featured models; every model's final IoU against its training time; and against its inference throughput, in megavoxels per second. The two models below 98 % sit on the axis line as markers, and FreSh (SIREN), whose frequency search takes minutes, at the end of the time axis.</p>
 
-| Model | #Params (k) | Training time (s) ↓ | Training memory (GB) ↓ | Inference throughput (MVox/s) ↑ | Inference memory (MB) ↓ | IoU (%) Armadillo ↑ | IoU (%) Dragon ↑ | IoU (%) Happy Buddha ↑ | IoU (%) Lucy ↑ | IoU (%) Thai Statue ↑ | IoU (%) Mean ↑ |
+| Model | #Params (k) | Training time (s) ↓ | Training memory (GB) ↓ | Inference throughput (MVox/s) ↑ | Inference memory (GB) ↓ | IoU (%) Armadillo ↑ | IoU (%) Dragon ↑ | IoU (%) Happy Buddha ↑ | IoU (%) Lucy ↑ | IoU (%) Thai Statue ↑ | IoU (%) Mean ↑ |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| RFF | 132.2 | 11.7 | 1.04 | 48.2 | 819 | **99.97** | _99.97_ | 99.91 | 99.79 | _99.93_ | _99.91_ ± 0.03 |
-| PE-MLP | 132.3 | 15.4 | 1.02 | 48.2 | 520 | 98.30 | 98.27 | 98.86 | 95.46 | 98.01 | 97.78 ± 0.60 |
-| MFN | 138.0 | 27.4 | 3.77 | 38.3 | 1359 | 99.47 | 98.52 | 98.49 | 98.98 | 99.27 | 98.95 ± 0.20 |
-| SIREN | 132.9 | 17.1 | 1.62 | 50.6 | 551 | 99.02 | 99.60 | 99.85 | 99.45 | 99.09 | 99.40 ± 0.16 |
-| FreSh (SIREN) | 132.9 | 41.6 | 1.62 | 50.4 | 551 | 99.54 | 99.83 | _99.97_ | 99.75 | 99.56 | 99.73 ± 0.08 |
-| Gauss | 132.9 | 17.5 | 1.62 | 50.8 | 551 | 99.69 | 99.95 | 99.94 | 99.87 | 99.72 | 99.83 ± 0.05 |
-| WIRE | 133.4 | 21.9 | 1.91 | 46.6 | 583 | 99.78 | 99.96 | _99.97_ | _99.93_ | 99.88 | 99.90 ± 0.03 |
-| FINER | 132.9 | 17.2 | 1.62 | 50.5 | 551 | 99.43 | 99.81 | _99.97_ | 99.87 | 99.54 | 99.73 ± 0.10 |
-| Instant-NGP | 133.2 | _2.6_ | 0.53 | 158.0 | 718 | _99.96_ | 99.96 | 99.78 | 99.80 | 99.78 | 99.86 ± 0.04 |
-| TensoRF | 132.4 | 6.4 | _0.44_ | _191.1_ | _282_ | 99.86 | 99.77 | 99.74 | 99.50 | 99.50 | 99.67 ± 0.07 |
-| GA-Planes | 132.0 | 17.8 | 0.58 | 105.8 | 328 | 99.88 | 99.95 | 99.94 | 99.90 | 99.85 | 99.90 ± 0.02 |
-| F-INR (SIREN) | 131.8 | 5.9 | 1.65 | 119.9 | 835 | 98.05 | 98.53 | 98.74 | 97.42 | 97.73 | 98.09 ± 0.24 |
-| FUTON | 130.9 | **1.7** | **0.11** | **462.2** | **86** | 99.95 | **99.99** | **99.99** | **99.99** | **99.94** | **99.97** ± 0.01 |
+| RFF | 132.2 | 46.5 | 4.15 | 48.9 | 3.33 | _99.71_ | 99.65 | 99.59 | 99.78 | 99.28 | 99.60 ± 0.09 |
+| PE-MLP | 132.3 | 62.6 | 4.09 | 48.3 | 2.14 | 96.96 | 96.92 | 97.54 | 91.96 | 95.71 | 95.82 ± 1.01 |
+| MFN | 138.0 | 108.5 | 15.07 | 38.9 | 5.49 | 99.23 | 97.47 | 97.50 | 99.10 | 98.74 | 98.41 ± 0.39 |
+| SIREN | 132.9 | 70.0 | 6.48 | 51.0 | 2.26 | 98.78 | 99.18 | 99.41 | 98.53 | 97.94 | 98.77 ± 0.26 |
+| FreSh (SIREN) | 132.9 | 263.6 | 6.48 | 51.3 | 2.26 | 99.34 | 99.67 | 99.65 | 99.15 | 98.83 | 99.33 ± 0.16 |
+| Gauss | 132.9 | 70.7 | 6.48 | 51.5 | 2.26 | 99.52 | 99.59 | 99.70 | 99.07 | 98.57 | 99.29 ± 0.21 |
+| WIRE | 133.4 | 81.5 | 7.62 | 44.2 | 2.39 | 99.52 | 99.59 | 99.74 | 99.43 | 98.84 | 99.43 ± 0.15 |
+| FINER | 132.9 | 69.9 | 6.48 | 51.3 | 2.26 | 99.45 | 99.59 | 99.70 | 99.29 | 98.85 | 99.38 ± 0.15 |
+| Instant-NGP | 133.2 | _9.4_ | 2.11 | 162.6 | 2.93 | 99.50 | 99.59 | 99.69 | 99.78 | _99.35_ | 99.58 ± 0.08 |
+| TensoRF | 132.4 | 23.8 | _1.75_ | _202.3_ | _1.19_ | 99.53 | 99.71 | 99.78 | 99.34 | 98.82 | 99.44 ± 0.17 |
+| GA-Planes | 132.0 | 62.2 | 2.31 | 111.9 | 1.37 | 99.58 | _99.79_ | _99.93_ | _99.79_ | 99.34 | _99.69_ ± 0.10 |
+| F-INR (SIREN) | 131.8 | 20.9 | 6.59 | 179.2 | 3.39 | 97.75 | 98.25 | 98.08 | 96.27 | 96.42 | 97.35 ± 0.42 |
+| FUTON | 130.4 | **5.4** | **0.28** | **537.4** | **0.61** | **99.86** | **99.94** | **99.99** | **99.96** | **99.74** | **99.90** ± 0.04 |
 
 <figure markdown="span">
   ![Lucy](../assets/qualitative_lucy.png)
-  <figcaption>Lucy, reconstructed from each model's checkpoint by marching cubes and rendered offscreen: the shoulder under the torch and the hem magnified for the ground truth and every featured model, above each model's |error| there on one scale, with each model's IoU over the whole volume.</figcaption>
+  ![Armadillo](../assets/qualitative_armadillo.png)
+  ![Dragon](../assets/qualitative_dragon.png)
+  ![Happy Buddha](../assets/qualitative_happy_buddha.png)
+  ![Thai Statue](../assets/qualitative_thai_statue.png)
+  <figcaption>The five shapes, reconstructed from each model's checkpoint by marching cubes and rendered offscreen: the ground truth and every featured model's reconstruction with its IoU over the whole volume, and two regions of fine detail magnified beneath each.</figcaption>
 </figure>
 
 ## Radiance fields
 
-Eight NeRF synthetic (Blender) scenes under FINER's protocol: 200 × 200 views, 25 training views, 25,000 steps of 4096 rays (FINER's protocol trains for 37,500), scored on all 200 test views. Every model is the density network of the same radiance field (15 geometry features, spherical-harmonics direction encoding, a 64 × 2 color MLP), about 75k parameters in all.
+Eight NeRF synthetic (Blender) scenes under FINER's protocol: 200 × 200 views, 25 training views, 25,000 steps of 4096 rays (FINER's protocol trains for 37,500), scored on all 200 test views. Every model is the density network of the same radiance field (15 geometry features, spherical-harmonics direction encoding, a 64 × 2 color MLP), about 74k parameters in all.
 
 <div class="inro-panels" markdown>
 
@@ -193,7 +199,11 @@ Per scene, FUTON leads five of the eight: chair, hotdog, lego, materials and shi
 
 <figure markdown="span">
   ![Lego](../assets/qualitative_lego.png)
-  <figcaption>The lego scene from a test view, with two regions magnified.</figcaption>
+  ![Chair](../assets/qualitative_chair.png)
+  ![Materials](../assets/qualitative_materials.png)
+  ![Hotdog](../assets/qualitative_hotdog.png)
+  ![Ship](../assets/qualitative_ship.png)
+  <figcaption>The lego, chair, materials, hotdog and ship scenes from a test view: the ground truth and the render of FUTON and of one baseline of each family, with its PSNR on that view, and two regions magnified beneath each.</figcaption>
 </figure>
 
 <figure markdown="span">
@@ -205,7 +215,7 @@ Per scene, FUTON leads five of the eight: chair, hotdog, lego, materials and shi
 
 Where the protocol meets a published one, the numbers agree, allowing for the shorter radiance-field schedule.
 
-- **Radiance fields.** The protocol is FINER's, which trains for 37,500 steps; at our 25,000 and our 75k budget, SIREN lands 0.3 dB and FINER 0.6 dB below that paper's table on average, by at most 1.1 dB on a scene, and our PE-MLP and WIRE are stronger than its.
-- **Hash grid.** Its low radiance-field score is what a 75k budget leaves it: its tables hold $2^{11}$ entries per level, 256 times fewer than in its paper.
+- **Radiance fields.** The protocol is FINER's, which trains for 37,500 steps; at our 25,000 and our 74k budget, SIREN lands 0.3 dB and FINER 0.6 dB below that paper's table on average, by at most 1.1 dB on a scene, and our PE-MLP and WIRE are stronger than its.
+- **Hash grid.** Its low radiance-field score is what a 74k budget leaves it: its tables hold $2^{11}$ entries per level, 256 times fewer than in its paper.
 
 The [ablations](ablations.md) take FUTON apart, and [Reproducing the paper](reproduce.md) has the commands that produced every number above.

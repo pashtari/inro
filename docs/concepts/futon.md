@@ -31,13 +31,13 @@ s(\boldsymbol{x}) &\approx \sum_{r=1}^{R} \prod_{c=1}^{C} \big\langle \boldsymbo
 \end{aligned}
 $$
 
-where $\boldsymbol{\varphi}(x_c) = [\varphi_1(x_c), \dots, \varphi_K(x_c)]$ and $\odot$ is the elementwise product. Nothing in the forward pass is $K^C$ any more: each axis is projected to $R$ channels, the channels are multiplied across axes, and the $R$ products are summed. With $D$ output channels the final sum becomes a linear map $\boldsymbol{V} \in \mathbb{R}^{D \times R}$; replacing it with a small MLP gives the model used in the experiments.
+where $\boldsymbol{\varphi}(x_c) = [\varphi_1(x_c), \dots, \varphi_K(x_c)]$ and $\odot$ is the elementwise product. Nothing in the forward pass is $K^C$ any more: each axis is projected to $R$ channels, the channels are multiplied across axes, and the $R$ products are summed. With $D$ output channels the final sum becomes a linear map $\boldsymbol{V} \in \mathbb{R}^{D \times R}$; replacing it with a small MLP gives the model used on images and radiance fields, while the volumes keep the linear head.
 
-The prior holds for natural signals. For kodim23 at $K = 32$ cosines per axis, $\mathcal{W} \in \mathbb{R}^{32 \times 32 \times 3}$ holds the image's 3,072 generalized Fourier coefficients, whose energy concentrates at low frequencies: the $8 \times 8$ lowest carry 78 % of it. A CP tensor of rank 4 keeps the dominant structure in 268 numbers, and the image it represents scores 17.2 dB, against 23.8 dB for all 3,072 coefficients, the most any FUTON with a linear head reaches at this $K$.
+The prior holds for natural signals. For kodim23 at $K = 32$ cosines per axis, $\mathcal{W} \in \mathbb{R}^{32 \times 32 \times 3}$ holds the image's 3,072 generalized Fourier coefficients, whose energy concentrates at low frequencies: the $8 \times 8$ lowest carry 78 % of it. A CP tensor of rank 8 keeps 89 % of their energy in 536 numbers, and the image it represents scores 19.89 dB, against 23.79 dB for all 3,072 coefficients, the most any FUTON with a linear head reaches at this $K$.
 
 <figure markdown="span">
-  ![kodim23 and its coefficient tensor at K = 32, in full and at rank 4, as RGB images](../assets/futon_coefficients.png){ width="760" }
-  <figcaption>kodim23 and its coefficient tensor in the cosine basis at K = 32 per axis, as an RGB image with one cell per frequency: in full, and at rank 4, the certified FUTON of the error bound, built from the image without training. A channel's coefficient w is shown as 0.5 + 0.5 tanh(w / s), gray at zero, with s the 90th percentile of the full tensor's magnitudes. Each PSNR is that of the image the tensor represents. scripts/futon_coefficients.py computes both.</figcaption>
+  ![kodim23, its coefficient tensor at K = 32 in full and at rank 8 as RGB images, and their differences](../assets/futon_coefficients.png){ width="960" }
+  <figcaption>kodim23 and its coefficient tensor in the cosine basis at K = 32 per axis, as an RGB image with one cell per frequency: in full, and at rank 8, the certified FUTON of the error bound, built from the image without training; then the norm of their difference per frequency, and per pixel between the images they represent. A channel's coefficient w is shown as 0.5 + 0.5 tanh(w / s), gray at zero, with s the 90th percentile of the full tensor's magnitudes. Each PSNR is that of the image the tensor represents. scripts/futon_coefficients.py computes both tensors.</figcaption>
 </figure>
 
 This is the pipeline `head(combiner(basis(x)))`:
@@ -70,8 +70,8 @@ On a grid the projections $\boldsymbol{U}^{(c)\top} \boldsymbol{\varphi}(x_c)$ a
 | Points | How the basis is evaluated | Cost for $N$ points |
 | --- | --- | --- |
 | Scattered | Point by point | $O(NR \sum_c K_c)$ |
-| On a grid, $S_c$ distinct coordinates per axis | Each distinct coordinate once, every point gathering its rows | $O(R \sum_c S_c K_c + NCR)$ |
-| A grid the batch covers, a head whose first layer is linear | The network and that layer as one tensor network over the axes' tables, contracted for the whole grid and read at the points | $O(DR \prod_c S_c)$ for CP, $D$ the layer's width |
+| On a grid, $L_c$ distinct coordinates per axis | Each distinct coordinate once, every point gathering its rows | $O(R \sum_c L_c K_c + NCR)$ |
+| A grid the batch covers, a head whose first layer is linear | The network and that layer as one tensor network over the axes' tables, contracted for the whole grid and read at the points | $O(DR \prod_c L_c)$ for CP, $D$ the layer's width |
 
 The shared path computes the same function and gradients. FUTON takes it whenever every axis of a batch repeats its coordinates, as an image's pixels or any batch drawn from them do. Coordinates that need gradients are always evaluated point by point.
 
@@ -122,7 +122,7 @@ Normalization shapes the features, and locality how they are stored:
 - **`normalize`** (default `True`) L2-normalizes the feature *vector* $\boldsymbol{\varphi}(x_c)$ at each point, not the basis functions. It stabilizes training and is what the experiments use. `normalize=False` recovers the plain series: exact cardinal interpolation for the cardinal bases, and the TensoRF-CP parameterization for the triangle basis with a CP combiner.
 - **Taps.** A local basis, `triangle` or `lanczos`, returns each axis of scattered points as `Taps`, only the $2a$ nonzero features of each coordinate and the column of the first; on a grid, it reads dense tables like any other basis. A product with a factor gathers $2a$ consecutive rows per coordinate, which `torch.compile` fuses into one kernel. Taps need a flat batch `(N, C)`; `FUTON.forward` reshapes for you.
 
-The paper proves that FUTON with the cosine basis is a universal approximator. In practice the choice of family barely moves accuracy on the grid, and moves training time a lot; the [basis ablation](../experiments/ablations.md#basis) measures both.
+The paper proves that FUTON with the cosine basis is a universal approximator. In practice, on images, cosines lead the five other families by 0.2 to 1.6 dB, and all six train in about the same time; the [basis ablation](../experiments/ablations.md#basis) measures both.
 
 ## Combiners
 
@@ -144,9 +144,9 @@ The [combiner ablation](../experiments/ablations.md#combiner) finds CP the most 
 
 ## Heads
 
-- **`linear`** is `nn.Linear(R, D)`: $\hat{s}(\boldsymbol{x}) = \boldsymbol{V} \boldsymbol{g}(\boldsymbol{x}) + \boldsymbol{b}$. With it, FUTON is *exactly* a rank-$R$ CP model of the signal in the chosen basis, Eq. (9) of the paper, and its capacity is the capacity of that tensor format. The occupancy benchmark uses it: on volumes it ties the best MLP at equal size, in a seventh of the training time.
+- **`linear`** is `nn.Linear(R, D)`: $\hat{s}(\boldsymbol{x}) = \boldsymbol{V} \boldsymbol{g}(\boldsymbol{x}) + \boldsymbol{b}$. With it, FUTON is *exactly* a rank-$R$ CP model of the signal in the chosen basis, Eqs. (8) to (10) of the paper, and its capacity is the capacity of that tensor format. The occupancy benchmark uses it: on volumes at 256 voxels per unit length it tied the best MLP at equal size, in a seventh of the training time.
 - **`identity`** passes the combiner's features on.
-- **`mlp`** is `inro.MLP(R, D, hidden_layers=h)`, a ReLU network whose hidden width defaults to $R$. The other benchmarks use one hidden layer. The nonlinearity lets the model represent more than a rank-$R$ tensor at the same size: on images it is worth about 8 dB over a linear head of the same size ([head ablation](../experiments/ablations.md#head)).
+- **`mlp`** is `inro.MLP(R, D, hidden_layers=h)`, a ReLU network whose hidden width defaults to $R$. The other benchmarks use one hidden layer. The nonlinearity lets the model represent more than a rank-$R$ tensor at the same size: on images it is worth 7.4 dB over a linear head of the same size ([head ablation](../experiments/ablations.md#head)).
 
 `output_activation` is applied last; the benchmark models use `torch.tanh` to match targets in $[-1, 1]$. Inside a `RadianceField`, the density network must have no output activation, since the field applies its own.
 
@@ -160,17 +160,17 @@ $$
 
 and with a linear head, $R \sum_c K_c + RD + D$.
 
-Each task chooses FUTON's components per axis and head as every baseline's settings are chosen, on the data the baselines were tuned on: the best quality at a training time and memory that stay low. The rank is the largest multiple of 5 that keeps FUTON smaller than every baseline of the task. The benchmarks run FUTON with the cosine basis at these sizes:
+Each task chose FUTON's components per axis and head in a sweep of both, on the 24 Kodak images, the five shapes at 256 voxels per unit length and the validation views of the eight scenes: the best quality at a training time and memory that stay low. The rank is the largest multiple of 5 that keeps FUTON smaller than every baseline of the task. The benchmarks run FUTON with the cosine basis at these sizes:
 
 | Task | `num_components` | `rank` | Head | Parameters |
 | --- | --- | --- | --- | --- |
 | Images, $512 \times 768$ Kodak | `[H // 2, W // 2]` | 280 | MLP, 1 hidden layer of width 64 | 197,379 |
-| Occupancy, voxel grids of 78 to 231 per side | `[D // 2, H // 2, W // 2]` | 435 to 620 by shape | Linear | 130,541 to 131,251 |
+| Occupancy, voxel grids of 154 to 461 per side | `[D // 2, H // 2, W // 2]` | 215 to 310 by shape | Linear | 128,786 to 131,441 |
 | Radiance fields, density network with 16 outputs | 100, read from a table of 2048 points per axis | 180 | MLP, 1 hidden layer of width 64 | 66,624 (73,027 with the color network) |
 
 !!! tip "Rules of thumb from the ablations"
 
-    **`num_components` is the bandwidth.** Half the resolution per axis, $K = N/2$, is the best of $N/4$, $N/2$ and $N$ on images and volumes. On radiance fields, whose $N$ is the 200 pixels of a view, $N/4$ edges ahead of it, by about 0.1 dB on the validation views, because the MLP head recovers what the coarser basis loses, but at a larger rank and more memory.
+    **`num_components` is the spectral resolution.** Half the grid's points per axis, $K_c = L_c / 2$, a relative bandwidth $\kappa = 1/2$, is the best of $\kappa = 1/4$, $1/2$ and $1$ on images and volumes. On radiance fields, whose $L_c$ is the 200 pixels of a view, $\kappa = 1/4$ edges ahead of it, by about 0.1 dB on the validation views, because the MLP head recovers what the coarser basis loses, but at a larger rank and more memory.
 
     **Spend a budget on rank first.** At a fixed budget the rank matters more than extra components, so spend a larger budget on $R$ before $K$.
 
@@ -178,10 +178,10 @@ With PyTorch's default Adam, these learning rates work:
 
 | Basis | Images | Volumes | Radiance fields |
 | --- | --- | --- | --- |
-| `cosine` | 1e-1 | 1e-2 | 1e-2 |
+| `cosine` | 1e-1 | 3e-2 | 1e-2 |
 
 The other five bases take 3e-2 on images in the [basis ablation](../experiments/ablations.md#basis).
 
 ## Relation to the paper
 
-The cosine basis, CP combiner and linear head implement Eq. (9) of the paper: `encoding.combiner.factors[c]` stores $\boldsymbol{U}^{(c)}$ and `head.weight` stores $\boldsymbol{V}$. Coordinates are mapped internally from $[-1, 1]$ to $[0, 1]$. The implementation drops the paper's $\sqrt{2}$ factor on the cosines and normalizes the feature vectors by default; `normalize=False` recovers Eq. (1) up to per-frequency constants that the factors absorb. The other bases, the tensor-ring and Tucker combiners and the MLP head are extensions; the benchmarks use the cosine basis, with a one-layer MLP head on images and radiance fields and a linear head on volumes.
+The cosine basis, CP combiner and linear head implement Eqs. (8) to (10) of the paper: `encoding.combiner.factors[c]` stores $\boldsymbol{U}^{(c)}$ and `head.weight` stores $\boldsymbol{V}$. Coordinates are mapped internally from $[-1, 1]$ to $[0, 1]$. The implementation drops the paper's $\sqrt{2}$ factor on the cosines and normalizes the feature vectors by default; `normalize=False` recovers Eq. (1) up to per-frequency constants that the factors absorb. The other bases, the tensor-ring and Tucker combiners and the MLP head are extensions; the benchmarks use the cosine basis, with a one-layer MLP head on images and radiance fields and a linear head on volumes.

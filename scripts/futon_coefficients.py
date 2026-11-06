@@ -13,7 +13,7 @@ orthonormal on the unit interval, so that W holds the series' own coefficients.
 
 Usage:
 
-    python scripts/futon_coefficients.py                    # kodim23, K = 32, R = 4
+    python scripts/futon_coefficients.py                    # kodim23, K = 32, R = 8
     python scripts/futon_coefficients.py --image kodim19 --components 64 --ranks 4 16
 
 Writes:
@@ -51,7 +51,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--image", default="kodim23", help="Kodak image name")
     parser.add_argument("--components", type=int, default=32, help="K per axis")
-    parser.add_argument("--ranks", type=int, nargs="+", default=[4], help="CP ranks")
+    parser.add_argument("--ranks", type=int, nargs="+", default=[8], help="CP ranks")
     parser.add_argument("--log-dir", type=Path, default=ROOT / "logs" / "coefficients")
     args = parser.parse_args()
 

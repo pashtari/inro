@@ -29,7 +29,7 @@ Twelve architectures share one interface: `Model(in_features, out_features, ...)
 
 | Model | Class | Idea | Reference |
 | --- | --- | --- | --- |
-| FUTON | `FUTON` | A fixed basis per axis, a low-rank CP combiner across axes, and a linear or MLP head | Ashtari et al., arXiv 2026 |
+| FUTON | `FUTON` | A fixed basis per axis, a low-rank CP combiner across axes, and a linear or MLP head | Ashtari et al., NeurIPS 2026 |
 
 The benchmarks run it with its default basis, the cosine, as `FUTON` in the results and the configs; the basis ablation compares the sinc and Lanczos bases and three more with it. The [FUTON page](futon.md) explains every part.
 
@@ -70,5 +70,5 @@ Learnable feature grids, read by interpolation and decoded by a ReLU MLP, and a 
 | --- | --- |
 | **Widths and depths** | `hidden_features` is the hidden width and `hidden_layers` the number of hidden layers, so `hidden_layers=h` means `h + 1` weight layers (MFN: `h` Gabor filters, `h - 1` hidden linear layers and one output layer). `WIRE` and `RealWIRE` divide the nominal width by $\sqrt{2}$ to keep the parameter count comparable to real networks |
 | **Output activations** | Every model takes `output_activation`, a callable applied last. The benchmarks use `torch.tanh` for targets in $[-1, 1]$ and none inside a `RadianceField` |
-| **Equal capacity** | `inro.count_parameters(model, trainable_only=False)` is how the configs were matched. The image models hold 197k to 209k parameters, the occupancy models about 132k, and the NeRF density networks about 68k (75k with the shared color network) |
+| **Equal capacity** | `inro.count_parameters(model, trainable_only=False)` is how the configs were matched. The image models hold 197k to 209k parameters, the occupancy models about 131k, and the NeRF density networks about 68k (74k with the shared color network) |
 | **Learning rates** | Each model has its own, the best of {3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4} on two signals of the task, as each config's header says |

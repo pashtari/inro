@@ -6,7 +6,7 @@ hide:
   - toc
 ---
 
-**Inro** is a PyTorch package for implicit neural representations (INRs): a unified framework for implementing, training and evaluating them. It features the official implementation of **FUTON**, introduced in [our paper](https://arxiv.org/abs/2602.13414), and major INR architectures such as SIREN, FINER, RFF, Instant-NGP and TensoRF behind one interface. Reusable components and pipelines cover image and volume representation and novel view synthesis.
+**Inro** is a PyTorch package for implicit neural representations (INRs): a unified framework for implementing, training and evaluating them. It features the official implementation of **FUTON**, introduced in [our NeurIPS 2026 paper](https://arxiv.org/abs/2602.13414), and major INR architectures such as SIREN, FINER, RFF, Instant-NGP and TensoRF behind one interface. Reusable components and pipelines cover image and volume representation and novel view synthesis.
 
 ## FUTON against the strongest baseline
 
@@ -20,8 +20,8 @@ Every model of a task has the same parameter budget, and times are median traini
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Occupancy, Stanford</p>
-    <p class="inro-tile__gain">+0.06 %</p>
-    <p class="inro-tile__note">99.97 % IoU against RFF's 99.91 %, in 1.7 s against 11.7 s.</p>
+    <p class="inro-tile__gain">+0.21 points</p>
+    <p class="inro-tile__note">99.90 % IoU against GA-Planes' 99.69 %, in 5.4 s against 62.2 s.</p>
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Radiance fields, Blender</p>
@@ -44,7 +44,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
 
     ---
 
-    A point costs $O(CKR)$ for $C$ axes, $K$ basis functions per axis and rank $R$. On a grid, each axis is evaluated once per distinct coordinate and shared by every point on it.
+    A point costs $O(R \sum_c K_c)$, linear in the rank $R$ and in the $K_c$ basis functions of each axis $c$. On a grid, each axis is evaluated once per distinct coordinate and shared by every point on it.
 
 -   :material-target:{ .lg .middle } **Accurate at equal size**
 
@@ -56,7 +56,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
 
     ---
 
-    With a linear head FUTON *is* a rank-$R$ CP model of the signal in the chosen basis, so bandwidth ($K$) and capacity ($R$) are explicit knobs, with a [computable error bound](concepts/error-bound.md).
+    With a linear head FUTON *is* a rank-$R$ CP model of the signal in the chosen basis, so the spectral resolution ($K$) and the rank ($R$) are explicit knobs, with a [computable error bound](concepts/error-bound.md).
 
 </div>
 
@@ -69,14 +69,14 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     <div class="inro-compare__after"><img src="assets/compare_kodim19_futon.png" alt="The same crop reconstructed by FUTON" class="skip-lightbox" width="384" height="256"></div>
     <div class="inro-compare__divider"></div>
     <span class="inro-compare__label inro-compare__label--left">SIREN, 33.72 dB</span>
-    <span class="inro-compare__label inro-compare__label--right">FUTON, 37.93 dB</span>
+    <span class="inro-compare__label inro-compare__label--right">FUTON, 37.98 dB</span>
     <input type="range" min="0" max="100" value="50" aria-label="Move to compare SIREN with FUTON">
   </div>
   <figcaption>Drag across a crop of kodim19. Both models hold about 197k parameters, and each score is over the whole image.</figcaption>
 </figure>
 <figure class="inro-showcase">
   <img src="assets/orbit_lego.gif" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON" class="skip-lightbox">
-  <figcaption>The lego scene in orbit, at about 75k parameters per model, with the test-view PSNR.</figcaption>
+  <figcaption>The lego scene in orbit, at about 74k parameters per model, with the test-view PSNR.</figcaption>
 </figure>
 </div>
 
@@ -97,7 +97,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     --8<-- "docs/_overrides/snippets/legend.html"
 
     <figure markdown="span">
-      ![kodim19: two regions magnified for every featured model](assets/qualitative_kodim19.png)
+      ![kodim19: every featured model's reconstruction, and two regions magnified beneath it](assets/qualitative_kodim19.png)
     </figure>
 
 === "Occupancy"
@@ -115,7 +115,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     --8<-- "docs/_overrides/snippets/legend.html"
 
     <figure markdown="span">
-      ![Lucy: two regions magnified for every featured model](assets/qualitative_lucy.png)
+      ![Lucy: every featured model's reconstruction, and two regions magnified beneath it](assets/qualitative_lucy.png)
     </figure>
 
 === "Radiance fields"
@@ -133,10 +133,10 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     --8<-- "docs/_overrides/snippets/legend.html"
 
     <figure markdown="span">
-      ![Lego: two regions magnified for every featured model](assets/qualitative_lego.png)
+      ![Lego: every model's render of a test view, and two regions magnified beneath it](assets/qualitative_lego.png)
     </figure>
 
-<p class="inro-caption">Quality against training time for FUTON and the strongest model of each family, with bands of one standard error; every model's final quality against its training time; and against its inference speed. <a href="experiments/benchmarks/">The benchmarks page</a> has every model, metric and error bar.</p>
+<p class="inro-caption">Quality against training time for FUTON and the strongest model of each family, with bands of one standard error; every model's final quality against its training time; and against its inference speed, with the volumes' two models below 98 % IoU on the axis line and FreSh (SIREN), whose frequency search takes minutes, at the end of the time axis. <a href="experiments/benchmarks/">The benchmarks page</a> has every model, metric and error bar.</p>
 
 ## One interface
 
@@ -213,11 +213,11 @@ print(result["history"][-1]["eval"])  # {"psnr": 37.8}
 If you use Inro or FUTON in your research, please cite the paper:
 
 ```bibtex
-@article{ashtari2026futon,
-  title   = {{FUTON}: Fourier Tensor Network for Implicit Neural Representations},
-  author  = {Ashtari, Pooya and Behmandpoor, Pourya and Deligiannis, Nikos and Pi{\v{z}}urica, Aleksandra},
-  journal = {arXiv preprint arXiv:2602.13414},
-  year    = {2026}
+@inproceedings{ashtari2026futon,
+  title     = {{FUTON}: Fourier Tensor Networks for Implicit Neural Representations},
+  author    = {Ashtari, Pooya and Behmandpoor, Pourya and Deligiannis, Nikos and Pi{\v{z}}urica, Aleksandra},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026}
 }
 ```
 

@@ -65,7 +65,7 @@ Measured on A100s (1000 steps; NeRF 25,000), each signal's models in one job:
 | Task | Per model | Per signal | Whole sweep |
 | --- | --- | --- | --- |
 | Images | 56 s | 13 min | 5.2 h |
-| Occupancy | 27 s | 7 min | 34 min |
+| Occupancy | 98 s | 23 min | 1.9 h |
 | NeRF | 5 min | 77 min | 10 h |
 
 A run's time includes compiling its model and its 20 evaluations, with LPIPS on images; training alone takes from 3 s (Instant-NGP) to a minute (MFN) on an image. Every run uses seed 0; some GPU kernels accumulate in a nondeterministic order, so a rerun on the same hardware lands within about a tenth of a decibel of a run, and training times vary with the machine and its load.
@@ -77,7 +77,7 @@ The FUTON ablations are configs in `configs/ablation-futon/`, run through the im
 | Config | Models | Varies |
 | --- | --- | --- |
 | `basis.yaml` | 6 | The six bases at the benchmark's size |
-| `bandwidth.yaml` | 5 | The relative bandwidth $\kappa = K / N$ over {1/8, 1/4, 1/2, 1, 2}, each at the largest rank, a multiple of 5, within the budget |
+| `bandwidth.yaml` | 5 | The relative bandwidth $\kappa = K_c / L_c$ over {1/8, 1/4, 1/2, 1, 2}, each at the largest rank, a multiple of 5, within the budget |
 | `rank.yaml` | 5 | The CP rank over {70, 140, 280, 560, 1120} at $\kappa = 1/2$, 49,539 to 788,739 parameters |
 | `tensor_net.yaml` | 3 | Tensor-ring and Tucker combiners against CP |
 | `head.yaml` | 4 | MLP heads 64, 128 and 256 wide and the linear head, at equal size |
@@ -97,7 +97,7 @@ done
 Two scripts study FUTON itself, from the signals rather than from trained runs:
 
 ```bash
-python scripts/futon_coefficients.py  # kodim23's coefficient tensor at K = 32, in full and at rank 4 -> logs/coefficients/
+python scripts/futon_coefficients.py  # kodim23's coefficient tensor at K = 32, in full and at rank 8 -> logs/coefficients/
 python scripts/futon_bound.py         # the error bound against Adam, on the 24 images and 5 volumes -> logs/bound/
 ```
 

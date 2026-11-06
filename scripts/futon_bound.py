@@ -5,8 +5,8 @@ Usage:
     python scripts/futon_bound.py                  # every signal and check
     python scripts/futon_bound.py --tasks image --signals kodim19 kodim01
 
-For every signal, spectral resolution ``K = (kappa N_1, ..., kappa N_C)`` and CP
-rank ``R``, the script:
+For every signal, spectral resolution ``K = (kappa L_1, ..., kappa L_C)``, ``L_c`` the
+signal's points on axis ``c``, and CP rank ``R``, the script:
 
 - bounds the best grid error of the paper's FUTON, a cosine basis, a CP combiner
   and a linear head without bias (``inro.futon_bound``), the upper bound being
@@ -15,10 +15,10 @@ rank ``R``, the script:
 - trains the same FUTON with Adam from a random start, as the benchmark trains
   every model.
 
-A check on every signal, at ``K = N/2`` and the benchmark's rank, measures how close
-training comes to the ceiling: Adam for the benchmark's steps and for longer, and
-alternating least squares on the whole grid. Errors are mean
-squared errors on the whole grid, and PSNR is taken for signals in ``[-1, 1]``.
+A check on every signal, at ``kappa = 1/2`` and the benchmark's rank, measures how close
+training comes to the ceiling: Adam for the benchmark's steps and for five times as
+many. Errors are mean squared errors on the whole grid, and PSNR is taken for signals
+in ``[-1, 1]``.
 The theorem behind the bound is in docs/concepts/error-bound.md.
 
 Writes:
@@ -43,9 +43,9 @@ import yaml
 import inro
 from train_common import ROOT, fill_rank, resolve
 
-# Each task's "kappas" are relative bandwidths, K = kappa N on every axis.
-# K = N and 2N (kappa 1 and 2) enter the cost alone, to show how the bound's
-# time grows with K; every other result is at K <= N/2.
+# Each task's "kappas" are relative bandwidths, K_c = kappa L_c on every axis c,
+# L_c its points. Kappa 1 and 2 enter the cost alone, to show how the bound's
+# time grows with K; every other result is at kappa <= 1/2.
 TASKS = {
     "image": {
         "signals": [f"kodim{i:02d}" for i in range(1, 25)],
@@ -58,8 +58,8 @@ TASKS = {
         "signals": ["armadillo", "dragon", "happy_buddha", "lucy", "thai_statue"],
         "kappas": (0.125, 0.25, 0.5, 1.0, 2.0),
         "ranks": (32, 64, 128, 256, 512, 1024),
-        "data": {"max_samples": 262144},  # as configs/occupancy.yaml
-        "lr": 3e-2,  # the benchmark's rate for the sinc basis on volumes
+        "data": {"max_samples": 1048576},  # as configs/occupancy.yaml
+        "lr": 3e-2,  # FUTON's rate in configs/occupancy.yaml
     },
 }
 # The paper's basis. Records carry it, so that settings of another basis are never
@@ -67,10 +67,9 @@ TASKS = {
 BASIS = "cosine"
 # The benchmark's steps, at its batches and each task's "lr" above.
 STEPS = 1000
-# The optimizer checks at K = N/2 and the benchmark's rank: Adam for STEPS and for
-# LONGER times them, and alternating least squares on the whole grid, read after
-# each number of SWEEPS.
-LONGER, SWEEPS = 5, (500, 2000)
+# The optimizer checks at kappa = 1/2 and the benchmark's rank: Adam for STEPS and for
+# LONGER times them.
+LONGER = 5
 LOGS = ROOT / "logs" / "bound"
 
 
@@ -84,7 +83,9 @@ def dataset(task: str, name: str, **data):
     if task == "image":
         return inro.ImageCoordinateDataset(ROOT / f"data/Kodak/{name}.png", **data)
     path = ROOT / f"data/occupancy/{name}.ply"
-    return inro.OccupancyCoordinateDataset(path, resolution=256, **data)
+    config = yaml.safe_load((ROOT / "configs/occupancy.yaml").read_text())
+    resolution = config["data"]["resolution"]  # the benchmark's grid
+    return inro.OccupancyCoordinateDataset(path, resolution=resolution, **data)
 
 
 def benchmark_rank(task: str, sizes: list[int], channels: int) -> int:
@@ -224,9 +225,8 @@ def run(task: str, name: str, device: torch.device) -> None:
 def checks(task: str, device: torch.device) -> None:
     """Check on every signal how close training comes to the bound's ceiling.
 
-    At ``K = N/2`` and the benchmark's rank: Adam for the benchmark's steps and for
-    ``LONGER`` times them, and alternating least squares on the whole grid from a
-    random start (``inro.LeastSquares`` without momentum), against the bound.
+    At ``kappa = 1/2`` and the benchmark's rank: Adam for the benchmark's steps and for
+    ``LONGER`` times them, against the bound.
     """
     path = LOGS / f"{task}_checks.json"
     rows = json.loads(path.read_text()) if path.exists() else []
@@ -236,10 +236,9 @@ def checks(task: str, device: torch.device) -> None:
         full = dataset(task, name)
         sizes, channels = list(full.target.shape[:-1]), full.target.shape[-1]
         rank = benchmark_rank(task, sizes, channels)
-        batch = {"input": full.input.to(device), "target": full.target.to(device)}
         model = futon(sizes, channels, 0.5, rank)
         bound = inro.futon_bound(
-            batch["target"], features_of(model, sizes, device), rank
+            full.target.to(device), features_of(model, sizes, device), rank
         )
         row = {"signal": name, "basis": BASIS, "lr": TASKS[task]["lr"], "R": rank,
                "upper": float(bound.upper[0]), "lower": float(bound.lower[0])}  # fmt: skip
@@ -247,12 +246,6 @@ def checks(task: str, device: torch.device) -> None:
         for key, steps in (("adam", STEPS), ("adam_longer", LONGER * STEPS)):
             train(model, train_data, device, TASKS[task]["lr"], steps=steps)
             row[key] = evaluate(model, full, device)[0]
-        torch.manual_seed(0)
-        solver = inro.LeastSquares(model.to(device), momentum=0.0)
-        for sweep in range(1, max(SWEEPS) + 1):
-            solver.step(batch)
-            if sweep in SWEEPS:
-                row[f"als_{sweep}"] = evaluate(model, full, device)[0]
         rows.append(row)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(rows, indent=1))

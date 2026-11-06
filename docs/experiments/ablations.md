@@ -11,7 +11,7 @@ FUTON's design choices, varied one at a time on the image task: the basis, the b
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task"><a href="#bandwidth">Bandwidth</a></p>
-    <p class="inro-tile__gain">K = N / 2</p>
+    <p class="inro-tile__gain">κ = 1/2</p>
     <p class="inro-tile__note">At a fixed size, halving or doubling it costs 0.7 to 1.1 dB.</p>
   </div>
   <div class="inro-tile">
@@ -82,7 +82,7 @@ The benchmark's cosine basis leads at 37.63 dB, ahead on 22 of the 24 images, th
 
 ## Bandwidth
 
-The relative bandwidth $\kappa = K / N$, the components per axis as a fraction of the pixels, over {1/8, 1/4, 1/2, 1, 2}, at the budget. A rank costs a factor entry per component on each axis and a weight per hidden unit, $(K_1 + K_2 + 64) R + 259$ parameters in all, so the rank falls as the bandwidth grows: 885, 515, 280, 145 and 75. At $\kappa = 1$ each axis has as many components as pixels, the grid's Nyquist rate, and $\kappa = 1/2$ is the benchmark's FUTON. The model at $\kappa = 1/8$ trains at 3e-2, since at 1e-1 it loses 1.4 dB on kodim01 and kodim17.
+The relative bandwidth $\kappa = K_c / L_c$, the components per axis as a fraction of its pixels, over {1/8, 1/4, 1/2, 1, 2}, at the budget. A rank costs a factor entry per component on each axis and a weight per hidden unit, $(K_1 + K_2 + 64) R + 259$ parameters in all, so the rank falls as the bandwidth grows: 885, 515, 280, 145 and 75. At $\kappa = 1$ each axis has as many components as pixels, the grid's Nyquist rate, and $\kappa = 1/2$ is the benchmark's FUTON. The model at $\kappa = 1/8$ trains at 3e-2, since at 1e-1 it loses 1.4 dB on kodim01 and kodim17.
 
 <div class="inro-split" markdown>
 
@@ -190,7 +190,7 @@ With a linear head FUTON is exactly a rank-$R$ CP model of the signal's coeffici
 - **Width buys little at this size:** the 128- and 256-wide MLPs give up rank for it and end 0.54 and 0.33 dB above the 64-wide one on average, but above it on only 12 and 6 of the 24 images, in 1.9 and 2.8 times its training time and 2.9 and 3.3 times its memory.
 - **A natural image is far from a low-rank tensor in a smooth basis:** at equal size the linear head stops at 30.26 dB, 7.4 dB below the MLP, though it trains fastest, in a third of the MLP's time.
 
-The MLP head 64 wide is the default on images, the cheapest of the three widths, and the linear head remains the model to reason about: without its bias and tanh, it is the model the [error bound](../concepts/error-bound.md) covers. Occupancy volumes differ: there the linear head ties the best MLP at equal size, in a seventh of its training time, so the volumes' benchmark uses it.
+The MLP head 64 wide is the default on images, the cheapest of the three widths, and the linear head remains the model to reason about: without its bias and tanh, it is the model the [error bound](../concepts/error-bound.md) covers. Occupancy volumes differ: on grids of 256 voxels per unit length the linear head tied the best MLP at equal size, in a seventh of its training time, so the volumes' benchmark uses it.
 
 </div>
 

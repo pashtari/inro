@@ -78,7 +78,7 @@ A dataset yields dictionaries with four keys:
 `ImageCoordinateDataset` and `OccupancyCoordinateDataset` follow this scheme; the [conventions page](conventions.md) tabulates their shapes.
 
 - **One signal, one item.** `len(dataset) == 1`, and random subsampling happens on access: with `subsample=0.1`, every `dataset[0]` returns a fresh random tenth of the coordinates and their values, flattened.
-- **Benchmarks.** The occupancy benchmark trains this way, on $2^{18}$ fresh voxels per step; the image benchmark takes the whole image at every step.
+- **Benchmarks.** The occupancy benchmark trains this way, on $2^{20}$ fresh voxels per step; the image benchmark takes the whole image at every step.
 - **Helpers.** `preprocess` maps native values to targets, `postprocess` maps model output back, `save` writes a reconstruction to disk, and `to(device)` moves the training tensors so that subsampling runs on the GPU.
 
 ## Training

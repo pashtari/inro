@@ -62,7 +62,7 @@ A few facts hold for both:
 - **Scales.** Every axis's response is held at unit mean square, the head's columns taking the scales, which fixes the freedom of a CP model to trade scale between its blocks.
 - **Momentum.** `momentum` averages each block's statistics over the batches, as online matrix factorization does (Mairal et al., 2010), with weights that sum to one from the first batch on. The newest batch's weight is the solver's `lr`: it starts at `1 - momentum`, and `inro.train` anneals it to a hundredth. Without momentum it stays one, and every sweep solves the batch's own problem.
 
-The notebook `notebooks/futon_solvers.ipynb` compares these solvers with Adam, and the [error bound](../concepts/error-bound.md) page uses `LeastSquares` on the whole grid.
+The notebook `notebooks/futon_solvers.ipynb` compares these solvers with Adam.
 
 ::: inro.models.futon_solvers
 
