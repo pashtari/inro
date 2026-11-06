@@ -4,8 +4,8 @@ The image task fits an INR $[-1, 1]^2 \to \mathbb{R}^3$ to one image and scores 
 { .inro-lead }
 
 <figure markdown="span">
-  ![kodim19: two regions magnified for every featured model](../assets/qualitative_kodim19.png)
-  <figcaption>kodim19 at about 197k parameters: two regions magnified for every featured model, above each model's |error|, with its PSNR over the whole image.</figcaption>
+  ![kodim19: every featured model's reconstruction, and two regions magnified beneath it](../assets/qualitative_kodim19.png)
+  <figcaption>kodim19 at about 197k parameters: every featured model's reconstruction with its PSNR over the whole image, and two regions magnified beneath it.</figcaption>
 </figure>
 
 ## Data

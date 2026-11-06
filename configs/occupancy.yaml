@@ -3,27 +3,28 @@
 # Each model gives an inro class, its constructor arguments, and training
 # arguments that override the shared ones. "deviation" marks a departure from
 # the authors' published settings. Every learning rate is the best of the grid
-# {1e-4, 3e-4, ..., 3e-1} on two shapes, and every model trains with PyTorch's
-# default Adam.
+# {1e-4, 3e-4, ..., 3e-1} on two shapes, passing over a rate that leaves some
+# shape empty, and every model trains with PyTorch's default Adam.
 #
 # Every model has about 131k parameters: each baseline is the smallest of its
 # kind that reaches 131,329, and FUTON, with K = N / 2 components per axis of
 # the cropped voxel grid and a linear head, takes the largest CP rank, a
 # multiple of 5, that keeps it smaller than every baseline (TensoRF-CP,
-# 131,457): 435 to 620 by shape (130,541 to 131,251). Its components and head
-# were chosen in a sweep of both: the best IoU there, tied with the 256-wide
-# MLP, in a seventh of its training time.
+# 131,585): 215 to 310 by shape (128,786 to 131,441). Its components and head
+# were chosen in a sweep of both on grids of 256 voxels per unit length: the
+# best IoU there, tied with the 256-wide MLP, in a seventh of its training
+# time; at 512, K = N / 2 still beats N / 4 on Lucy.
 
 data:
-  resolution: 256  # occupancy grid resolution
+  resolution: 512  # voxels per unit length, about WIRE's 512^3 cube
   subsample: 1.0
-  max_samples: 262144  # 2^18 random voxels per step, for every shape
+  max_samples: 1048576  # 2^20 random voxels per step, for every shape
 
 train:
   num_steps: 1000
   log_interval: 50
   eval_interval: 50
-  chunk_size: 262144  # voxels per evaluation forward pass
+  chunk_size: 1048576  # voxels per evaluation forward pass, as many as per step
   seed: 0
 
 models:
@@ -44,7 +45,7 @@ models:
       hidden_layers: 3
       num_frequencies: 10
       output_activation: tanh
-    train: {lr: 3.0e-3}  # deviation: 1e-3 in the reference
+    train: {lr: 1.0e-3}  # 3e-3 leaves lucy empty
 
   MFN:  # GaborNet (Fathony et al., ICLR 2021) defaults
     class: MFN
@@ -65,7 +66,7 @@ models:
       hidden_layers: 3
       omega: 30.0
       output_activation: tanh
-    train: {lr: 3.0e-3}
+    train: {lr: 1.0e-3}
 
   FreSh:  # Kania et al. (ICLR 2025): the SIREN above, its first omega chosen per shape
     class: SIREN
@@ -86,7 +87,7 @@ models:
       hidden_layers: 3
       scale: 30.0
       output_activation: tanh
-    train: {lr: 1.0e-3}  # deviation: 1e-4 and 5e-3 in the references
+    train: {lr: 3.0e-3}  # deviation: 1e-4 and 5e-3 in the references
 
   WIRE:  # WIRE occupancy script, real Gabor layer
     class: RealWIRE
@@ -105,7 +106,7 @@ models:
       hidden_layers: 3
       omega: 30.0
       output_activation: tanh
-    train: {lr: 1.0e-3}
+    train: {lr: 3.0e-3}
 
   Instant-NGP:  # instant-ngp configs/volume/base.json architecture
     class: InstantNGP
@@ -114,17 +115,18 @@ models:
       features_per_level: 2
       log2_hashmap_size: 12
       base_resolution: 16
-      max_resolution: 256  # the grid resolution
+      max_resolution: 512  # the grid resolution
       hidden_features: 32  # deviation: 64 in the reference; the hash tables fill the budget
       hidden_layers: 2
       output_activation: tanh
-    train: {lr: 3.0e-2}  # deviation: 1e-4 in the reference, for longer training
+    # deviation: 1e-4 in the reference, for longer training; 3e-2 leaves lucy empty
+    train: {lr: 1.0e-2}
 
   TensoRF-CP:
     class: TensoRF
     kwargs:
-      rank: 128
-      resolution: 256
+      rank: 69  # the budget, with lines as long as the grid
+      resolution: 512
       mode: cp
       hidden_features: 128
       hidden_layers: 2
@@ -142,7 +144,7 @@ models:
       hidden_features: 128
       hidden_layers: 2
       output_activation: tanh
-    train: {lr: 1.0e-2}  # 3e-2 never leaves the empty solution on lucy
+    train: {lr: 1.0e-2}  # 3e-2 leaves lucy empty
 
   GA-Planes:
     class: GAPlanes
@@ -166,11 +168,11 @@ models:
 
   FUTON:
     class: FUTON
-    budget: 131456  # parameters; "budget" below is the largest rank within it
+    budget: 131584  # parameters; "budget" below is the largest rank within it
     kwargs:
       # half the cropped voxel grid along each axis
       basis: [cosine, {num_components: [D // 2, H // 2, W // 2], grid_size: [D, H, W]}]
       combiner: [cp, {rank: budget}]
       head: linear
       output_activation: tanh
-    train: {lr: 1.0e-2}
+    train: {lr: 3.0e-2}

@@ -21,11 +21,11 @@ The problems that come up first, and what to do about them.
 
 ??? question "CUDA out of memory during evaluation"
 
-    Pass `chunk_size` to `inro.train`, `inro.evaluate` or `inro.chunked_inference`; the occupancy benchmark evaluates $256^3$ volumes with `chunk_size=262144`. In `inro.nerf.train`, lower `num_rays` or `max_samples_per_ray`; in `inro.nerf.evaluate` and `render_image`, pass `chunk_size` (rays per pass).
+    Pass `chunk_size` to `inro.train`, `inro.evaluate` or `inro.chunked_inference`; the occupancy benchmark evaluates volumes of 17 to 62 million voxels with `chunk_size=2**20`. In `inro.nerf.train`, lower `num_rays` or `max_samples_per_ray`; in `inro.nerf.evaluate` and `render_image`, pass `chunk_size` (rays per pass).
 
 ??? question "CUDA out of memory during training"
 
-    Draw fewer coordinates per step with `subsample` (a fraction) or `max_samples` (a count); the benchmarks train on the whole image and on 262,144 voxels per step.
+    Draw fewer coordinates per step with `subsample` (a fraction) or `max_samples` (a count); the benchmarks train on the whole image and on 1,048,576 voxels per step.
 
 ## Backends
 

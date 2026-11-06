@@ -65,7 +65,7 @@ Measured on A100s (1000 steps; NeRF 25,000), each signal's models in one job:
 | Task | Per model | Per signal | Whole sweep |
 | --- | --- | --- | --- |
 | Images | 56 s | 13 min | 5.2 h |
-| Occupancy | 27 s | 7 min | 34 min |
+| Occupancy | 98 s | 23 min | 1.9 h |
 | NeRF | 5 min | 77 min | 10 h |
 
 A run's time includes compiling its model and its 20 evaluations, with LPIPS on images; training alone takes from 3 s (Instant-NGP) to a minute (MFN) on an image. Every run uses seed 0; some GPU kernels accumulate in a nondeterministic order, so a rerun on the same hardware lands within about a tenth of a decibel of a run, and training times vary with the machine and its load.

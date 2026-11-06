@@ -227,10 +227,18 @@ def provenance(device: torch.device) -> dict[str, str]:
     }
 
 
-def on_grid(model: torch.nn.Module, dataset: Any, device: torch.device) -> torch.Tensor:
-    """Return a model's output on a dataset's whole grid, shaped like its target."""
+def on_grid(
+    model: torch.nn.Module,
+    dataset: Any,
+    device: torch.device,
+    chunk_size: int = 2**18,
+) -> torch.Tensor:
+    """Return a model's output on a dataset's whole grid, shaped like its target.
+
+    The grid is evaluated ``chunk_size`` coordinates per forward pass.
+    """
     output = inro.chunked_inference(
-        model, dataset.input, chunk_size=2**18, device=device
+        model, dataset.input, chunk_size=chunk_size, device=device
     )
     return output.reshape(dataset.target.shape)
 

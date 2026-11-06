@@ -49,7 +49,7 @@ Every model of a task has the same parameter budget. Times are median training t
 | Task | #Params | FUTON | Strongest baseline | FUTON's lead |
 | --- | --- | --- | --- | --- |
 | Images (24 Kodak) | 197k | **37.63 dB** in 4.1 s | MFN, 36.72 dB in 57.3 s | **+0.90 dB, 13.9× faster** |
-| Occupancy (5 Stanford shapes) | 131k | **99.97 % IoU** in 1.7 s | RFF, 99.91 % in 11.7 s | **+0.06 %, 7.0× faster** |
+| Occupancy (5 Stanford shapes) | 131k | **99.90 % IoU** in 5.4 s | GA-Planes, 99.69 % in 62.2 s | **+0.21 %, 11.5× faster** |
 | Radiance fields (8 Blender scenes) | 74k | **29.22 dB** in 152 s | FINER, 28.62 dB in 219 s | **+0.60 dB, 1.4× faster** |
 
 ### Images
@@ -58,10 +58,10 @@ Every model of a task has the same parameter budget. Times are median training t
   <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/results_image.svg" width="920" alt="Kodak: PSNR against training time for FUTON and the strongest model of each family; every model's final PSNR against its training time; and against its inference throughput">
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_kodim19.png" width="920" alt="kodim19: two regions magnified for every featured model, above each model's error">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_kodim19.png" width="920" alt="kodim19: every featured model's reconstruction with its PSNR, and two regions magnified beneath it">
 </p>
 <p align="center">
-  <sub>Kodak at about 197k parameters: PSNR against training time for FUTON and the strongest model of each family (left), and every model's final PSNR against its training time (middle) and its inference throughput (right). Below, two regions of kodim19 above each model's error, with each model's PSNR over the whole image.</sub>
+  <sub>Kodak at about 197k parameters: PSNR against training time for FUTON and the strongest model of each family (left), and every model's final PSNR against its training time (middle) and its inference throughput (right). Below, every featured model's reconstruction of kodim19 with its PSNR over the whole image, and two regions magnified beneath it.</sub>
 </p>
 
 ### Occupancy
@@ -70,10 +70,10 @@ Every model of a task has the same parameter budget. Times are median training t
   <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/results_occupancy.svg" width="920" alt="Stanford shapes: IoU against training time for FUTON and the strongest model of each family; every model's final IoU against its training time; and against its inference throughput">
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lucy.png" width="920" alt="Lucy: two regions magnified for every featured model, above each model's error">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lucy.png" width="920" alt="Lucy: every featured model's reconstruction with its IoU, and two regions magnified beneath it">
 </p>
 <p align="center">
-  <sub>Stanford shapes at about 131k parameters: IoU against training time for FUTON and the strongest model of each family (left), and every model's final IoU against its training time (middle) and its inference throughput (right). Below, two regions of Lucy above each model's error, with each model's IoU over the whole volume.</sub>
+  <sub>Stanford shapes at about 131k parameters: IoU against training time for FUTON and the strongest model of each family (left), and every model's final IoU against its training time (middle) and its inference throughput (right), with the two models below 98 % on the axis line and FreSh, whose frequency search takes minutes, at the end of the time axis. Below, every featured model's reconstruction of Lucy with its IoU over the whole volume, and two regions magnified beneath it.</sub>
 </p>
 
 ### Radiance fields
@@ -82,13 +82,13 @@ Every model of a task has the same parameter budget. Times are median training t
   <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/results_nerf.svg" width="920" alt="Blender scenes: validation PSNR against training time for FUTON and the strongest model of each family; every model's final test PSNR against its training time; and against its rendering speed">
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lego.png" width="920" alt="The lego scene from a test view, with two regions magnified for every featured model">
+  <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/qualitative_lego.png" width="920" alt="The lego scene from a test view: every model's render with its PSNR, and two regions magnified beneath it">
 </p>
 <p align="center">
   <img src="https://raw.githubusercontent.com/pashtari/inro/main/docs/assets/orbit_lego.gif" width="720" alt="The lego scene in orbit: SIREN, Instant-NGP and FUTON">
 </p>
 <p align="center">
-  <sub>Blender scenes at about 75k parameters: validation PSNR against training time (left), and every model's final test PSNR against its training time (middle) and its rendering speed (right). Below, the lego scene magnified and in orbit, with each model's test-view PSNR.</sub>
+  <sub>Blender scenes at about 75k parameters: validation PSNR against training time (left), and every model's final test PSNR against its training time (middle) and its rendering speed (right). Below, a test view of the lego scene as FUTON and one baseline of each family render it, with its PSNR and two regions magnified beneath it, and the scene in orbit.</sub>
 </p>
 
 ## Quick start

@@ -144,7 +144,7 @@ The [combiner ablation](../experiments/ablations.md#combiner) finds CP the most 
 
 ## Heads
 
-- **`linear`** is `nn.Linear(R, D)`: $\hat{s}(\boldsymbol{x}) = \boldsymbol{V} \boldsymbol{g}(\boldsymbol{x}) + \boldsymbol{b}$. With it, FUTON is *exactly* a rank-$R$ CP model of the signal in the chosen basis, Eq. (9) of the paper, and its capacity is the capacity of that tensor format. The occupancy benchmark uses it: on volumes it ties the best MLP at equal size, in a seventh of the training time.
+- **`linear`** is `nn.Linear(R, D)`: $\hat{s}(\boldsymbol{x}) = \boldsymbol{V} \boldsymbol{g}(\boldsymbol{x}) + \boldsymbol{b}$. With it, FUTON is *exactly* a rank-$R$ CP model of the signal in the chosen basis, Eq. (9) of the paper, and its capacity is the capacity of that tensor format. The occupancy benchmark uses it: on volumes at 256 voxels per unit length it tied the best MLP at equal size, in a seventh of the training time.
 - **`identity`** passes the combiner's features on.
 - **`mlp`** is `inro.MLP(R, D, hidden_layers=h)`, a ReLU network whose hidden width defaults to $R$. The other benchmarks use one hidden layer. The nonlinearity lets the model represent more than a rank-$R$ tensor at the same size: on images it is worth about 8 dB over a linear head of the same size ([head ablation](../experiments/ablations.md#head)).
 
@@ -165,7 +165,7 @@ Each task chooses FUTON's components per axis and head as every baseline's setti
 | Task | `num_components` | `rank` | Head | Parameters |
 | --- | --- | --- | --- | --- |
 | Images, $512 \times 768$ Kodak | `[H // 2, W // 2]` | 280 | MLP, 1 hidden layer of width 64 | 197,379 |
-| Occupancy, voxel grids of 78 to 231 per side | `[D // 2, H // 2, W // 2]` | 435 to 620 by shape | Linear | 130,541 to 131,251 |
+| Occupancy, voxel grids of 154 to 461 per side | `[D // 2, H // 2, W // 2]` | 215 to 310 by shape | Linear | 128,786 to 131,441 |
 | Radiance fields, density network with 16 outputs | 100, read from a table of 2048 points per axis | 180 | MLP, 1 hidden layer of width 64 | 66,624 (73,027 with the color network) |
 
 !!! tip "Rules of thumb from the ablations"
@@ -178,7 +178,7 @@ With PyTorch's default Adam, these learning rates work:
 
 | Basis | Images | Volumes | Radiance fields |
 | --- | --- | --- | --- |
-| `cosine` | 1e-1 | 1e-2 | 1e-2 |
+| `cosine` | 1e-1 | 3e-2 | 1e-2 |
 
 The other five bases take 3e-2 on images in the [basis ablation](../experiments/ablations.md#basis).
 

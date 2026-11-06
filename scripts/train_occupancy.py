@@ -39,11 +39,13 @@ def fit(
     # and so does the rank that fills FUTON's budget.
     sized = resolve(model, **dict(zip("DHW", volume.grid_size)))
     model_class, kwargs = build(fill_rank(sized, outputs=1))
+    # FreSh renders its candidates in the chunks that evaluation uses.
+    chunk_size = config["train"]["chunk_size"]
     search = fresh(
         model,
         kwargs,
         [volume.target.to(device)],
-        lambda kw: on_grid(model_class(3, 1, **kw), volume, device),
+        lambda kw: on_grid(model_class(3, 1, **kw), volume, device, chunk_size),
         config["train"]["seed"],
     )
     net = model_class(in_features=3, out_features=1, **kwargs)

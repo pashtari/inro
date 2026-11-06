@@ -20,8 +20,8 @@ Every model of a task has the same parameter budget, and times are median traini
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Occupancy, Stanford</p>
-    <p class="inro-tile__gain">+0.06 %</p>
-    <p class="inro-tile__note">99.97 % IoU against RFF's 99.91 %, in 1.7 s against 11.7 s.</p>
+    <p class="inro-tile__gain">+0.21 %</p>
+    <p class="inro-tile__note">99.90 % IoU against GA-Planes' 99.69 %, in 5.4 s against 62.2 s.</p>
   </div>
   <div class="inro-tile">
     <p class="inro-tile__task">Radiance fields, Blender</p>
@@ -97,7 +97,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     --8<-- "docs/_overrides/snippets/legend.html"
 
     <figure markdown="span">
-      ![kodim19: two regions magnified for every featured model](assets/qualitative_kodim19.png)
+      ![kodim19: every featured model's reconstruction, and two regions magnified beneath it](assets/qualitative_kodim19.png)
     </figure>
 
 === "Occupancy"
@@ -115,7 +115,7 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     --8<-- "docs/_overrides/snippets/legend.html"
 
     <figure markdown="span">
-      ![Lucy: two regions magnified for every featured model](assets/qualitative_lucy.png)
+      ![Lucy: every featured model's reconstruction, and two regions magnified beneath it](assets/qualitative_lucy.png)
     </figure>
 
 === "Radiance fields"
@@ -133,10 +133,10 @@ Most INRs hide their prior in the nonlinearity: sines, Gabor wavelets, Gaussians
     --8<-- "docs/_overrides/snippets/legend.html"
 
     <figure markdown="span">
-      ![Lego: two regions magnified for every featured model](assets/qualitative_lego.png)
+      ![Lego: every model's render of a test view, and two regions magnified beneath it](assets/qualitative_lego.png)
     </figure>
 
-<p class="inro-caption">Quality against training time for FUTON and the strongest model of each family, with bands of one standard error; every model's final quality against its training time; and against its inference speed. <a href="experiments/benchmarks/">The benchmarks page</a> has every model, metric and error bar.</p>
+<p class="inro-caption">Quality against training time for FUTON and the strongest model of each family, with bands of one standard error; every model's final quality against its training time; and against its inference speed, with the volumes' two models below 98 % IoU on the axis line and FreSh, whose frequency search takes minutes, at the end of the time axis. <a href="experiments/benchmarks/">The benchmarks page</a> has every model, metric and error bar.</p>
 
 ## One interface
 

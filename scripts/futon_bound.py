@@ -58,8 +58,8 @@ TASKS = {
         "signals": ["armadillo", "dragon", "happy_buddha", "lucy", "thai_statue"],
         "kappas": (0.125, 0.25, 0.5, 1.0, 2.0),
         "ranks": (32, 64, 128, 256, 512, 1024),
-        "data": {"max_samples": 262144},  # as configs/occupancy.yaml
-        "lr": 3e-2,  # the benchmark's rate for the sinc basis on volumes
+        "data": {"max_samples": 1048576},  # as configs/occupancy.yaml
+        "lr": 3e-2,  # FUTON's rate in configs/occupancy.yaml
     },
 }
 # The paper's basis. Records carry it, so that settings of another basis are never
@@ -84,7 +84,9 @@ def dataset(task: str, name: str, **data):
     if task == "image":
         return inro.ImageCoordinateDataset(ROOT / f"data/Kodak/{name}.png", **data)
     path = ROOT / f"data/occupancy/{name}.ply"
-    return inro.OccupancyCoordinateDataset(path, resolution=256, **data)
+    config = yaml.safe_load((ROOT / "configs/occupancy.yaml").read_text())
+    resolution = config["data"]["resolution"]  # the benchmark's grid
+    return inro.OccupancyCoordinateDataset(path, resolution=resolution, **data)
 
 
 def benchmark_rank(task: str, sizes: list[int], channels: int) -> int:

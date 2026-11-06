@@ -190,7 +190,7 @@ With a linear head FUTON is exactly a rank-$R$ CP model of the signal's coeffici
 - **Width buys little at this size:** the 128- and 256-wide MLPs give up rank for it and end 0.54 and 0.33 dB above the 64-wide one on average, but above it on only 12 and 6 of the 24 images, in 1.9 and 2.8 times its training time and 2.9 and 3.3 times its memory.
 - **A natural image is far from a low-rank tensor in a smooth basis:** at equal size the linear head stops at 30.26 dB, 7.4 dB below the MLP, though it trains fastest, in a third of the MLP's time.
 
-The MLP head 64 wide is the default on images, the cheapest of the three widths, and the linear head remains the model to reason about: without its bias and tanh, it is the model the [error bound](../concepts/error-bound.md) covers. Occupancy volumes differ: there the linear head ties the best MLP at equal size, in a seventh of its training time, so the volumes' benchmark uses it.
+The MLP head 64 wide is the default on images, the cheapest of the three widths, and the linear head remains the model to reason about: without its bias and tanh, it is the model the [error bound](../concepts/error-bound.md) covers. Occupancy volumes differ: on grids of 256 voxels per unit length the linear head tied the best MLP at equal size, in a seventh of its training time, so the volumes' benchmark uses it.
 
 </div>
 
