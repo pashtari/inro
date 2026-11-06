@@ -17,7 +17,7 @@ Examples:
     torch.Size([16, 16, 3])
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from . import (
     compression,
