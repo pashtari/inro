@@ -7,7 +7,8 @@ official source:
 
 Some releases are not in canonical pose, so their vertices are rotated to
 Y-up and front-facing. ``OccupancyCoordinateDataset`` then centers and scales
-each mesh (FINER's convention) and voxelizes it with trimesh.
+each mesh (BACON's convention, which FINER follows) and marks the voxel centers
+inside it.
 
 Available meshes: armadillo, dragon, happy_buddha, lucy, thai_statue.
 
