@@ -1,0 +1,2788 @@
+<!DOCTYPE html><html lang="en" class="no-js"><head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A unified PyTorch framework for implicit neural representations, with FUTON, the Fourier Tensor Network.">
+      
+      
+      
+        <link rel="canonical" href="https://pashtari.github.io/inro/experiments/benchmarks/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../ablations/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Benchmarks - Inro</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Quicksand:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Quicksand";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500&amp;display=fallback">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <meta name="theme-color" content="#0e1437">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Inro">
+  <meta property="og:title" content="Benchmarks - Inro">
+  <meta property="og:description" content="A unified PyTorch framework for implicit neural representations, with FUTON, the Fourier Tensor Network.">
+  <meta property="og:image" content="https://pashtari.github.io/inro/assets/social.png">
+  <meta name="twitter:card" content="summary_large_image">
+  
+  <noscript><style>.md-header::before { opacity: 1 !important; }</style></noscript>
+
+  <link href="../../assets/stylesheets/glightbox.min.css" rel="stylesheet"><script src="../../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#benchmarks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Inro" class="md-header__button md-logo" aria-label="Inro" data-md-component="logo">
+      
+  <img src="../../assets/wordmark-dark.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Inro
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Benchmarks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Experiments
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../troubleshooting/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Troubleshooting
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom" aria-label="Switch to dark mode" type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom" aria-label="Switch to light mode" type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"></path></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required="">
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard="" data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"></path></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix="">
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/pashtari/inro" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+  </div>
+  <div class="md-source__repository">
+    pashtari/inro
+  </div>
+</a>
+      </div>
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Inro" class="md-nav__button md-logo" aria-label="Inro" data-md-component="logo">
+      
+  <img src="../../assets/wordmark-dark.svg" alt="logo">
+
+    </a>
+    Inro
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/pashtari/inro" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+  </div>
+  <div class="md-source__repository">
+    pashtari/inro
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2">
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your first INR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3">
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../concepts/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/inrs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    INRs in Inro
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/futon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FUTON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/error-bound/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error bound of FUTON
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The model zoo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4">
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fitting an image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/occupancy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Occupancy volumes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/nerf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Radiance fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/notebooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked="">
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Experiments
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Experiments
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the numbers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-read-the-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to read the tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#occupancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Occupancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#radiance-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Radiance fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checks-against-the-literature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checks against the literature
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ablations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ablations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reproduce/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reproducing the paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6">
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    inro.models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/futon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FUTON, bases and combiners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training and evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics and losses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/quantization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quantization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/nerf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Radiance fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/custom-components/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom components
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-numbers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the numbers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-read-the-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to read the tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#occupancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Occupancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#radiance-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Radiance fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checks-against-the-literature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checks against the literature
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Permanent link">¶</a></h1>
+<p class="inro-lead">Thirteen models on three tasks, at equal parameter count per task.</p>
+<div class="inro-tiles">
+  <div class="inro-tile">
+    <p class="inro-tile__task">Images, Kodak</p>
+    <p class="inro-tile__gain">+0.90 dB</p>
+    <p class="inro-tile__note">FUTON, 37.63 dB, against MFN's 36.72, in 4.1 s against 57.3 s.</p>
+  </div>
+  <div class="inro-tile">
+    <p class="inro-tile__task">Occupancy, Stanford</p>
+    <p class="inro-tile__gain">+0.21 points</p>
+    <p class="inro-tile__note">FUTON, 99.90 % IoU, against GA-Planes' 99.69 %, in 5.4 s against 62.2 s.</p>
+  </div>
+  <div class="inro-tile">
+    <p class="inro-tile__task">Radiance fields, Blender</p>
+    <p class="inro-tile__gain">+0.60 dB</p>
+    <p class="inro-tile__note">FUTON, 29.22 dB, against FINER's 28.62, in 152 s against 219 s.</p>
+  </div>
+</div>
+
+<h2 id="reading-the-numbers">Reading the numbers<a class="headerlink" href="#reading-the-numbers" title="Permanent link">¶</a></h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"><input id="__tabbed_1_2" name="__tabbed_1" type="radio"><input id="__tabbed_1_3" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">Accuracy</label><label for="__tabbed_1_2">Training speed</label><label for="__tabbed_1_3">Inference</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<ul>
+<li><strong>Images.</strong> FUTON leads PSNR, SSIM and LPIPS, by 0.90 dB over MFN, the strongest baseline, and is ahead of every baseline on 21 of the 24 images.</li>
+<li><strong>Volumes.</strong> It has the best mean IoU, 99.90 % against 99.69 % for GA-Planes, and the best IoU on every shape. It reaches 99.5 % IoU first, in 3.2 s of training against 7.2 s for Instant-NGP and 44.5 s for GA-Planes, read off the mean learning curves.</li>
+<li><strong>Radiance fields.</strong> It leads FINER by 0.60 dB and five of the eight scenes.</li>
+</ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li><strong>The fastest.</strong> FUTON is the fastest model to train on volumes, in 5.4 s against Instant-NGP's 9.4 s, and Instant-NGP on images and radiance fields: 3.6 s against FUTON's 4.1 s and 147 s against 152 s.</li>
+<li><strong>FUTON's place.</strong> It follows Instant-NGP closely on images and radiance fields and leads it on volumes: it reaches Instant-NGP's final IoU 2.7 times sooner, in 3.4 s, and ends at 99.90 % against 99.58 %.</li>
+<li><strong>Memory.</strong> FUTON's training memory is the lowest on every task: 0.36 GB on images, 0.28 GB on volumes and 1.88 GB on radiance fields.</li>
+<li><strong>Implementations.</strong> The hash grid is a PyTorch port of tiny-cuda-nn's, without the fused CUDA kernels, gathering every level in one batched pass; FUTON is plain PyTorch, and every model is compiled.</li>
+</ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li><strong>Images and volumes.</strong> FUTON is the fastest on both: 229 megapixels per second against Instant-NGP's 198 on images, and 537 megavoxels per second against TensoRF's 202 on volumes.</li>
+<li><strong>Radiance fields.</strong> A radiance field renders a whole view in one pass in 20 to 30 ms, 34 to 50 frames per second, and FUTON is the fastest, at 49.6 against 47.2 for TensoRF, 45.7 for GA-Planes and 44.0 for Instant-NGP.</li>
+<li><strong>Memory.</strong> FUTON infers in the least memory on images, 201 MB, and on volumes, 0.61 GB against TensoRF's 1.19 GB; it renders a radiance field in the least, 2.04 GB, which TensoRF and GA-Planes match: nearly all of that is the ray marcher's buffers for the view's 40,000 rays.</li>
+</ul>
+</div>
+</div>
+</div>
+<h2 id="how-to-read-the-tables">How to read the tables<a class="headerlink" href="#how-to-read-the-tables" title="Permanent link">¶</a></h2>
+<p>The tables come from the runs' <code>results.json</code>, and the figures are the paper's.</p>
+<ul>
+<li><strong>Marks.</strong> Bold marks the best value in a column and italics the second.</li>
+<li><strong>Errors.</strong> ± is one standard error over the signals, after removing each signal's own level (a paired standard error). IoU, which saturates near 100 % on every shape, takes the plain standard error over the shapes.</li>
+<li><strong>Costs.</strong> Accuracy and costs come from the same runs. Every model is compiled with <code>torch.compile</code> and trained on an A100 after an untimed warm-up pass that compiles it. The training time counts the training steps alone; inference throughput is the signal's size over the median of a run's evaluation times, and inference memory the median of their peaks, for a radiance field over its 200 test views, each rendered whole in one pass, and training memory is the run's peak. Each cost in the tables and figures is the median over a task's signals.</li>
+</ul>
+<details class="note">
+<summary>Notes on the rows</summary>
+<ul>
+<li>A name in parentheses is the variant a row runs where its kind has several: the backbone of F-INR and FreSh. FUTON runs its default basis, the cosine; the <a href="../ablations/#basis">basis ablation</a> compares it with five others.</li>
+<li><strong>TensoRF</strong> is the variant its authors recommend for the dimension: CP on images (the only one in 2D) and VM on volumes and radiance fields; both are in the configs.</li>
+<li><strong>MFN</strong> is the GaborNet of the two networks of its paper, and <strong>WIRE</strong> the real Gabor variant (<code>inro.RealWIRE</code>) from the WIRE paper and code.</li>
+<li><strong>F-INR (SIREN)</strong> gives each coordinate its own SIREN, built and initialized as in its authors' image code, and combines them per channel by a CP decomposition. Their settings do not fit the budget, so we tuned at equal size what they leave open: the split between width and rank (in 2D the most rank a width allows, one more than the width; width 96 and rank 259 on volumes, width 32 and rank 39 on radiance fields), the first layer's frequency (200 on images, above their 100, and 100 elsewhere) and the decomposition, CP rather than the tensor train they pick for shapes and radiance fields. Neither the positional encoding of their image experiments nor the SIREN of their shape code helps at this size. Their paper fits radiance fields with per-axis hash grids; here the axes are SIRENs on every task.</li>
+<li><strong>FreSh (SIREN)</strong> is the SIREN row with its first-layer frequency chosen per signal before training, by matching the spectrum of the untrained network's output to the signal's, and the search counts toward its training time. Its paper covers images and radiance fields; on volumes it reads the 3D spectrum of the occupancy grid, our adaptation.</li>
+</ul>
+</details>
+<h2 id="images">Images<a class="headerlink" href="#images" title="Permanent link">¶</a></h2>
+<p>24 Kodak images at 768 × 512, about 197k parameters per model, 1000 steps, each on the whole image, scored on every pixel.</p>
+<div class="inro-panels">
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/image_convergence.svg" data-desc-position="bottom"><img alt="PSNR against training time on Kodak" src="../../assets/panels/image_convergence.svg"></a></p>
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/image_time.svg" data-desc-position="bottom"><img alt="Every model's final PSNR against its training time on Kodak" src="../../assets/panels/image_time.svg"></a></p>
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/image_speed.svg" data-desc-position="bottom"><img alt="Every model's final PSNR against its inference throughput on Kodak" src="../../assets/panels/image_speed.svg"></a></p>
+</div>
+<div class="inro-legend">
+  <span class="inro-key inro-key--open inro-key--dash" style="--c:#eb6834">SIREN</span>
+  <span class="inro-key" style="--c:#eb6834">FINER</span>
+  <span class="inro-key" style="--c:#1baf7a">Instant-NGP</span>
+  <span class="inro-key" style="--c:#4a3aa7">TensoRF</span>
+  <span class="inro-key" style="--c:#2a78d6">FUTON</span>
+  <span class="inro-key inro-key--dot" style="--c:#b3b3b3">Other models</span>
+</div>
+
+<p class="inro-caption">PSNR against training time for FUTON and the strongest model of each family, the band one within-image standard error; every model's final PSNR against its training time; and against its inference throughput.</p>
+
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>#Params (k)</th>
+<th>Training time (s) ↓</th>
+<th>Training memory (GB) ↓</th>
+<th>Inference throughput (MPix/s) ↑</th>
+<th>Inference memory (MB) ↓</th>
+<th>PSNR (dB) ↑</th>
+<th>SSIM ↑</th>
+<th>LPIPS ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RFF</td>
+<td>199.7</td>
+<td>29.8</td>
+<td>2.08</td>
+<td>30.7</td>
+<td>1208</td>
+<td>31.28 ± 0.17</td>
+<td>0.846 ± 0.007</td>
+<td>0.271 ± 0.007</td>
+</tr>
+<tr>
+<td>PE-MLP</td>
+<td>209.2</td>
+<td>32.8</td>
+<td>2.11</td>
+<td>33.2</td>
+<td>805</td>
+<td>27.86 ± 0.16</td>
+<td>0.726 ± 0.015</td>
+<td>0.431 ± 0.008</td>
+</tr>
+<tr>
+<td>MFN</td>
+<td>204.3</td>
+<td>57.3</td>
+<td>7.67</td>
+<td>26.8</td>
+<td>3224</td>
+<td><em>36.72</em> ± 0.17</td>
+<td><em>0.938</em> ± 0.003</td>
+<td>0.129 ± 0.003</td>
+</tr>
+<tr>
+<td>SIREN</td>
+<td>198.9</td>
+<td>35.7</td>
+<td>3.25</td>
+<td>34.4</td>
+<td>805</td>
+<td>33.57 ± 0.15</td>
+<td>0.906 ± 0.003</td>
+<td>0.192 ± 0.004</td>
+</tr>
+<tr>
+<td>FreSh (SIREN)</td>
+<td>198.9</td>
+<td>39.3</td>
+<td>3.25</td>
+<td>34.5</td>
+<td>805</td>
+<td>34.88 ± 0.15</td>
+<td>0.922 ± 0.003</td>
+<td>0.150 ± 0.003</td>
+</tr>
+<tr>
+<td>Gauss</td>
+<td>198.9</td>
+<td>36.6</td>
+<td>3.64</td>
+<td>34.3</td>
+<td>805</td>
+<td>32.33 ± 0.19</td>
+<td>0.877 ± 0.005</td>
+<td>0.213 ± 0.004</td>
+</tr>
+<tr>
+<td>WIRE</td>
+<td>199.3</td>
+<td>42.2</td>
+<td>4.00</td>
+<td>31.5</td>
+<td>856</td>
+<td>30.17 ± 0.46</td>
+<td>0.807 ± 0.017</td>
+<td>0.260 ± 0.010</td>
+</tr>
+<tr>
+<td>FINER</td>
+<td>198.9</td>
+<td>35.7</td>
+<td>3.25</td>
+<td>34.3</td>
+<td>805</td>
+<td>35.96 ± 0.14</td>
+<td><em>0.938</em> ± 0.003</td>
+<td><em>0.120</em> ± 0.002</td>
+</tr>
+<tr>
+<td>Instant-NGP</td>
+<td>205.1</td>
+<td><strong>3.6</strong></td>
+<td><em>0.72</em></td>
+<td><em>198.3</em></td>
+<td><em>503</em></td>
+<td>36.05 ± 0.20</td>
+<td>0.932 ± 0.002</td>
+<td>0.142 ± 0.004</td>
+</tr>
+<tr>
+<td>TensoRF</td>
+<td>202.0</td>
+<td>27.8</td>
+<td>1.79</td>
+<td>55.2</td>
+<td>805</td>
+<td>35.48 ± 0.13</td>
+<td>0.920 ± 0.002</td>
+<td>0.161 ± 0.003</td>
+</tr>
+<tr>
+<td>GA-Planes</td>
+<td>199.9</td>
+<td>19.0</td>
+<td>1.32</td>
+<td>68.1</td>
+<td>805</td>
+<td>32.23 ± 0.20</td>
+<td>0.878 ± 0.004</td>
+<td>0.227 ± 0.005</td>
+</tr>
+<tr>
+<td>F-INR (SIREN)</td>
+<td>198.8</td>
+<td>7.1</td>
+<td>2.70</td>
+<td>136.3</td>
+<td>1338</td>
+<td>29.35 ± 0.13</td>
+<td>0.786 ± 0.007</td>
+<td>0.343 ± 0.005</td>
+</tr>
+<tr>
+<td>FUTON</td>
+<td>197.4</td>
+<td><em>4.1</em></td>
+<td><strong>0.36</strong></td>
+<td><strong>228.7</strong></td>
+<td><strong>201</strong></td>
+<td><strong>37.63</strong> ± 0.55</td>
+<td><strong>0.955</strong> ± 0.004</td>
+<td><strong>0.098</strong> ± 0.004</td>
+</tr>
+</tbody>
+</table>
+<figure>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_kodim19.png" data-desc-position="bottom"><img alt="kodim19" src="../../assets/qualitative_kodim19.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_kodim01.png" data-desc-position="bottom"><img alt="kodim01" src="../../assets/qualitative_kodim01.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_kodim21.png" data-desc-position="bottom"><img alt="kodim21" src="../../assets/qualitative_kodim21.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_kodim23.png" data-desc-position="bottom"><img alt="kodim23" src="../../assets/qualitative_kodim23.png"></a>
+<br>
+<figcaption>kodim19, kodim01, kodim21 and kodim23: the ground truth and every featured model's reconstruction with its PSNR over the whole image, and two regions of fine detail magnified beneath each.</figcaption>
+</figure>
+<h2 id="occupancy">Occupancy<a class="headerlink" href="#occupancy" title="Permanent link">¶</a></h2>
+<p>Five Stanford shapes, each voxel center at 512 per unit length marked inside or outside the scan, cropped to their bounds (16.6 to 62.3 million voxels, the longest side 461), about 131k parameters per model, 1000 steps, each on <span class="arithmatex">\(2^{20}\)</span> random voxels, scored by IoU on every voxel, evaluated <span class="arithmatex">\(2^{20}\)</span> voxels per forward pass.</p>
+<div class="inro-panels">
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/occupancy_convergence.svg" data-desc-position="bottom"><img alt="IoU against training time on the Stanford shapes" src="../../assets/panels/occupancy_convergence.svg"></a></p>
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/occupancy_time.svg" data-desc-position="bottom"><img alt="Every model's final IoU against its training time" src="../../assets/panels/occupancy_time.svg"></a></p>
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/occupancy_speed.svg" data-desc-position="bottom"><img alt="Every model's final IoU against its inference throughput" src="../../assets/panels/occupancy_speed.svg"></a></p>
+</div>
+<div class="inro-legend">
+  <span class="inro-key inro-key--open inro-key--dash" style="--c:#eb6834">SIREN</span>
+  <span class="inro-key" style="--c:#eb6834">FINER</span>
+  <span class="inro-key" style="--c:#1baf7a">Instant-NGP</span>
+  <span class="inro-key" style="--c:#4a3aa7">TensoRF</span>
+  <span class="inro-key" style="--c:#2a78d6">FUTON</span>
+  <span class="inro-key inro-key--dot" style="--c:#b3b3b3">Other models</span>
+</div>
+
+<p class="inro-caption">IoU against training time for the featured models; every model's final IoU against its training time; and against its inference throughput, in megavoxels per second. The two models below 98 % sit on the axis line as markers, and FreSh (SIREN), whose frequency search takes minutes, at the end of the time axis.</p>
+
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>#Params (k)</th>
+<th>Training time (s) ↓</th>
+<th>Training memory (GB) ↓</th>
+<th>Inference throughput (MVox/s) ↑</th>
+<th>Inference memory (GB) ↓</th>
+<th>IoU (%) Armadillo ↑</th>
+<th>IoU (%) Dragon ↑</th>
+<th>IoU (%) Happy Buddha ↑</th>
+<th>IoU (%) Lucy ↑</th>
+<th>IoU (%) Thai Statue ↑</th>
+<th>IoU (%) Mean ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RFF</td>
+<td>132.2</td>
+<td>46.5</td>
+<td>4.15</td>
+<td>48.9</td>
+<td>3.33</td>
+<td><em>99.71</em></td>
+<td>99.65</td>
+<td>99.59</td>
+<td>99.78</td>
+<td>99.28</td>
+<td>99.60 ± 0.09</td>
+</tr>
+<tr>
+<td>PE-MLP</td>
+<td>132.3</td>
+<td>62.6</td>
+<td>4.09</td>
+<td>48.3</td>
+<td>2.14</td>
+<td>96.96</td>
+<td>96.92</td>
+<td>97.54</td>
+<td>91.96</td>
+<td>95.71</td>
+<td>95.82 ± 1.01</td>
+</tr>
+<tr>
+<td>MFN</td>
+<td>138.0</td>
+<td>108.5</td>
+<td>15.07</td>
+<td>38.9</td>
+<td>5.49</td>
+<td>99.23</td>
+<td>97.47</td>
+<td>97.50</td>
+<td>99.10</td>
+<td>98.74</td>
+<td>98.41 ± 0.39</td>
+</tr>
+<tr>
+<td>SIREN</td>
+<td>132.9</td>
+<td>70.0</td>
+<td>6.48</td>
+<td>51.0</td>
+<td>2.26</td>
+<td>98.78</td>
+<td>99.18</td>
+<td>99.41</td>
+<td>98.53</td>
+<td>97.94</td>
+<td>98.77 ± 0.26</td>
+</tr>
+<tr>
+<td>FreSh (SIREN)</td>
+<td>132.9</td>
+<td>263.6</td>
+<td>6.48</td>
+<td>51.3</td>
+<td>2.26</td>
+<td>99.34</td>
+<td>99.67</td>
+<td>99.65</td>
+<td>99.15</td>
+<td>98.83</td>
+<td>99.33 ± 0.16</td>
+</tr>
+<tr>
+<td>Gauss</td>
+<td>132.9</td>
+<td>70.7</td>
+<td>6.48</td>
+<td>51.5</td>
+<td>2.26</td>
+<td>99.52</td>
+<td>99.59</td>
+<td>99.70</td>
+<td>99.07</td>
+<td>98.57</td>
+<td>99.29 ± 0.21</td>
+</tr>
+<tr>
+<td>WIRE</td>
+<td>133.4</td>
+<td>81.5</td>
+<td>7.62</td>
+<td>44.2</td>
+<td>2.39</td>
+<td>99.52</td>
+<td>99.59</td>
+<td>99.74</td>
+<td>99.43</td>
+<td>98.84</td>
+<td>99.43 ± 0.15</td>
+</tr>
+<tr>
+<td>FINER</td>
+<td>132.9</td>
+<td>69.9</td>
+<td>6.48</td>
+<td>51.3</td>
+<td>2.26</td>
+<td>99.45</td>
+<td>99.59</td>
+<td>99.70</td>
+<td>99.29</td>
+<td>98.85</td>
+<td>99.38 ± 0.15</td>
+</tr>
+<tr>
+<td>Instant-NGP</td>
+<td>133.2</td>
+<td><em>9.4</em></td>
+<td>2.11</td>
+<td>162.6</td>
+<td>2.93</td>
+<td>99.50</td>
+<td>99.59</td>
+<td>99.69</td>
+<td>99.78</td>
+<td><em>99.35</em></td>
+<td>99.58 ± 0.08</td>
+</tr>
+<tr>
+<td>TensoRF</td>
+<td>132.4</td>
+<td>23.8</td>
+<td><em>1.75</em></td>
+<td><em>202.3</em></td>
+<td><em>1.19</em></td>
+<td>99.53</td>
+<td>99.71</td>
+<td>99.78</td>
+<td>99.34</td>
+<td>98.82</td>
+<td>99.44 ± 0.17</td>
+</tr>
+<tr>
+<td>GA-Planes</td>
+<td>132.0</td>
+<td>62.2</td>
+<td>2.31</td>
+<td>111.9</td>
+<td>1.37</td>
+<td>99.58</td>
+<td><em>99.79</em></td>
+<td><em>99.93</em></td>
+<td><em>99.79</em></td>
+<td>99.34</td>
+<td><em>99.69</em> ± 0.10</td>
+</tr>
+<tr>
+<td>F-INR (SIREN)</td>
+<td>131.8</td>
+<td>20.9</td>
+<td>6.59</td>
+<td>179.2</td>
+<td>3.39</td>
+<td>97.75</td>
+<td>98.25</td>
+<td>98.08</td>
+<td>96.27</td>
+<td>96.42</td>
+<td>97.35 ± 0.42</td>
+</tr>
+<tr>
+<td>FUTON</td>
+<td>130.4</td>
+<td><strong>5.4</strong></td>
+<td><strong>0.28</strong></td>
+<td><strong>537.4</strong></td>
+<td><strong>0.61</strong></td>
+<td><strong>99.86</strong></td>
+<td><strong>99.94</strong></td>
+<td><strong>99.99</strong></td>
+<td><strong>99.96</strong></td>
+<td><strong>99.74</strong></td>
+<td><strong>99.90</strong> ± 0.04</td>
+</tr>
+</tbody>
+</table>
+<figure>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_lucy.png" data-desc-position="bottom"><img alt="Lucy" src="../../assets/qualitative_lucy.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_armadillo.png" data-desc-position="bottom"><img alt="Armadillo" src="../../assets/qualitative_armadillo.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_dragon.png" data-desc-position="bottom"><img alt="Dragon" src="../../assets/qualitative_dragon.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_happy_buddha.png" data-desc-position="bottom"><img alt="Happy Buddha" src="../../assets/qualitative_happy_buddha.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_thai_statue.png" data-desc-position="bottom"><img alt="Thai Statue" src="../../assets/qualitative_thai_statue.png"></a>
+<br>
+<figcaption>The five shapes, reconstructed from each model's checkpoint by marching cubes and rendered offscreen: the ground truth and every featured model's reconstruction with its IoU over the whole volume, and two regions of fine detail magnified beneath each.</figcaption>
+</figure>
+<h2 id="radiance-fields">Radiance fields<a class="headerlink" href="#radiance-fields" title="Permanent link">¶</a></h2>
+<p>Eight NeRF synthetic (Blender) scenes under FINER's protocol: 200 × 200 views, 25 training views, 25,000 steps of 4096 rays (FINER's protocol trains for 37,500), scored on all 200 test views. Every model is the density network of the same radiance field (15 geometry features, spherical-harmonics direction encoding, a 64 × 2 color MLP), about 74k parameters in all.</p>
+<div class="inro-panels">
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/nerf_convergence.svg" data-desc-position="bottom"><img alt="Validation PSNR against training time on the Blender scenes" src="../../assets/panels/nerf_convergence.svg"></a></p>
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/nerf_time.svg" data-desc-position="bottom"><img alt="Every model's final test PSNR against its training time" src="../../assets/panels/nerf_time.svg"></a></p>
+<p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/panels/nerf_speed.svg" data-desc-position="bottom"><img alt="Every model's final test PSNR against its rendering speed" src="../../assets/panels/nerf_speed.svg"></a></p>
+</div>
+<div class="inro-legend">
+  <span class="inro-key inro-key--open inro-key--dash" style="--c:#eb6834">SIREN</span>
+  <span class="inro-key" style="--c:#eb6834">FINER</span>
+  <span class="inro-key" style="--c:#1baf7a">Instant-NGP</span>
+  <span class="inro-key" style="--c:#4a3aa7">TensoRF</span>
+  <span class="inro-key" style="--c:#2a78d6">FUTON</span>
+  <span class="inro-key inro-key--dot" style="--c:#b3b3b3">Other models</span>
+</div>
+
+<p class="inro-caption">Validation PSNR against training time for the featured models; every model's final test PSNR against its training time; and against its rendering speed, in frames per second.</p>
+
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>#Params (k)</th>
+<th>Training time (s) ↓</th>
+<th>Training memory (GB) ↓</th>
+<th>Inference FPS ↑</th>
+<th>Inference memory (GB) ↓</th>
+<th>PSNR (dB) ↑</th>
+<th>SSIM ↑</th>
+<th>LPIPS ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RFF</td>
+<td>74.5</td>
+<td>179.3</td>
+<td>2.91</td>
+<td>38.7</td>
+<td>2.12</td>
+<td>28.07 ± 0.30</td>
+<td>0.928 ± 0.004</td>
+<td>0.082 ± 0.008</td>
+</tr>
+<tr>
+<td>PE-MLP</td>
+<td>75.1</td>
+<td>201.0</td>
+<td>3.00</td>
+<td>37.0</td>
+<td>2.10</td>
+<td>27.94 ± 0.22</td>
+<td>0.931 ± 0.003</td>
+<td>0.079 ± 0.006</td>
+</tr>
+<tr>
+<td>MFN</td>
+<td>75.8</td>
+<td>275.6</td>
+<td>9.97</td>
+<td>35.5</td>
+<td>3.61</td>
+<td>28.28 ± 0.16</td>
+<td>0.932 ± 0.002</td>
+<td>0.078 ± 0.006</td>
+</tr>
+<tr>
+<td>SIREN</td>
+<td>75.2</td>
+<td>215.5</td>
+<td>5.08</td>
+<td>38.4</td>
+<td>2.14</td>
+<td>28.53 ± 0.16</td>
+<td>0.935 ± 0.002</td>
+<td>0.106 ± 0.007</td>
+</tr>
+<tr>
+<td>FreSh (SIREN)</td>
+<td>75.2</td>
+<td>217.2</td>
+<td>5.03</td>
+<td>39.4</td>
+<td>2.13</td>
+<td>28.34 ± 0.23</td>
+<td>0.928 ± 0.004</td>
+<td>0.146 ± 0.016</td>
+</tr>
+<tr>
+<td>Gauss</td>
+<td>75.2</td>
+<td>239.1</td>
+<td>4.82</td>
+<td>36.4</td>
+<td>2.18</td>
+<td>27.54 ± 0.21</td>
+<td>0.922 ± 0.003</td>
+<td>0.105 ± 0.008</td>
+</tr>
+<tr>
+<td>WIRE</td>
+<td>74.5</td>
+<td>237.9</td>
+<td>4.97</td>
+<td>38.8</td>
+<td>2.19</td>
+<td>28.29 ± 0.19</td>
+<td>0.928 ± 0.003</td>
+<td>0.126 ± 0.007</td>
+</tr>
+<tr>
+<td>FINER</td>
+<td>75.2</td>
+<td>218.8</td>
+<td>5.02</td>
+<td>39.1</td>
+<td>2.15</td>
+<td><em>28.62</em> ± 0.19</td>
+<td>0.934 ± 0.002</td>
+<td>0.120 ± 0.009</td>
+</tr>
+<tr>
+<td>Instant-NGP</td>
+<td>75.0</td>
+<td><strong>147.0</strong></td>
+<td>2.80</td>
+<td>44.0</td>
+<td>3.26</td>
+<td>26.60 ± 0.37</td>
+<td>0.908 ± 0.009</td>
+<td>0.119 ± 0.011</td>
+</tr>
+<tr>
+<td>TensoRF</td>
+<td>74.8</td>
+<td>246.2</td>
+<td>2.14</td>
+<td><em>47.2</em></td>
+<td><strong>2.04</strong></td>
+<td>27.99 ± 0.18</td>
+<td>0.931 ± 0.003</td>
+<td>0.076 ± 0.007</td>
+</tr>
+<tr>
+<td>GA-Planes</td>
+<td>75.0</td>
+<td>271.6</td>
+<td><em>2.10</em></td>
+<td>45.7</td>
+<td><strong>2.04</strong></td>
+<td>28.24 ± 0.19</td>
+<td><em>0.936</em> ± 0.003</td>
+<td><em>0.071</em> ± 0.005</td>
+</tr>
+<tr>
+<td>F-INR (SIREN)</td>
+<td>74.7</td>
+<td>292.8</td>
+<td>16.18</td>
+<td>33.7</td>
+<td>6.69</td>
+<td>27.52 ± 0.47</td>
+<td>0.911 ± 0.012</td>
+<td>0.127 ± 0.020</td>
+</tr>
+<tr>
+<td>FUTON</td>
+<td>73.0</td>
+<td><em>152.0</em></td>
+<td><strong>1.88</strong></td>
+<td><strong>49.6</strong></td>
+<td><strong>2.04</strong></td>
+<td><strong>29.22</strong> ± 0.24</td>
+<td><strong>0.943</strong> ± 0.004</td>
+<td><strong>0.065</strong> ± 0.007</td>
+</tr>
+</tbody>
+</table>
+<p>Per scene, FUTON leads five of the eight: chair, hotdog, lego, materials and ship; FINER leads drums, ficus, by 0.04 dB, and mic.</p>
+<details class="note">
+<summary>Test-view PSNR per scene, in dB</summary>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Chair</th>
+<th>Drums</th>
+<th>Ficus</th>
+<th>Hotdog</th>
+<th>Lego</th>
+<th>Materials</th>
+<th>Mic</th>
+<th>Ship</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RFF</td>
+<td><em>33.10</em></td>
+<td>22.91</td>
+<td>27.47</td>
+<td>32.76</td>
+<td>28.48</td>
+<td>25.62</td>
+<td>33.37</td>
+<td>20.88</td>
+</tr>
+<tr>
+<td>PE-MLP</td>
+<td>32.09</td>
+<td>22.84</td>
+<td>25.75</td>
+<td>32.06</td>
+<td>28.55</td>
+<td>26.64</td>
+<td>32.44</td>
+<td><em>23.12</em></td>
+</tr>
+<tr>
+<td>MFN</td>
+<td>32.94</td>
+<td>23.77</td>
+<td>27.28</td>
+<td>32.56</td>
+<td>28.52</td>
+<td>25.60</td>
+<td>33.04</td>
+<td>22.50</td>
+</tr>
+<tr>
+<td>SIREN</td>
+<td>32.54</td>
+<td><em>24.58</em></td>
+<td>27.61</td>
+<td>32.40</td>
+<td>29.03</td>
+<td>26.53</td>
+<td>33.25</td>
+<td>22.29</td>
+</tr>
+<tr>
+<td>FreSh (SIREN)</td>
+<td>32.38</td>
+<td>24.19</td>
+<td>27.60</td>
+<td>32.81</td>
+<td>29.62</td>
+<td>25.18</td>
+<td>32.58</td>
+<td>22.32</td>
+</tr>
+<tr>
+<td>Gauss</td>
+<td>30.92</td>
+<td>23.69</td>
+<td>26.41</td>
+<td>32.07</td>
+<td>27.66</td>
+<td>25.21</td>
+<td>32.46</td>
+<td>21.94</td>
+</tr>
+<tr>
+<td>WIRE</td>
+<td>32.63</td>
+<td>24.18</td>
+<td>27.54</td>
+<td>32.00</td>
+<td>28.44</td>
+<td>26.14</td>
+<td>33.23</td>
+<td>22.13</td>
+</tr>
+<tr>
+<td>FINER</td>
+<td>32.85</td>
+<td><strong>24.61</strong></td>
+<td><strong>27.74</strong></td>
+<td>32.30</td>
+<td>29.46</td>
+<td>26.11</td>
+<td><strong>33.58</strong></td>
+<td>22.27</td>
+</tr>
+<tr>
+<td>Instant-NGP</td>
+<td>31.35</td>
+<td>23.03</td>
+<td>22.64</td>
+<td>30.87</td>
+<td>27.29</td>
+<td>24.57</td>
+<td>31.92</td>
+<td>21.16</td>
+</tr>
+<tr>
+<td>TensoRF</td>
+<td>31.60</td>
+<td>23.70</td>
+<td>25.74</td>
+<td>32.73</td>
+<td>28.60</td>
+<td>26.31</td>
+<td>32.43</td>
+<td>22.78</td>
+</tr>
+<tr>
+<td>GA-Planes</td>
+<td>32.58</td>
+<td>23.75</td>
+<td>25.77</td>
+<td><em>33.06</em></td>
+<td><em>29.63</em></td>
+<td>26.09</td>
+<td>32.29</td>
+<td>22.79</td>
+</tr>
+<tr>
+<td>F-INR (SIREN)</td>
+<td>32.81</td>
+<td>21.42</td>
+<td>24.23</td>
+<td>32.39</td>
+<td>29.22</td>
+<td><em>27.37</em></td>
+<td>31.78</td>
+<td>20.93</td>
+</tr>
+<tr>
+<td>FUTON</td>
+<td><strong>33.18</strong></td>
+<td>23.86</td>
+<td><em>27.70</em></td>
+<td><strong>33.20</strong></td>
+<td><strong>31.28</strong></td>
+<td><strong>27.65</strong></td>
+<td><em>33.40</em></td>
+<td><strong>23.48</strong></td>
+</tr>
+</tbody>
+</table>
+</details>
+<figure>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_lego.png" data-desc-position="bottom"><img alt="Lego" src="../../assets/qualitative_lego.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_chair.png" data-desc-position="bottom"><img alt="Chair" src="../../assets/qualitative_chair.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_materials.png" data-desc-position="bottom"><img alt="Materials" src="../../assets/qualitative_materials.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_hotdog.png" data-desc-position="bottom"><img alt="Hotdog" src="../../assets/qualitative_hotdog.png"></a>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/qualitative_ship.png" data-desc-position="bottom"><img alt="Ship" src="../../assets/qualitative_ship.png"></a>
+<br>
+<figcaption>The lego, chair, materials, hotdog and ship scenes from a test view: the ground truth and the render of FUTON and of one baseline of each family, with its PSNR on that view, and two regions magnified beneath each.</figcaption>
+</figure>
+<figure>
+  <a class="glightbox" data-type="image" data-width="auto" data-height="auto" href="../../assets/orbit_lego.gif" data-desc-position="bottom"><img alt="Lego orbit" src="../../assets/orbit_lego.gif" width="720"></a>
+<br>
+<figcaption>The same scene in orbit: SIREN, Instant-NGP and FUTON, with their test-view PSNR.</figcaption>
+</figure>
+<h2 id="checks-against-the-literature">Checks against the literature<a class="headerlink" href="#checks-against-the-literature" title="Permanent link">¶</a></h2>
+<p>Where the protocol meets a published one, the numbers agree, allowing for the shorter radiance-field schedule.</p>
+<ul>
+<li><strong>Radiance fields.</strong> The protocol is FINER's, which trains for 37,500 steps; at our 25,000 and our 74k budget, SIREN lands 0.3 dB and FINER 0.6 dB below that paper's table on average, by at most 1.1 dB on a scene, and our PE-MLP and WIRE are stronger than its.</li>
+<li><strong>Hash grid.</strong> Its low radiance-field score is what a 74k budget leaves it: its tables hold <span class="arithmatex">\(2^{11}\)</span> entries per level, 256 times fewer than in its paper.</li>
+</ul>
+<p>The <a href="../ablations/">ablations</a> take FUTON apart, and <a href="../reproduce/">Reproducing the paper</a> has the commands that produced every number above.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden="">
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer">
+        
+          
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Experiments">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Experiments
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../ablations/" class="md-footer__link md-footer__link--next" aria-label="Next: Ablations">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Ablations
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"></path></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright © 2026 Pooya Ashtari. MIT License.
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/pashtari/inro" target="_blank" rel="noopener" title="Inro on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://arxiv.org/abs/2602.13414" target="_blank" rel="noopener" title="The FUTON paper on arXiv" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M0 64C0 28.7 28.7 0 64 0h149.5c17 0 33.3 6.7 45.3 18.7l106.5 106.6c12 12 18.7 28.3 18.7 45.3V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64zm208-5.5V152c0 13.3 10.7 24 24 24h93.5zM120 256c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24zm0 96c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24z"></path></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="../../javascripts/inro.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>

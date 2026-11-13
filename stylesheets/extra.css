@@ -1,0 +1,854 @@
+/* Inro's theme: the lacquer, gold and vermilion of the logo, and FUTON's blue from the figures. */
+:root {
+  --inro-ink: #0e1437;
+  --inro-ink-soft: #1b2566;
+  --inro-blue: #2a78d6;
+  --inro-gold: #ffd98a;
+  --inro-vermilion: #ee6a36;
+  --inro-radius: 0.6rem;
+
+  --md-primary-fg-color: var(--inro-ink);
+  --md-primary-fg-color--light: var(--inro-ink-soft);
+  --md-primary-fg-color--dark: #090d26;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: var(--inro-vermilion);
+  --md-accent-fg-color--transparent: #ee6a361a;
+}
+
+/* Material sets these on the body, so they are overridden there. */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #1f63c4;
+  --md-footer-bg-color: var(--inro-ink);
+  --md-footer-bg-color--dark: #0a0e2a;
+
+  --inro-line: #0e14371a;
+  --inro-surface: #ffffff;
+  --inro-tint: #f4f6fc;
+  --inro-gain: #1f63c4;
+  --inro-futon-row: #2a78d612;
+  --inro-shadow: 0 1px 2px #0e14370d, 0 0.4rem 1.2rem #0e14370f;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 232;
+  --md-default-bg-color: #0d1124;
+  --md-default-bg-color--light: #0d1124b3;
+  --md-code-bg-color: #161c38;
+  --md-footer-bg-color: #090d1c;
+  --md-footer-bg-color--dark: #070a16;
+  --md-typeset-a-color: #8ab9ff;
+
+  --inro-line: #ffffff1f;
+  --inro-surface: #151a33;
+  --inro-tint: #161c38;
+  --inro-gain: #8ab9ff;
+  --inro-futon-row: #8ab9ff17;
+  --inro-shadow: 0 1px 2px #0000004d, 0 0.4rem 1.2rem #00000040;
+}
+
+/* Layout -------------------------------------------------------------------------------- */
+
+.md-grid {
+  max-width: 70rem;
+}
+
+.md-header {
+  background: none;
+}
+
+/* The menu's gradient sits on a layer of its own, since a gradient cannot fade by itself. */
+.md-header::before {
+  background: linear-gradient(90deg, var(--inro-ink), var(--inro-ink-soft));
+  content: "";
+  inset: 0;
+  position: absolute;
+  transition: opacity 250ms;
+  z-index: -1;
+}
+
+/* On the landing page the menu floats over the hero until the page scrolls. */
+:root:has(.inro-hero):not(.inro-scrolled) .md-header::before {
+  opacity: 0;
+}
+
+/* The tabs share the header's row, beside the logo. */
+.md-tabs {
+  background: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.md-tabs .md-grid {
+  margin: 0;
+  max-width: none;
+}
+
+/* The logo leads home, so the tabs leave the landing page out. */
+.md-tabs__item:first-child {
+  display: none;
+}
+
+.md-header__button.md-logo img,
+.md-nav__button.md-logo img {
+  height: 2rem;
+}
+
+/* The logo stays in the header at every width, after the menu button. */
+.md-header__button.md-logo {
+  display: block;
+  margin: 0.1rem 0.2rem;
+  padding: 0.1rem;
+}
+
+.md-header__button[for="__drawer"] {
+  order: -1;
+}
+
+/* The logo already says the site's name, and the title keeps the page's on scroll. */
+.md-header__topic:first-child,
+.md-nav__title[for="__drawer"] {
+  font-size: 0;
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-header__title {
+    display: none;
+  }
+}
+
+/* Room for the tabs: the repository's name and counts need little more than this. */
+.md-header__source {
+  width: 8.5rem;
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-search__inner {
+    width: 9rem;
+  }
+}
+
+.md-tabs__item--active .md-tabs__link {
+  color: var(--inro-gold);
+  opacity: 1;
+}
+
+/* Type ---------------------------------------------------------------------------------- */
+
+/* Quicksand's regular weight is too thin for long pages. */
+body {
+  font-weight: 500;
+}
+
+.md-typeset h1 {
+  color: var(--md-default-fg-color);
+  font-size: clamp(1.55rem, 1.2rem + 1.4vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 0.7em;
+}
+
+.md-typeset h2 {
+  font-size: clamp(1.15rem, 1rem + 0.7vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-top: 2em;
+}
+
+.md-typeset h3 {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset .inro-lead {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  max-width: 44rem;
+}
+
+/* Hero ---------------------------------------------------------------------------------- */
+
+.inro-hero {
+  background:
+    url("../assets/waves.svg") center / cover no-repeat,
+    radial-gradient(60% 130% at 88% 10%, #2c6ad680, transparent 62%),
+    radial-gradient(42% 90% at 4% 105%, #ee6a3633, transparent 65%),
+    linear-gradient(180deg, var(--inro-ink), #0a0e2a);
+  color: #ffffff;
+  margin-top: -2.4rem; /* under the sticky header, whose height this is */
+  overflow: hidden;
+  padding-top: 2.4rem;
+}
+
+.inro-hero__grid {
+  align-items: center;
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: clamp(2.2rem, 6vw, 4.5rem) 0.8rem;
+}
+
+.inro-hero__eyebrow {
+  color: var(--inro-gold);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.8rem;
+  text-transform: uppercase;
+}
+
+.inro-hero h1 {
+  font-size: clamp(1.9rem, 1.3rem + 2.8vw, 3.1rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  margin: 0;
+  max-width: 34rem;
+}
+
+.inro-hero h1 span {
+  background: linear-gradient(90deg, var(--inro-gold), #ffae6b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.inro-hero__lead {
+  color: #ffffffd9;
+  font-size: clamp(0.8rem, 0.75rem + 0.25vw, 0.95rem);
+  line-height: 1.6;
+  margin: 1.1rem 0 0;
+  max-width: 33rem;
+}
+
+.inro-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.6rem;
+}
+
+.inro-hero__install {
+  background: #ffffff14;
+  border: 1px solid #ffffff2e;
+  border-radius: 0.4rem;
+  color: #ffffffe6;
+  display: inline-block;
+  font-size: 0.72rem;
+  margin-top: 1.1rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.inro-button {
+  border: 1px solid #ffffff59;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  transition: background-color 150ms, border-color 150ms, transform 150ms;
+}
+
+.inro-button:hover,
+.inro-button:focus-visible {
+  background: #ffffff1f;
+  border-color: #ffffff;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.inro-button--primary {
+  background: linear-gradient(90deg, var(--inro-gold), #ffb877);
+  border-color: transparent;
+  color: var(--inro-ink);
+}
+
+.inro-button--primary:hover,
+.inro-button--primary:focus-visible {
+  background: linear-gradient(90deg, #ffe4ab, #ffc896);
+  border-color: transparent;
+  color: var(--inro-ink);
+}
+
+.inro-hero__mark img {
+  display: block;
+  height: clamp(9rem, 22vw, 15rem);
+  width: auto;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .inro-hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inro-hero__mark {
+    display: none;
+  }
+}
+
+/* The landing page's content follows the hero without the page's top margin. */
+.md-typeset .inro-section-title {
+  margin-top: 1.2em;
+}
+
+/* Tiles --------------------------------------------------------------------------------- */
+
+.inro-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 1.2em 0;
+}
+
+.inro-tile {
+  flex: 1 1 8.5rem;
+  background: var(--inro-surface);
+  border: 1px solid var(--inro-line);
+  border-radius: var(--inro-radius);
+  box-shadow: var(--inro-shadow);
+  padding: 0.75rem 0.85rem;
+}
+
+.inro-tiles--wide .inro-tile {
+  flex-basis: 12rem;
+}
+
+.md-typeset .inro-tile p {
+  margin: 0;
+}
+
+.md-typeset .inro-tile__task {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.md-typeset .inro-tile__gain {
+  color: var(--inro-gain);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.md-typeset .inro-tile__note {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+/* Cards --------------------------------------------------------------------------------- */
+
+.md-typeset .grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  background: var(--inro-surface);
+  border: 1px solid var(--inro-line);
+  border-radius: var(--inro-radius);
+  transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+}
+
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid > .card:hover {
+  border-color: transparent;
+  box-shadow: var(--inro-shadow);
+  transform: translateY(-1px);
+}
+
+.md-typeset .grid.cards .lg {
+  color: var(--inro-gain);
+}
+
+/* Figures ------------------------------------------------------------------------------- */
+
+.md-typeset figure {
+  margin: 1.5em auto;
+  max-width: 100%;
+}
+
+.md-typeset figure img,
+.md-typeset figure svg {
+  background: #ffffff;
+  border-radius: var(--inro-radius);
+  height: auto;
+  max-width: 100%;
+}
+
+.md-typeset figcaption {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+  font-style: normal;
+  line-height: 1.5;
+  margin: 0.6em auto 0;
+  max-width: 44rem;
+}
+
+/* A strip of magnifications keeps a readable size on a phone, and scrolls sideways. */
+@media screen and (max-width: 44.9375em) {
+  .md-typeset figure:has(img[src*="qualitative_"]) {
+    align-items: stretch;
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .md-typeset img[src*="qualitative_"] {
+    max-width: none;
+    width: 42rem;
+  }
+
+  .md-typeset figure:has(img[src*="qualitative_"]) figcaption {
+    left: 0;
+    margin-inline: 0;
+    max-width: calc(100vw - 1.6rem);
+    position: sticky;
+  }
+}
+
+/* Panels of one figure: side by side where they fit, stacked where they do not. */
+.inro-panels {
+  align-items: center;
+  display: grid;
+  gap: 0.6rem 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1.2em;
+}
+
+.inro-panels--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media screen and (max-width: 37.5em) {
+  .inro-panels,
+  .inro-panels--two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.md-typeset .inro-panels img {
+  background: transparent;
+  display: block;
+  width: 100%;
+}
+
+.inro-caption {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  margin: 0.5em auto 1.5em;
+  max-width: 44rem;
+  text-align: center;
+}
+
+/* Plots are black on white: on the dark theme they invert and keep their hues. */
+[data-md-color-scheme="slate"] .md-typeset img:is(
+  [src*="/panels/"],
+  [src*="ablation_"],
+  [src*="bound_"],
+  [src*="bases_all"],
+  [src*="interpolation"],
+  [src*="locality"]
+) {
+  background: #ffffff;
+  filter: invert(1) hue-rotate(180deg);
+  mix-blend-mode: screen;
+}
+
+.inro-legend {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  gap: 0.25rem 1rem;
+  justify-content: center;
+  margin: 0.6em 0 0;
+}
+
+.inro-key {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45em;
+  white-space: nowrap;
+}
+
+.inro-key::before {
+  background:
+    radial-gradient(circle, var(--hole, var(--c)) 0 0.17em, var(--c) 0.2em 0.34em, transparent 0.37em) center / 0.8em 0.8em no-repeat,
+    var(--line, linear-gradient(var(--c), var(--c))) center / 100% 0.14em no-repeat;
+  content: "";
+  height: 0.8em;
+  width: 2em;
+}
+
+.inro-key--open {
+  --hole: var(--md-default-bg-color);
+}
+
+.inro-key--dash {
+  --line: repeating-linear-gradient(90deg, var(--c) 0 0.42em, transparent 0.42em 0.62em);
+}
+
+.inro-key--dot {
+  --line: linear-gradient(transparent, transparent);
+}
+
+/* Comparison slider --------------------------------------------------------------------- */
+
+.inro-compare {
+  --split: 50%;
+  border-radius: var(--inro-radius);
+  box-shadow: var(--inro-shadow);
+  margin: 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.md-typeset .inro-compare img {
+  border-radius: 0;
+  display: block;
+  width: 100%;
+}
+
+.inro-compare__after {
+  clip-path: inset(0 0 0 var(--split));
+  inset: 0;
+  position: absolute;
+}
+
+.inro-compare__divider {
+  background: #ffffff;
+  box-shadow: 0 0 0.5rem #0000008c;
+  inset: 0 auto 0 var(--split);
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: 2px;
+}
+
+.inro-compare__divider::after {
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0.1rem 0.5rem #00000066;
+  color: var(--inro-ink);
+  content: "\2194";
+  display: grid;
+  font-size: 0.9rem;
+  height: 1.7rem;
+  left: 50%;
+  place-items: center;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1.7rem;
+}
+
+.inro-compare input[type="range"] {
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+  height: 100%;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.inro-compare__label {
+  background: #0e1437c7;
+  border-radius: 0.3rem;
+  bottom: 0.5rem;
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.25rem 0.45rem;
+  pointer-events: none;
+  position: absolute;
+}
+
+.inro-compare__label--left {
+  left: 0.5rem;
+}
+
+.inro-compare__label--right {
+  right: 0.5rem;
+}
+
+/* Tables -------------------------------------------------------------------------------- */
+
+.md-typeset__scrollwrap {
+  margin: 1em 0;
+}
+
+.md-typeset table:not([class]) {
+  border: 1px solid var(--inro-line);
+  border-radius: var(--inro-radius);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.md-typeset table:not([class]) th {
+  background: var(--inro-tint);
+  font-weight: 650;
+  min-width: 0;
+  padding: 0.6em 0.8em;
+  vertical-align: bottom;
+}
+
+.md-typeset table:not([class]) td {
+  border-top: 1px solid var(--inro-line);
+  padding: 0.55em 0.8em;
+}
+
+/* The first column stays in view while a wide table scrolls. */
+.md-typeset table:not([class]) th:first-child,
+.md-typeset table:not([class]) td:first-child {
+  background-clip: padding-box;
+  left: 0;
+  position: sticky;
+}
+
+.md-typeset table:not([class]) td:first-child {
+  background: var(--md-default-bg-color);
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background-color: var(--inro-tint);
+}
+
+.md-typeset table:not([class]) tr.inro-futon td {
+  background-image: linear-gradient(var(--inro-futon-row), var(--inro-futon-row));
+}
+
+.md-typeset table:not([class]) tr.inro-futon td:first-child {
+  font-weight: 650;
+}
+
+.md-typeset .inro-results td {
+  white-space: nowrap;
+}
+
+/* A two-column table of labels and text has no header to show. */
+.md-typeset table:not([class]) thead:has(th:first-child:empty):not(:has(th:not(:empty))) {
+  display: none;
+}
+
+.md-typeset table:not([class]) td:first-child code {
+  white-space: nowrap;
+}
+
+/* Code and math ------------------------------------------------------------------------- */
+
+.md-typeset pre > code {
+  border-radius: var(--inro-radius);
+}
+
+.md-typeset div.arithmatex,
+.md-typeset mjx-container[display="true"] {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Diagrams ------------------------------------------------------------------------------ */
+
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-mermaid-font-family: var(--md-text-font-family, sans-serif);
+  --md-mermaid-node-bg-color: #2a78d61a;
+  --md-mermaid-node-fg-color: var(--inro-blue);
+  --md-mermaid-edge-color: #8a94a6;
+  --md-mermaid-label-fg-color: var(--md-default-fg-color);
+  --md-mermaid-label-bg-color: var(--md-default-bg-color);
+}
+
+.inro-scroll {
+  margin: 1.2em 0;
+  overflow-x: auto;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .inro-scroll .mermaid {
+    min-width: 34rem;
+  }
+}
+
+/* Theorems ------------------------------------------------------------------------------ */
+
+:root {
+  --md-admonition-icon--theorem: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 3H6v2l6.5 7L6 19v2h12v-3h-7l5-6-5-6h7z"/></svg>');
+}
+
+.md-typeset .admonition.theorem,
+.md-typeset details.theorem {
+  border-color: var(--inro-blue);
+}
+
+.md-typeset .theorem > .admonition-title,
+.md-typeset .theorem > summary {
+  background-color: #2a78d61a;
+}
+
+.md-typeset .theorem > .admonition-title::before,
+.md-typeset .theorem > summary::before {
+  background-color: var(--inro-blue);
+  mask-image: var(--md-admonition-icon--theorem);
+  -webkit-mask-image: var(--md-admonition-icon--theorem);
+}
+
+/* API reference ------------------------------------------------------------------------- */
+
+.md-typeset .doc-signature pre,
+.md-typeset .doc-signature code {
+  font-size: 0.68rem;
+}
+
+.md-typeset .doc-heading code {
+  font-weight: 700;
+}
+
+.md-typeset .doc-contents details:not(.warning),
+.md-typeset .doc-contents .admonition:not(.warning) {
+  border-color: var(--inro-line);
+  box-shadow: none;
+}
+
+.md-typeset .doc-contents details:not(.warning) > summary,
+.md-typeset .doc-contents .admonition:not(.warning) > .admonition-title {
+  background-color: var(--inro-tint);
+}
+
+.md-typeset .doc-contents details:not(.warning) > summary::before,
+.md-typeset .doc-contents .admonition:not(.warning) > .admonition-title::before {
+  background-color: var(--md-default-fg-color--light);
+}
+
+/* Landing page -------------------------------------------------------------------------- */
+
+.md-typeset .inro-showcase {
+  margin: 0;
+  width: 100%;
+}
+
+.md-typeset .inro-showcase > img {
+  box-shadow: var(--inro-shadow);
+  width: 100%;
+}
+
+/* Flows: a pipeline in boxes, across where it fits and down where it does not. */
+.md-typeset .inro-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.3rem;
+  justify-content: center;
+  list-style: none;
+  margin: 1.3em 0;
+  padding: 0;
+}
+
+.md-typeset .inro-flow > li {
+  background: var(--inro-tint);
+  border: 1px solid var(--inro-line);
+  border-radius: 0.5rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  margin: 0;
+  max-width: 12rem;
+  padding: 0.45rem 0.7rem;
+  position: relative;
+  text-align: center;
+}
+
+.md-typeset .inro-flow > li strong {
+  display: block;
+}
+
+.md-typeset .inro-flow > li:not(:last-child)::after {
+  color: var(--md-default-fg-color--light);
+  content: "\2192";
+  font-size: 0.8rem;
+  position: absolute;
+  right: -1.05rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .inro-flow {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .md-typeset .inro-flow > li {
+    max-width: none;
+  }
+
+  .md-typeset .inro-flow > li:not(:last-child)::after {
+    bottom: -0.95rem;
+    content: "\2193";
+    left: 50%;
+    right: auto;
+    top: auto;
+    transform: translateX(-50%);
+  }
+}
+
+/* A figure beside its text, stacked on narrow screens. */
+.md-typeset .inro-split {
+  align-items: center;
+  display: grid;
+  gap: 1rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin: 1.2em 0;
+}
+
+.md-typeset .inro-split figure {
+  margin: 0;
+}
+
+.md-typeset .inro-split figure img {
+  width: 100%;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .inro-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Inline SVG diagrams take the page's colors. */
+.inro-diagram {
+  display: block;
+  height: auto;
+  margin: 1.4em auto;
+  max-width: 100%;
+}
+
+.inro-diagram text {
+  fill: var(--md-default-fg-color);
+  font-family: var(--md-text-font-family, sans-serif);
+}
+
+/* On the narrowest phones a long inline formula scrolls within its own box. */
+@media screen and (max-width: 22.5em) {
+  .md-typeset mjx-container:not([display="true"]) {
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    vertical-align: middle;
+  }
+}
