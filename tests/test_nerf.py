@@ -15,7 +15,7 @@ import yaml
 import inro
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_ROOT = ROOT / "data/nerf/blender/lego"
+DATA_ROOT = ROOT / "data/blender/lego"
 
 GEOMETRY_FEATURES = 15
 COLOR_NET = ("mlp", {"hidden_features": 64, "hidden_layers": 2})

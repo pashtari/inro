@@ -14,7 +14,7 @@ The image task fits an INR $[-1, 1]^2 \to \mathbb{R}^3$ to one image and scores 
 import torch
 import inro
 
-path = "data/Kodak/kodim19.png"
+path = "data/kodak/kodim19.png"
 train_set = inro.ImageCoordinateDataset(path)  # the whole image at every step
 eval_set = inro.ImageCoordinateDataset(path)
 H, W = eval_set.grid_size
@@ -141,11 +141,11 @@ eval_set.save(image, "kodim19_futon.png")
 
 ## The benchmark script
 
-`scripts/train_image.py` runs every model of the config on every image under `data/Kodak/`, writes each run to `logs/image/<image>/<model>/`, and skips runs that already have a `results.json`:
+`scripts/train_image.py` runs every model of the config on every image under `data/kodak/`, writes each run to `logs/image/<image>/<model>/`, and skips runs that already have a `results.json`:
 
 ```bash
 python scripts/train_image.py                                        # all images, all models
-python scripts/train_image.py --data data/Kodak/kodim19.png --models FUTON SIREN
+python scripts/train_image.py --data data/kodak/kodim19.png --models FUTON SIREN
 python scripts/train_image.py --set train.num_steps=500 --log-dir logs/short
 ```
 

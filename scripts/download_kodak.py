@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "Kodak")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "kodak")
     parser.add_argument(
         "--images",
         type=int,

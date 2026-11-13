@@ -206,7 +206,7 @@ Dividing by $D$ turns the outputs into mean squared errors: every FUTON has an e
 import torch
 import inro
 
-data = inro.ImageCoordinateDataset("data/Kodak/kodim19.png")
+data = inro.ImageCoordinateDataset("data/kodak/kodim19.png")
 H, W, _ = data.target.shape
 model = inro.FUTON(2, 3, ("cosine", {"num_components": [H // 2, W // 2]}),
                    ("cp", {"rank": 64}), ("linear", {"bias": False}))

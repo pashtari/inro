@@ -6,7 +6,7 @@ rendered whole, in one pass.
 Usage:
 
     python scripts/train_nerf.py
-    python scripts/train_nerf.py --data data/nerf/blender/lego --models MFN
+    python scripts/train_nerf.py --data data/blender/lego --models MFN
 """
 
 from pathlib import Path
@@ -18,9 +18,7 @@ from train_common import ROOT, build, fresh, record, run, warm_up_field
 
 import inro
 
-DATA = sorted(
-    p.parent for p in (ROOT / "data/nerf/blender").glob("*/transforms_train.json")
-)
+DATA = sorted(p.parent for p in (ROOT / "data/blender").glob("*/transforms_train.json"))
 
 
 def fresh_targets(

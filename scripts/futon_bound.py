@@ -81,8 +81,8 @@ def psnr(mse: float | np.ndarray) -> float | np.ndarray:
 def dataset(task: str, name: str, **data):
     """Load a signal, whole or, with ``data``, as each training step draws it."""
     if task == "image":
-        return inro.ImageCoordinateDataset(ROOT / f"data/Kodak/{name}.png", **data)
-    path = ROOT / f"data/occupancy/{name}.ply"
+        return inro.ImageCoordinateDataset(ROOT / f"data/kodak/{name}.png", **data)
+    path = ROOT / f"data/meshes/{name}.ply"
     config = yaml.safe_load((ROOT / "configs/occupancy.yaml").read_text())
     resolution = config["data"]["resolution"]  # the benchmark's grid
     return inro.OccupancyCoordinateDataset(path, resolution=resolution, **data)

@@ -117,7 +117,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "occupancy")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data" / "meshes")
     parser.add_argument(
         "--meshes",
         nargs="+",

@@ -17,7 +17,7 @@ An INR is a compressed representation of its signal: the parameters are the code
 from torchvision.io import ImageReadMode, read_image
 import inro
 
-image = read_image("data/Kodak/kodim19.png", mode=ImageReadMode.RGB)  # uint8 (3, H, W)
+image = read_image("data/kodak/kodim19.png", mode=ImageReadMode.RGB)  # uint8 (3, H, W)
 
 encoded = inro.compression.encode_futon(
     image,

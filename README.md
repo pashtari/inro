@@ -107,7 +107,7 @@ Fit FUTON to an image and score it. On a GPU this takes about a dozen seconds an
 import torch
 import inro
 
-dataset = inro.ImageCoordinateDataset("data/Kodak/kodim19.png")  # any RGB image
+dataset = inro.ImageCoordinateDataset("data/kodak/kodim19.png")  # any RGB image
 H, W, _ = dataset.target.shape
 
 model = inro.FUTON(

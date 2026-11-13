@@ -7,9 +7,9 @@ Each compares FUTON against five representative baselines of the task at equal s
 
 | Notebook | Signal | Models | Runtime on an A100 |
 | --- | --- | --- | --- |
-| `image_representation.ipynb` | `data/Kodak/kodim19.png` | 6, about 197k parameters each, 1000 steps on the whole image | about 6 minutes |
-| `occupancy_volume.ipynb` | `data/occupancy/lucy.ply` at 512 voxels per unit length | 6, about 131k parameters each, 1000 steps of $2^{20}$ voxels | about 7 minutes |
-| `nerf.ipynb` | `data/nerf/blender/lego` under FINER's protocol, in a quick pass | 6, about 74k parameters each, 5000 steps | about 9 minutes (set `NUM_STEPS = 25_000` for the benchmark's full schedule, about 25 minutes) |
+| `image_representation.ipynb` | `data/kodak/kodim19.png` | 6, about 197k parameters each, 1000 steps on the whole image | about 6 minutes |
+| `occupancy_volume.ipynb` | `data/meshes/lucy.ply` at 512 voxels per unit length | 6, about 131k parameters each, 1000 steps of $2^{20}$ voxels | about 7 minutes |
+| `nerf.ipynb` | `data/blender/lego` under FINER's protocol, in a quick pass | 6, about 74k parameters each, 5000 steps | about 9 minutes (set `NUM_STEPS = 25_000` for the benchmark's full schedule, about 25 minutes) |
 
 ## Run them
 

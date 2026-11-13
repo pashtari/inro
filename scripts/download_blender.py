@@ -72,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/nerf/blender")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "data/blender")
     parser.add_argument(
         "--scenes",
         nargs="+",

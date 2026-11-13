@@ -3,7 +3,7 @@
 Usage:
 
     python scripts/train_image.py
-    python scripts/train_image.py --data data/Kodak/kodim19.png --models SIREN FINER
+    python scripts/train_image.py --data data/kodak/kodim19.png --models SIREN FINER
 """
 
 from pathlib import Path
@@ -15,7 +15,7 @@ from train_common import ROOT, build, fresh, on_grid, record, resolve, run, warm
 
 import inro
 
-DATA = sorted((ROOT / "data" / "Kodak").glob("kodim*.png"))
+DATA = sorted((ROOT / "data" / "kodak").glob("kodim*.png"))
 
 
 def prepare(model: dict, path: Path) -> dict[str, Any]:

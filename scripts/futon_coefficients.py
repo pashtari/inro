@@ -55,7 +55,7 @@ def main() -> None:
     parser.add_argument("--log-dir", type=Path, default=ROOT / "logs" / "coefficients")
     args = parser.parse_args()
 
-    image = inro.ImageCoordinateDataset(ROOT / "data" / "Kodak" / f"{args.image}.png")
+    image = inro.ImageCoordinateDataset(ROOT / "data" / "kodak" / f"{args.image}.png")
     signal = image.target.double()  # (H, W, 3) in [-1, 1]
     *sizes, channels = signal.shape
     features = [paper_basis(args.components, n, c) for c, n in enumerate(sizes)]

@@ -11,7 +11,7 @@ learning-rate decay.
 
 Examples:
     >>> import inro
-    >>> root = "data/nerf/blender/lego"
+    >>> root = "data/blender/lego"
     >>> dataset = inro.nerf.BlenderDataset(root, downsample=4, skip=4)  # doctest: +SKIP
     >>> field = inro.nerf.RadianceField(  # doctest: +SKIP
     ...     inro.InstantNGP,

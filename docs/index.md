@@ -146,7 +146,7 @@ Every model maps coordinates in $[-1, 1]$ to values, so one training call fits t
 import torch
 import inro
 
-dataset = inro.ImageCoordinateDataset("data/Kodak/kodim19.png")  # (1)!
+dataset = inro.ImageCoordinateDataset("data/kodak/kodim19.png")  # (1)!
 H, W, _ = dataset.target.shape
 
 model = inro.FUTON(  # (2)!

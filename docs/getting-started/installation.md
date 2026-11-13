@@ -72,12 +72,12 @@ Each script also takes `--output-dir` and `--force`. Interrupted downloads resum
 
 ```text
 data/
-├── Kodak/kodim01.png ... kodim24.png
-├── occupancy/armadillo.ply  dragon.ply  happy_buddha.ply  lucy.ply  thai_statue.ply
-└── nerf/blender/<scene>/transforms_{train,val,test}.json + images
+├── kodak/kodim01.png ... kodim24.png
+├── meshes/armadillo.ply  dragon.ply  happy_buddha.ply  lucy.ply  thai_statue.ply
+└── blender/<scene>/transforms_{train,val,test}.json + images
 ```
 
-Occupancy volumes are voxelized on first use and cached beside the mesh in `data/occupancy/.cache/<name>_<resolution>_centers.pt`.
+Occupancy volumes are voxelized on first use and cached beside the mesh in `data/meshes/.cache/<name>_<resolution>_centers.pt`.
 
 ## Development
 

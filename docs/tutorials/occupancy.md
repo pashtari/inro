@@ -23,7 +23,7 @@ A shape is represented as an occupancy INR $[-1, 1]^3 \to \{-1, 1\}$, fitted to 
 import torch
 import inro
 
-path = "data/occupancy/lucy.ply"
+path = "data/meshes/lucy.ply"
 train_set = inro.OccupancyCoordinateDataset(path, resolution=512, max_samples=2**20)
 eval_set = inro.OccupancyCoordinateDataset(path, resolution=512)
 
@@ -93,7 +93,7 @@ eval_set.save(occupancy, "lucy_futon", up=2)    # lucy_futon.dae and .png
 
 ```bash
 python scripts/train_occupancy.py                                       # all shapes, all models
-python scripts/train_occupancy.py --data data/occupancy/lucy.ply --models FUTON
+python scripts/train_occupancy.py --data data/meshes/lucy.ply --models FUTON
 ```
 
 FUTON's ablations run on images; the [ablations page](../experiments/ablations.md) reports them.

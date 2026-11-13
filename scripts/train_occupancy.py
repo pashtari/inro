@@ -3,7 +3,7 @@
 Usage:
 
     python scripts/train_occupancy.py
-    python scripts/train_occupancy.py --data data/occupancy/lucy.ply --models SIREN
+    python scripts/train_occupancy.py --data data/meshes/lucy.ply --models SIREN
 """
 
 from pathlib import Path
@@ -24,7 +24,7 @@ from train_common import (
 
 import inro
 
-DATA = sorted((ROOT / "data" / "occupancy").glob("*.ply"))
+DATA = sorted((ROOT / "data" / "meshes").glob("*.ply"))
 
 
 def fit(

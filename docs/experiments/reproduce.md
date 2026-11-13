@@ -16,9 +16,9 @@ The scripts and configs live in the repository, so start from a clone: `git clon
 ## 1. Data
 
 ```bash
-python scripts/download_kodak.py      # data/Kodak/, 24 images, about 30 MB
-python scripts/download_meshes.py     # data/occupancy/, 5 meshes, about 3 GB
-python scripts/download_blender.py    # data/nerf/blender/, 8 scenes, about 2.4 GB
+python scripts/download_kodak.py      # data/kodak/, 24 images, about 30 MB
+python scripts/download_meshes.py     # data/meshes/, 5 meshes, about 3 GB
+python scripts/download_blender.py    # data/blender/, 8 scenes, about 2.4 GB
 ```
 
 The Kodak images come from Rich Franzen's mirror, the meshes from the Stanford 3D Scanning Repository (rotated into canonical pose where a release is not), and the Blender scenes from a pinned Hugging Face mirror of the official Google Drive release. All three scripts resume and keep existing files.

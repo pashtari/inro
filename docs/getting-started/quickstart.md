@@ -16,7 +16,7 @@ Fit FUTON to one image, read what the training loop returns, and swap in another
 import torch
 import inro
 
-image = "data/Kodak/kodim19.png"
+image = "data/kodak/kodim19.png"
 dataset = inro.ImageCoordinateDataset(image)  # (1)!
 H, W, _ = dataset.target.shape
 
